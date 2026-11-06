@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="50%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#0d9488" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+  
+  <!-- Rounded Background -->
+  <rect width="512" height="512" rx="128" fill="url(#grad)" />
+  
+  <!-- Safe Inner Area Content -->
+  <g filter="url(#shadow)" fill="#ffffff" transform="translate(64, 64) scale(0.75)">
+    <!-- School House & Book Icon -->
+    <!-- Open Book Base -->
+    <path d="M60 380 C140 350, 210 370, 256 400 C302 370, 372 350, 452 380 L452 140 C372 110, 302 130, 256 160 C210 130, 140 110, 60 140 Z" fill="#ffffff" opacity="0.95" />
+    <!-- Book Center Fold Line -->
+    <line x1="256" y1="160" x2="256" y2="400" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" />
+    
+    <!-- Graduation Cap / School Roof -->
+    <polygon points="256,40 400,105 256,170 112,105" fill="#fef08a" />
+    <path d="M160 130 L160 210 C160 250, 352 250, 352 210 L352 130" fill="none" stroke="#fef08a" stroke-width="16" stroke-linecap="round" />
+    
+    <!-- Tassel -->
+    <circle cx="390" cy="110" r="10" fill="#f59e0b" />
+    <path d="M390 110 Q410 150 400 200" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" fill="none" />
+    <polygon points="392,200 408,200 400,230" fill="#f59e0b" />
+  </g>
+</svg>

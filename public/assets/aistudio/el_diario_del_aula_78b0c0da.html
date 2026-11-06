@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>El Diario del Aula - Portal Escolar</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            display: ['"Outfit"', 'sans-serif']
+          },
+          colors: {
+            edu: {
+              indigo: '#4f46e5',
+              teal: '#0d9488',
+              amber: '#f59e0b',
+              emerald: '#10b981',
+              rose: '#f43f5e'
+            }
+          },
+          boxShadow: {
+            'app': '0 -4px 20px -2px rgba(0, 0, 0, 0.05)',
+            'card': '0 4px 18px 0 rgba(0, 0, 0, 0.04)'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* PWA & Mobile native look improvements */
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      background-color: #0f172a;
+    }
+    input, textarea, select {
+      user-select: text;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .safe-top {
+      padding-top: max(env(safe-area-inset-top), 0.5rem);
+    }
+    .safe-bottom {
+      padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-0 sm:p-4 text-slate-800">
+
+  <!-- Main Mobile App Frame -->
+  <div id="phone-frame" class="w-full max-w-md bg-slate-50 min-h-screen sm:min-h-[844px] sm:max-h-[920px] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden relative border border-slate-200/80">
+
+    <!-- Top PWA Install Advice Bar -->
+    <div id="pwaBanner" class="bg-gradient-to-r from-indigo-700 via-indigo-600 to-teal-600 text-white px-4 py-2 flex items-center justify-between text-xs transition-all duration-300">
+      <div class="flex items-center gap-2">
+        <span class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center text-xs">
+          <i class="fa-solid fa-cloud-arrow-down"></i>
+        </span>
+        <span class="font-medium text-[11px] leading-tight">Instala esta app en tu pantalla</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button onclick="openModal('modalInstall')" class="bg-white text-indigo-900 font-bold px-2 py-0.5 rounded-full text-[10px] shadow-xs hover:bg-indigo-50 transition">
+          ¿Cómo?
+        </button>
+        <button onclick="dismissBanner()" class="text-white/70 hover:text-white p-1 text-xs">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- App Top Bar -->
+    <header class="bg-white/95 backdrop-blur-md border-b border-slate-200/70 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-teal-400 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 text-lg">
+          <i class="fa-solid fa-school"></i>
+        </div>
+        <div>
+          <h1 id="headerClassTitle" class="font-display font-extrabold text-slate-900 text-base leading-none">1º Primaria A</h1>
+          <span id="headerSchoolName" class="text-[11px] text-slate-500 font-medium leading-tight">CEIP San Juan Bautista</span>
+        </div>
+      </div>
+      
+      <!-- Right Action: Teacher Settings -->
+      <button onclick="openModal('modalTeacher')" title="Ajustes de clase" class="w-9 h-9 rounded-full bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition">
+        <i class="fa-solid fa-gear text-sm"></i>
+      </button>
+    </header>
+
+    <!-- App Content Scroll Area -->
+    <main class="flex-1 overflow-y-auto no-scrollbar px-4 py-4 space-y-4 pb-28">
+
+      <!-- ================= 1. TAB: DIARIO Y AVISOS ================= -->
+      <section id="tab-diario" class="space-y-4 tab-section">
+        
+        <!-- Welcome Hero & Post Action Banner -->
+        <div class="bg-gradient-to-br from-indigo-600 via-indigo-700 to-teal-700 rounded-3xl p-4 text-white shadow-lg shadow-indigo-600/15 relative overflow-hidden">
+          <div class="relative z-10 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-teal-100 backdrop-blur-md">
+                <span class="w-1.5 h-1.5 rounded-full bg-teal-300 animate-pulse"></span> Cuaderno de Aula
+              </span>
+              <span id="currentDateBadge" class="text-[11px] text-indigo-100 font-medium">Hoy</span>
+            </div>
+            
+            <h2 class="font-display font-bold text-lg leading-tight">Novedades y Mensajes Diarios</h2>
+            <p class="text-xs text-indigo-100 max-w-[270px]">Mantente informado sobre lo trabajado en el aula, tareas pendientes y avisos.</p>
+            
+            <div class="pt-2 flex items-center gap-2">
+              <button onclick="openModal('modalNewPost')" class="bg-white text-indigo-900 font-bold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow hover:bg-indigo-50 transition active:scale-95">
+                <i class="fa-solid fa-plus text-[10px] text-indigo-600"></i> Nuevo Aviso
+              </button>
+              <button onclick="toggleSearchBar()" class="bg-white/15 hover:bg-white/25 text-white font-medium px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-magnifying-glass text-[10px]"></i> Buscar
+              </button>
+            </div>
+          </div>
+          <i class="fa-solid fa-shapes absolute -right-3 -bottom-5 text-white/10 text-8xl pointer-events-none"></i>
+        </div>
+
+        <!-- Hidden Search Bar -->
+        <div id="searchContainer" class="hidden transition-all duration-300">
+          <div class="relative">
+            <input type="text" id="searchInput" oninput="searchPosts(this.value)" placeholder="Buscar en avisos, tareas o actividades..." class="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs shadow-xs focus:outline-none focus:border-indigo-500">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+          </div>
+        </div>
+
+        <!-- Filter Tags -->
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+          <button onclick="filterCategory('all', this)" class="cat-pill active-pill px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-xs transition whitespace-nowrap">
+            Todos
+          </button>
+          <button onclick="filterCategory('Aviso', this)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 transition whitespace-nowrap flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-rose-500"></span> Avisos
+          </button>
+          <button onclick="filterCategory('Tarea', this)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 transition whitespace-nowrap flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span> Tareas
+          </button>
+          <button onclick="filterCategory('Actividad', this)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 transition whitespace-nowrap flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> En Clase
+          </button>
+        </div>
+
+        <!-- Posts List Feed -->
+        <div id="postsContainer" class="space-y-3">
+          <!-- Rendered dynamically -->
+        </div>
+
+      </section>
+
+      <!-- ================= 2. TAB: HORARIO & CALENDARIO ================= -->
+      <section id="tab-horario" class="space-y-4 tab-section hidden">
+        
+        <!-- Sub-selector: Horario vs Calendario -->
+        <div class="bg-slate-200/80 p-1 rounded-2xl flex text-xs font-bold">
+          <button id="subBtnHorario" onclick="toggleHorarioView('horario')" class="flex-1 py-2 rounded-xl bg-white text-indigo-900 shadow-xs transition flex items-center justify-center gap-1.5">
+            <i class="fa-regular fa-clock text-indigo-600"></i> Horario Semanal
+          </button>
+          <button id="subBtnCalendario" onclick="toggleHorarioView('calendario')" class="flex-1 py-2 rounded-xl text-slate-600 transition flex items-center justify-center gap-1.5 hover:text-slate-800">
+            <i class="fa-regular fa-calendar-days"></i> Calendario Escolar
+          </button>
+        </div>
+
+        <!-- View 1: Weekly Timetable -->
+        <div id="viewSchedule" class="space-y-3">
+          <!-- Days Pill Filter -->
+          <div class="flex justify-between gap-1 bg-white p-1 rounded-2xl border border-slate-200/70 shadow-xs">
+            <button onclick="selectDaySchedule('Lunes', this)" class="day-tab flex-1 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white transition text-center">Lun</button>
+            <button onclick="selectDaySchedule('Martes', this)" class="day-tab flex-1 py-1.5 rounded-xl text-xs font-semibold text-slate-600 transition text-center hover:bg-slate-50">Mar</button>
+            <button onclick="selectDaySchedule('Miércoles', this)" class="day-tab flex-1 py-1.5 rounded-xl text-xs font-semibold text-slate-600 transition text-center hover:bg-slate-50">Mié</button>
+            <button onclick="selectDaySchedule('Jueves', this)" class="day-tab flex-1 py-1.5 rounded-xl text-xs font-semibold text-slate-600 transition text-center hover:bg-slate-50">Jue</button>
+            <button onclick="selectDaySchedule('Viernes', this)" class="day-tab flex-1 py-1.5 rounded-xl text-xs font-semibold text-slate-600 transition text-center hover:bg-slate-50">Vie</button>
+          </div>
+
+          <!-- Schedule Container -->
+          <div id="scheduleTimeline" class="space-y-2.5">
+            <!-- Dynamic schedule cards -->
+          </div>
+
+          <div class="p-3 bg-amber-50 border border-amber-200/70 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900">
+            <i class="fa-solid fa-person-running text-amber-600 mt-0.5 text-sm"></i>
+            <p class="leading-relaxed"><strong>Nota:</strong> Los martes y jueves tenemos Educación Física. No olvidar ropa deportiva y agua.</p>
+          </div>
+        </div>
+
+        <!-- View 2: School Calendar -->
+        <div id="viewCalendar" class="space-y-3.5 hidden">
+          <!-- Month Header Card -->
+          <div class="bg-white rounded-3xl p-4 border border-slate-200/70 shadow-card space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-display font-bold text-slate-900 text-sm">Noviembre 2026</h3>
+              <div class="flex gap-2 text-[10px] font-semibold text-slate-500">
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Lectivo</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Excursión</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Festivo</span>
+              </div>
+            </div>
+
+            <!-- Calendar Days Header -->
+            <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-slate-400">
+              <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span class="text-rose-400">S</span><span class="text-rose-400">D</span>
+            </div>
+            <!-- Days Grid -->
+            <div id="calendarGrid" class="grid grid-cols-7 gap-1 text-center text-xs">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Events Agenda List -->
+          <div class="space-y-2">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">Próximos Eventos del Trimestre</h4>
+            
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/70 flex items-center gap-3 shadow-xs">
+              <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex flex-col items-center justify-center font-bold shrink-0">
+                <span class="text-[9px] uppercase font-semibold">Nov</span>
+                <span class="text-sm font-extrabold leading-none">12</span>
+              </div>
+              <div class="flex-1">
+                <h5 class="text-xs font-bold text-slate-800">Visita al Museo de Ciencias</h5>
+                <p class="text-[11px] text-slate-500">Horario de 09:30 a 13:30. Llevar almuerzo saludable.</p>
+              </div>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700">Salida</span>
+            </div>
+
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/70 flex items-center gap-3 shadow-xs">
+              <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-800 flex flex-col items-center justify-center font-bold shrink-0">
+                <span class="text-[9px] uppercase font-semibold">Dic</span>
+                <span class="text-sm font-extrabold leading-none">06</span>
+              </div>
+              <div class="flex-1">
+                <h5 class="text-xs font-bold text-slate-800">Día de la Constitución</h5>
+                <p class="text-[11px] text-slate-500">Festivo nacional (no lectivo).</p>
+              </div>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700">Festivo</span>
+            </div>
+
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/70 flex items-center gap-3 shadow-xs">
+              <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-800 flex flex-col items-center justify-center font-bold shrink-0">
+                <span class="text-[9px] uppercase font-semibold">Dic</span>
+                <span class="text-sm font-extrabold leading-none">22</span>
+              </div>
+              <div class="flex-1">
+                <h5 class="text-xs font-bold text-slate-800">Festival Navideño y Entrega de Notas</h5>
+                <p class="text-[11px] text-slate-500">Fin del primer trimestre escolar.</p>
+              </div>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700">Evaluación</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================= 3. TAB: MULTIMEDIA ================= -->
+      <section id="tab-multimedia" class="space-y-4 tab-section hidden">
+        <div>
+          <h2 class="text-lg font-display font-bold text-slate-900">Rincón Audiovisual</h2>
+          <p class="text-xs text-slate-500">Espacio seguro para compartir canciones, vídeos y fotos de las actividades.</p>
+        </div>
+
+        <!-- Google Drive Card -->
+        <div class="bg-gradient-to-br from-sky-50 to-blue-50/70 border border-blue-200/80 rounded-3xl p-4 shadow-card space-y-3">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-white shadow-xs flex items-center justify-center text-blue-600 text-2xl">
+              <i class="fa-brands fa-google-drive"></i>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-display font-bold text-slate-900 text-sm">Álbum de Fotos en Drive</h3>
+              <p class="text-[11px] text-slate-500">Descarga recuerdos de las salidas y talleres</p>
+            </div>
+            <span class="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">Privado</span>
+          </div>
+
+          <p class="text-xs text-slate-600 leading-relaxed bg-white/70 p-2.5 rounded-2xl border border-blue-100">
+            Carpeta oficial del grupo escolar con acceso protegido para las familias. Configurada en modo lectura.
+          </p>
+
+          <a id="btnDriveLink" href="https://drive.google.com" target="_blank" rel="noopener noreferrer" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-98">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Acceder a Google Drive
+          </a>
+        </div>
+
+        <!-- YouTube Classroom Channel Card -->
+        <div class="bg-gradient-to-br from-rose-50 to-red-50/70 border border-red-200/80 rounded-3xl p-4 shadow-card space-y-3">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-white shadow-xs flex items-center justify-center text-red-600 text-2xl">
+              <i class="fa-brands fa-youtube"></i>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-display font-bold text-slate-900 text-sm">Canal Educativo de YouTube</h3>
+              <p class="text-[11px] text-slate-500">Vídeos de apoyo, experimentos y canciones</p>
+            </div>
+            <span class="text-[10px] bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded-full">Vídeos</span>
+          </div>
+
+          <!-- Video Mockup Preview -->
+          <div class="relative bg-slate-900 rounded-2xl overflow-hidden aspect-video shadow-inner group">
+            <img src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&auto=format&fit=crop&q=80" alt="Aula infantil" class="w-full h-full object-cover opacity-75 group-hover:scale-105 transition duration-500">
+            <div class="absolute inset-0 bg-black/35 flex flex-col items-center justify-center text-white p-3 text-center">
+              <div class="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center text-white shadow-md mb-1.5">
+                <i class="fa-solid fa-play ml-0.5 text-sm"></i>
+              </div>
+              <span class="text-xs font-bold drop-shadow">Proyecto del Aula: 'El ciclo del agua'</span>
+              <span class="text-[10px] text-slate-300">Duración: 3:45 min</span>
+            </div>
+          </div>
+
+          <a id="btnYoutubeLink" href="https://youtube.com" target="_blank" rel="noopener noreferrer" class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-98">
+            <i class="fa-brands fa-youtube"></i> Ver Canal de YouTube
+          </a>
+        </div>
+
+        <!-- Privacy Shield RGPD Reminder -->
+        <div class="p-3 bg-slate-100 border border-slate-200 rounded-2xl flex items-start gap-2.5 text-slate-600 text-[11px] leading-relaxed">
+          <i class="fa-solid fa-shield-halved text-indigo-600 text-sm mt-0.5"></i>
+          <div>
+            <strong class="text-slate-800">Compromiso de Privacidad y RGPD:</strong>
+            Queda estrictamente prohibido difundir, descargar o publicar imágenes de otros menores en redes sociales particulares.
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 4. TAB: SERVICIOS Y CONTACTO ================= -->
+      <section id="tab-servicios" class="space-y-4 tab-section hidden">
+        <div>
+          <h2 class="text-lg font-display font-bold text-slate-900">Servicios & Contacto</h2>
+          <p class="text-xs text-slate-500">Menú del comedor, solicitud de tutoría y datos de secretaría.</p>
+        </div>
+
+        <!-- Dining Room Card -->
+        <div class="bg-white rounded-3xl p-4 border border-slate-200/70 shadow-card space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-sm">
+                <i class="fa-solid fa-utensils"></i>
+              </div>
+              <div>
+                <h3 class="font-display font-bold text-xs text-slate-900">Menú del Comedor</h3>
+                <span class="text-[10px] text-slate-400">Actualizado mensualmente</span>
+              </div>
+            </div>
+            <button onclick="openModal('modalMenuPdf')" class="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5">
+              <i class="fa-solid fa-file-pdf"></i> Ver Menú
+            </button>
+          </div>
+
+          <div class="bg-slate-50 rounded-2xl p-3 border border-slate-100 text-xs space-y-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Plato destacado de hoy</span>
+            <p class="text-slate-800 font-semibold text-xs">Crema de calabacín casera + Filete de lubina al horno con patatas panaderas</p>
+            <p class="text-[11px] text-slate-500">Postre: Plátano de Canarias ecológico</p>
+          </div>
+        </div>
+
+        <!-- Parent-Teacher Conference Booking -->
+        <div class="bg-white rounded-3xl p-4 border border-slate-200/70 shadow-card space-y-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center text-sm">
+              <i class="fa-solid fa-calendar-check"></i>
+            </div>
+            <div>
+              <h3 class="font-display font-bold text-xs text-slate-900">Solicitud de Tutoría</h3>
+              <span class="text-[10px] text-slate-400">Atención: Martes de 16:00 a 17:30</span>
+            </div>
+          </div>
+
+          <form id="tutoriaForm" onsubmit="handleTutoriaSubmit(event)" class="space-y-2.5">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Nombre del Alumno/a</label>
+              <input required id="tutoriaNombre" type="text" placeholder="Ej: Lucas Martínez" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Motivo o Consulta</label>
+              <textarea required id="tutoriaAsunto" rows="2" placeholder="Ej: Deseo consultar la evolución en lectura y cálculo..." class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500"></textarea>
+            </div>
+            <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition">
+              <i class="fa-solid fa-paper-plane text-[10px]"></i> Solicitar Cita
+            </button>
+          </form>
+
+          <div id="tutoriaSuccess" class="hidden text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center gap-2">
+            <i class="fa-solid fa-circle-check text-emerald-600"></i>
+            <span>¡Solicitud enviada! El tutor contactará por correo para confirmar la hora.</span>
+          </div>
+        </div>
+
+        <!-- Emergency / School Info -->
+        <div class="bg-slate-100 border border-slate-200/80 rounded-2xl p-3.5 space-y-2">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contacto con el centro</span>
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-600 flex items-center gap-1.5"><i class="fa-solid fa-phone text-indigo-600"></i> Teléfono Secretaría:</span>
+            <a href="tel:900123456" class="font-bold text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200">900 123 456</a>
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-600 flex items-center gap-1.5"><i class="fa-solid fa-envelope text-indigo-600"></i> Email Tutoría:</span>
+            <span id="displayTeacherEmail" class="font-bold text-slate-700 text-[11px]">profesor@colegio.es</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- NATIVE FIXED BOTTOM TAB BAR -->
+    <nav class="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-2 z-40 safe-bottom">
+      <div class="flex items-center justify-around">
+        <button onclick="switchTab('tab-diario', this)" class="nav-btn active-tab flex flex-col items-center gap-1 text-indigo-600 text-[11px] font-bold w-16 transition">
+          <i class="fa-solid fa-newspaper text-base"></i>
+          <span>Diario</span>
+        </button>
+        <button onclick="switchTab('tab-horario', this)" class="nav-btn flex flex-col items-center gap-1 text-slate-400 text-[11px] font-medium w-16 transition hover:text-slate-600">
+          <i class="fa-regular fa-calendar text-base"></i>
+          <span>Horario</span>
+        </button>
+        <button onclick="switchTab('tab-multimedia', this)" class="nav-btn flex flex-col items-center gap-1 text-slate-400 text-[11px] font-medium w-16 transition hover:text-slate-600">
+          <i class="fa-solid fa-photo-film text-base"></i>
+          <span>Fotos</span>
+        </button>
+        <button onclick="switchTab('tab-servicios', this)" class="nav-btn flex flex-col items-center gap-1 text-slate-400 text-[11px] font-medium w-16 transition hover:text-slate-600">
+          <i class="fa-solid fa-bell-concierge text-base"></i>
+          <span>Servicios</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- Modal 1: Nuevo Mensaje del Día -->
+    <div id="modalNewPost" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm">
+              <i class="fa-solid fa-pen-fancy"></i>
+            </span>
+            <h3 class="font-display font-bold text-slate-900 text-base">Publicar en el Diario</h3>
+          </div>
+          <button onclick="closeModal('modalNewPost')" class="text-slate-400 hover:text-slate-600 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+
+        <form id="postForm" onsubmit="savePost(event)" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Título</label>
+            <input required id="newPostTitle" type="text" placeholder="Ej: Actividades de hoy y recordatorio" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Categoría</label>
+              <select id="newPostTag" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-indigo-500">
+                <option value="Aviso">📢 Aviso Importante</option>
+                <option value="Tarea">✏️ Tarea / Deberes</option>
+                <option value="Actividad">🎨 Actividad en Clase</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Fecha de publicación</label>
+              <input id="newPostDate" type="date" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Mensaje para las familias</label>
+            <textarea required id="newPostBody" rows="4" placeholder="Escribe el contenido o recomendaciones del día..." class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500"></textarea>
+          </div>
+
+          <div class="pt-2 flex gap-2">
+            <button type="button" onclick="closeModal('modalNewPost')" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50">Cancelar</button>
+            <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 rounded-xl shadow transition">Publicar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal 2: Ajustes del Profesor -->
+    <div id="modalTeacher" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-sm">
+              <i class="fa-solid fa-sliders"></i>
+            </span>
+            <h3 class="font-display font-bold text-slate-900 text-base">Ajustes del Aula</h3>
+          </div>
+          <button onclick="closeModal('modalTeacher')" class="text-slate-400 hover:text-slate-600 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+
+        <p class="text-xs text-slate-500">Edita la información visible para los padres y conecta tus enlaces de Drive y YouTube.</p>
+
+        <form id="settingsForm" onsubmit="saveConfig(event)" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Curso / Grupo</label>
+            <input required id="cfgClassTitle" type="text" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nombre del Colegio</label>
+            <input required id="cfgSchoolName" type="text" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Enlace a Google Drive (Fotos)</label>
+            <input required id="cfgDriveUrl" type="url" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Enlace al Canal de YouTube</label>
+            <input required id="cfgYoutubeUrl" type="url" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Correo de Tutoría</label>
+            <input required id="cfgEmail" type="email" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <div class="pt-2 flex flex-col gap-2">
+            <button type="submit" class="w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 rounded-xl transition">Guardar Configuración</button>
+            <button type="button" onclick="restoreSampleData()" class="text-xs text-rose-600 font-semibold py-1 hover:underline">Restablecer datos de ejemplo</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal 3: Instrucciones de Instalación PWA -->
+    <div id="modalInstall" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <h3 class="font-display font-bold text-slate-900 text-sm">Instalar en la Pantalla de Inicio</h3>
+          <button onclick="closeModal('modalInstall')" class="text-slate-400 hover:text-slate-600 p-1"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-2xl">
+            <h4 class="font-bold text-indigo-900 flex items-center gap-2 mb-1">
+              <i class="fa-brands fa-android text-base text-emerald-600"></i> En Android (Google Chrome)
+            </h4>
+            <p class="text-indigo-800 text-[11px] leading-relaxed">
+              1. Toca el menú de los <strong>tres puntos (⋮)</strong> en la esquina superior derecha.<br>
+              2. Elige <strong>"Añadir a la pantalla de inicio"</strong> o "Instalar app".
+            </p>
+          </div>
+
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl">
+            <h4 class="font-bold text-slate-900 flex items-center gap-2 mb-1">
+              <i class="fa-brands fa-apple text-base text-slate-700"></i> En iPhone / iPad (Safari)
+            </h4>
+            <p class="text-slate-700 text-[11px] leading-relaxed">
+              1. Toca el botón <strong>Compartir <i class="fa-solid fa-arrow-up-from-bracket"></i></strong> en el menú inferior.<br>
+              2. Desplázate y selecciona <strong>"Añadir a pantalla de inicio"</strong>.
+            </p>
+          </div>
+        </div>
+
+        <button onclick="closeModal('modalInstall')" class="w-full bg-slate-900 text-white font-bold text-xs py-2.5 rounded-xl">Entendido</button>
+      </div>
+    </div>
+
+    <!-- Modal 4: Visualizador de PDF Menú Comedor -->
+    <div id="modalMenuPdf" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-sm rounded-3xl p-5 space-y-4">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <h3 class="font-display font-bold text-slate-900 text-sm">Menú Escolar - Noviembre</h3>
+          <button onclick="closeModal('modalMenuPdf')" class="text-slate-400 hover:text-slate-600 p-1"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="bg-slate-50 rounded-2xl p-4 text-center space-y-2 border border-slate-200">
+          <i class="fa-solid fa-file-pdf text-rose-500 text-4xl"></i>
+          <p class="text-xs font-bold text-slate-800">Menu_Noviembre_CEIP_SanJuan.pdf</p>
+          <p class="text-[11px] text-slate-500">Revisado por nutricionistas escolares. Incluye dietas hipocalóricas y sin gluten.</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="closeModal('modalMenuPdf')" class="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold">Cerrar</button>
+          <button onclick="showToast('Descargando menú...'); closeModal('modalMenuPdf');" class="flex-1 bg-indigo-600 text-white text-xs font-bold py-2 rounded-xl shadow-xs">Descargar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-medium shadow-2xl opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-2">
+      <i class="fa-solid fa-check text-emerald-400"></i>
+      <span id="toastMsg">Mensaje</span>
+    </div>
+
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION CORE -->
+  <script>
+    // Initial Default Seed Data
+    const defaultData = {
+      config: {
+        classTitle: "1º Primaria A",
+        schoolName: "CEIP San Juan Bautista",
+        driveUrl: "https://drive.google.com",
+        youtubeUrl: "https://youtube.com",
+        teacherEmail: "profesor1a@sanjuan.es"
+      },
+      posts: [
+        {
+          id: 101,
+          title: "¡Iniciamos nuestro proyecto de lectura!",
+          tag: "Actividad",
+          date: "Hoy, 13:40",
+          content: "Hoy cada alumno/a ha elegido su primer libro del curso en el rincón de lectura. Dedicaremos los primeros 15 minutos de cada mañana a la lectura silenciosa compartida.",
+          author: "Tutor/a"
+        },
+        {
+          id: 102,
+          title: "Repaso de matemáticas: decenas y unidades",
+          tag: "Tarea",
+          date: "Ayer, 16:15",
+          content: "Realizar las actividades 1 y 2 de la ficha azul del archivador. Recordad repasar con el ábaco en casa si tenéis dudas con la formación de números.",
+          author: "Tutor/a"
+        },
+        {
+          id: 103,
+          title: "Autorización de excursión al Museo de Ciencias",
+          tag: "Aviso",
+          date: "2 Nov 2026",
+          content: "Por favor, enviad firmado el resguardo de la autorización antes de este viernes para cerrar el listado de transporte escolar.",
+          author: "Equipo Directivo"
+        }
+      ]
+    };
+
+    // Weekly Schedule Matrix
+    const weeklySchedule = {
+      Lunes: [
+        { time: "09:00 - 10:00", subject: "Lengua Castellana", loc: "Aula 1ºA", color: "border-l-indigo-500 bg-indigo-50/40" },
+        { time: "10:00 - 11:00", subject: "Matemáticas", loc: "Aula 1ºA", color: "border-l-emerald-500 bg-emerald-50/40" },
+        { time: "11:00 - 11:30", subject: "Recreo y Fruta Saludable", loc: "Patio", color: "border-l-amber-500 bg-amber-50/40" },
+        { time: "11:30 - 12:30", subject: "Ciencias Naturales", loc: "Laboratorio", color: "border-l-teal-500 bg-teal-50/40" },
+        { time: "12:30 - 14:00", subject: "Plástica y Creatividad", loc: "Taller Arte", color: "border-l-purple-500 bg-purple-50/40" }
+      ],
+      Martes: [
+        { time: "09:00 - 10:00", subject: "Matemáticas (Cálculo)", loc: "Aula 1ºA", color: "border-l-emerald-500 bg-emerald-50/40" },
+        { time: "10:00 - 11:00", subject: "Inglés", loc: "Aula de Idiomas", color: "border-l-blue-500 bg-blue-50/40" },
+        { time: "11:00 - 11:30", subject: "Recreo", loc: "Patio", color: "border-l-amber-500 bg-amber-50/40" },
+        { time: "11:30 - 12:30", subject: "Educación Física (¡Zapatillas!)", loc: "Pista Deportiva", color: "border-l-rose-500 bg-rose-50/40" },
+        { time: "12:30 - 14:00", subject: "Lengua (Lectura guiada)", loc: "Aula 1ºA", color: "border-l-indigo-500 bg-indigo-50/40" }
+      ],
+      Miércoles: [
+        { time: "09:00 - 10:00", subject: "Lengua Castellana", loc: "Aula 1ºA", color: "border-l-indigo-500 bg-indigo-50/40" },
+        { time: "10:00 - 11:00", subject: "Ciencias Sociales", loc: "Aula 1ºA", color: "border-l-teal-500 bg-teal-50/40" },
+        { time: "11:00 - 11:30", subject: "Recreo", loc: "Patio", color: "border-l-amber-500 bg-amber-50/40" },
+        { time: "11:30 - 12:30", subject: "Matemáticas (Problemas)", loc: "Aula 1ºA", color: "border-l-emerald-500 bg-emerald-50/40" },
+        { time: "12:30 - 14:00", subject: "Música y Danza", loc: "Aula de Música", color: "border-l-purple-500 bg-purple-50/40" }
+      ],
+      Jueves: [
+        { time: "09:00 - 10:00", subject: "Inglés", loc: "Aula de Idiomas", color: "border-l-blue-500 bg-blue-50/40" },
+        { time: "10:00 - 11:00", subject: "Educación Física", loc: "Gimnasio", color: "border-l-rose-500 bg-rose-50/40" },
+        { time: "11:00 - 11:30", subject: "Recreo", loc: "Patio", color: "border-l-amber-500 bg-amber-50/40" },
+        { time: "11:30 - 12:30", subject: "Matemáticas", loc: "Aula 1ºA", color: "border-l-emerald-500 bg-emerald-50/40" },
+        { time: "12:30 - 14:00", subject: "Biblioteca de Aula", loc: "Biblioteca", color: "border-l-indigo-500 bg-indigo-50/40" }
+      ],
+      Viernes: [
+        { time: "09:00 - 10:00", subject: "Ciencias Naturales", loc: "Aula 1ºA", color: "border-l-teal-500 bg-teal-50/40" },
+        { time: "10:00 - 11:00", subject: "Lengua (Ortografía lúdica)", loc: "Aula 1ºA", color: "border-l-indigo-500 bg-indigo-50/40" },
+        { time: "11:00 - 11:30", subject: "Recreo", loc: "Patio", color: "border-l-amber-500 bg-amber-50/40" },
+        { time: "11:30 - 12:30", subject: "Valores Cívicos / Tutoría", loc: "Aula 1ºA", color: "border-l-sky-500 bg-sky-50/40" },
+        { time: "12:30 - 14:00", subject: "Asamblea y Proyectos", loc: "Aula 1ºA", color: "border-l-emerald-500 bg-emerald-50/40" }
+      ]
+    };
+
+    // State Variables
+    let appConfig = {};
+    let appPosts = [];
+    let activeFilter = 'all';
+    let searchQuery = '';
+
+    // Application Bootstrap
+    window.addEventListener('DOMContentLoaded', () => {
+      loadStorage();
+      renderAppHeader();
+      renderPosts();
+      renderSchedule('Lunes');
+      renderCalendar();
+      updateDateHeader();
+    });
+
+    function updateDateHeader() {
+      const options = { weekday: 'long', day: 'numeric', month: 'long' };
+      const today = new Date().toLocaleDateString('es-ES', options);
+      const cap = today.charAt(0).toUpperCase() + today.slice(1);
+      const badge = document.getElementById('currentDateBadge');
+      if (badge) badge.innerText = cap;
+    }
+
+    // Local Storage Loader & Saver
+    function loadStorage() {
+      const savedConfig = localStorage.getItem('diario_config');
+      const savedPosts = localStorage.getItem('diario_posts');
+
+      appConfig = savedConfig ? JSON.parse(savedConfig) : { ...defaultData.config };
+      appPosts = savedPosts ? JSON.parse(savedPosts) : [ ...defaultData.posts ];
+    }
+
+    function renderAppHeader() {
+      document.getElementById('headerClassTitle').innerText = appConfig.classTitle;
+      document.getElementById('headerSchoolName').innerText = appConfig.schoolName;
+      document.getElementById('displayTeacherEmail').innerText = appConfig.teacherEmail;
+      document.getElementById('btnDriveLink').href = appConfig.driveUrl;
+      document.getElementById('btnYoutubeLink').href = appConfig.youtubeUrl;
+
+      // Populate config modal
+      document.getElementById('cfgClassTitle').value = appConfig.classTitle;
+      document.getElementById('cfgSchoolName').value = appConfig.schoolName;
+      document.getElementById('cfgDriveUrl').value = appConfig.driveUrl;
+      document.getElementById('cfgYoutubeUrl').value = appConfig.youtubeUrl;
+      document.getElementById('cfgEmail').value = appConfig.teacherEmail;
+    }
+
+    function saveConfig(e) {
+      e.preventDefault();
+      appConfig.classTitle = document.getElementById('cfgClassTitle').value;
+      appConfig.schoolName = document.getElementById('cfgSchoolName').value;
+      appConfig.driveUrl = document.getElementById('cfgDriveUrl').value;
+      appConfig.youtubeUrl = document.getElementById('cfgYoutubeUrl').value;
+      appConfig.teacherEmail = document.getElementById('cfgEmail').value;
+
+      localStorage.setItem('diario_config', JSON.stringify(appConfig));
+      renderAppHeader();
+      closeModal('modalTeacher');
+      showToast('Configuración actualizada con éxito');
+    }
+
+    function restoreSampleData() {
+      if (window.confirm("¿Restablecer los avisos y enlaces de ejemplo iniciales?")) {
+        localStorage.removeItem('diario_config');
+        localStorage.removeItem('diario_posts');
+        loadStorage();
+        renderAppHeader();
+        renderPosts();
+        closeModal('modalTeacher');
+        showToast('Datos de ejemplo restaurados');
+      }
+    }
+
+    // Feed / Posts Logic
+    function renderPosts() {
+      const container = document.getElementById('postsContainer');
+      container.innerHTML = '';
+
+      const filtered = appPosts.filter(p => {
+        const matchesCat = activeFilter === 'all' || p.tag.toLowerCase() === activeFilter.toLowerCase();
+        const matchesSearch = searchQuery === '' || 
+          p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          p.content.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesCat && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-3xl p-8 text-center border border-slate-200/70 text-slate-400 space-y-2">
+            <i class="fa-regular fa-folder-open text-3xl text-slate-300"></i>
+            <p class="text-xs">No se han encontrado avisos con este filtro.</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(post => {
+        let tagBadge = "bg-rose-50 text-rose-700 border-rose-200";
+        let tagIcon = "fa-bullhorn";
+        if (post.tag === "Tarea") {
+          tagBadge = "bg-amber-50 text-amber-700 border-amber-200";
+          tagIcon = "fa-pencil";
+        } else if (post.tag === "Actividad") {
+          tagBadge = "bg-emerald-50 text-emerald-700 border-emerald-200";
+          tagIcon = "fa-palette";
+        }
+
+        const card = document.createElement('article');
+        card.className = "bg-white p-4 rounded-3xl border border-slate-200/70 shadow-card space-y-2.5 transition hover:shadow-md";
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${tagBadge}">
+              <i class="fa-solid ${tagIcon} text-[9px]"></i> ${post.tag}
+            </span>
+            <span class="text-[11px] text-slate-400 font-medium">${post.date}</span>
+          </div>
+
+          <h3 class="font-display font-bold text-slate-900 text-sm leading-snug">${post.title}</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">${post.content}</p>
+
+          <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-user-tie text-indigo-600"></i> ${post.author}</span>
+            <button onclick="shareNotice('${encodeURIComponent(post.title)}', '${encodeURIComponent(post.content)}')" class="hover:text-indigo-600 font-medium transition flex items-center gap-1">
+              <i class="fa-solid fa-share-nodes"></i> Compartir
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function filterCategory(cat, btn) {
+      activeFilter = cat;
+      document.querySelectorAll('.cat-pill').forEach(b => {
+        b.classList.remove('bg-slate-900', 'text-white', 'shadow-xs');
+        b.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+      });
+      btn.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+      btn.classList.add('bg-slate-900', 'text-white', 'shadow-xs');
+      renderPosts();
+    }
+
+    function toggleSearchBar() {
+      const box = document.getElementById('searchContainer');
+      box.classList.toggle('hidden');
+      if (!box.classList.contains('hidden')) {
+        document.getElementById('searchInput').focus();
+      } else {
+        searchQuery = '';
+        renderPosts();
+      }
+    }
+
+    function searchPosts(query) {
+      searchQuery = query;
+      renderPosts();
+    }
+
+    function savePost(e) {
+      e.preventDefault();
+      const title = document.getElementById('newPostTitle').value;
+      const tag = document.getElementById('newPostTag').value;
+      const content = document.getElementById('newPostBody').value;
+      const dateVal = document.getElementById('newPostDate').value;
+
+      const dateStr = dateVal ? new Date(dateVal).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : "Hoy, " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const newPost = {
+        id: Date.now(),
+        title,
+        tag,
+        content,
+        date: dateStr,
+        author: "Tutor/a"
+      };
+
+      appPosts.unshift(newPost);
+      localStorage.setItem('diario_posts', JSON.stringify(appPosts));
+      renderPosts();
+      closeModal('modalNewPost');
+      document.getElementById('postForm').reset();
+      showToast('Aviso publicado correctamente en el diario');
+    }
+
+    function shareNotice(titleEnc, contentEnc) {
+      const title = decodeURIComponent(titleEnc);
+      const text = decodeURIComponent(contentEnc);
+      if (navigator.share) {
+        navigator.share({ title, text, url: window.location.href }).catch(() => {});
+      } else {
+        const dummy = document.createElement('textarea');
+        dummy.value = `${title}\n\n${text}\n\nEnviado desde El Diario del Aula`;
+        document.body.appendChild(dummy);
+        dummy.select();
+        document.execCommand('copy');
+        document.body.removeChild(dummy);
+        showToast('Mensaje copiado al portapapeles');
+      }
+    }
+
+    // Timetable / Schedule Handler
+    function selectDaySchedule(day, btn) {
+      document.querySelectorAll('.day-tab').forEach(b => {
+        b.classList.remove('bg-indigo-600', 'text-white');
+        b.classList.add('text-slate-600');
+      });
+      btn.classList.add('bg-indigo-600', 'text-white');
+      btn.classList.remove('text-slate-600');
+      renderSchedule(day);
+    }
+
+    function renderSchedule(day) {
+      const container = document.getElementById('scheduleTimeline');
+      container.innerHTML = '';
+      const subjects = weeklySchedule[day] || [];
+
+      subjects.forEach(item => {
+        const div = document.createElement('div');
+        div.className = `p-3.5 rounded-2xl border border-slate-200/80 border-l-4 ${item.color} bg-white shadow-xs flex items-center justify-between`;
+        div.innerHTML = `
+          <div>
+            <h4 class="font-bold text-xs text-slate-800">${item.subject}</h4>
+            <span class="text-[11px] text-slate-500">${item.loc}</span>
+          </div>
+          <span class="text-[11px] font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200">${item.time}</span>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function toggleHorarioView(view) {
+      const btnH = document.getElementById('subBtnHorario');
+      const btnC = document.getElementById('subBtnCalendario');
+      const viewH = document.getElementById('viewSchedule');
+      const viewC = document.getElementById('viewCalendar');
+
+      if (view === 'horario') {
+        btnH.className = "flex-1 py-2 rounded-xl bg-white text-indigo-900 shadow-xs transition flex items-center justify-center gap-1.5";
+        btnC.className = "flex-1 py-2 rounded-xl text-slate-600 transition flex items-center justify-center gap-1.5 hover:text-slate-800";
+        viewH.classList.remove('hidden');
+        viewC.classList.add('hidden');
+      } else {
+        btnC.className = "flex-1 py-2 rounded-xl bg-white text-indigo-900 shadow-xs transition flex items-center justify-center gap-1.5";
+        btnH.className = "flex-1 py-2 rounded-xl text-slate-600 transition flex items-center justify-center gap-1.5 hover:text-slate-800";
+        viewC.classList.remove('hidden');
+        viewH.classList.add('hidden');
+      }
+    }
+
+    // Interactive School Calendar Grid
+    function renderCalendar() {
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+      
+      // November: starts with 6 blank offset cells for Monday alignment
+      for (let i = 0; i < 6; i++) {
+        const blank = document.createElement('div');
+        blank.className = "py-2";
+        grid.appendChild(blank);
+      }
+
+      for (let day = 1; day <= 30; day++) {
+        const cell = document.createElement('div');
+        cell.className = "py-2 rounded-xl font-bold flex items-center justify-center transition";
+
+        if (day === 4) {
+          // Today
+          cell.className += " bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-200";
+        } else if (day === 12) {
+          // Excursion
+          cell.className += " bg-amber-100 text-amber-800 font-extrabold";
+        } else if (day % 7 === 0 || (day + 1) % 7 === 0) {
+          // Weekend
+          cell.className += " text-slate-300";
+        } else {
+          cell.className += " text-slate-700 hover:bg-slate-100";
+        }
+
+        cell.innerText = day;
+        grid.appendChild(cell);
+      }
+    }
+
+    // App Navigation Bar
+    function switchTab(targetId, btn) {
+      document.querySelectorAll('.tab-section').forEach(tab => tab.classList.add('hidden'));
+      const activeSection = document.getElementById(targetId);
+      if (activeSection) activeSection.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(b => {
+        b.classList.remove('active-tab', 'text-indigo-600', 'font-bold');
+        b.classList.add('text-slate-400', 'font-medium');
+      });
+
+      btn.classList.add('active-tab', 'text-indigo-600', 'font-bold');
+      btn.classList.remove('text-slate-400', 'font-medium');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Parent-Teacher Conference Handler
+    function handleTutoriaSubmit(e) {
+      e.preventDefault();
+      const successBox = document.getElementById('tutoriaSuccess');
+      successBox.classList.remove('hidden');
+      document.getElementById('tutoriaNombre').value = '';
+      document.getElementById('tutoriaAsunto').value = '';
+      showToast('Solicitud enviada al tutor/a');
+      setTimeout(() => successBox.classList.add('hidden'), 5000);
+    }
+
+    // Modals & UI Helpers
+    function openModal(id) {
+      const m = document.getElementById(id);
+      if (m) m.classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      const m = document.getElementById(id);
+      if (m) m.classList.add('hidden');
+    }
+
+    function dismissBanner() {
+      const banner = document.getElementById('pwaBanner');
+      if (banner) banner.style.display = 'none';
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      const label = document.getElementById('toastMsg');
+      label.innerText = msg;
+      t.classList.remove('opacity-0', 'pointer-events-none');
+      t.classList.add('opacity-100');
+      setTimeout(() => {
+        t.classList.remove('opacity-100');
+        t.classList.add('opacity-0', 'pointer-events-none');
+      }, 3000);
+    }
+  </script>
+</body>
+</html>

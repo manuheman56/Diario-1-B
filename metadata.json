@@ -1,0 +1,6 @@
+{
+  "name": "El Diario del Aula",
+  "description": "Portal escolar interactivo y diario de clase para familias y docentes: avisos del día, tareas, horario semanal, calendario escolar, menú de comedor y tutorías.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
