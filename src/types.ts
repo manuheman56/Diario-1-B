@@ -1,7 +1,7 @@
-export type PostCategory = 'Aviso' | 'Tarea' | 'Actividad' | 'Examen' | 'Urgente';
+export type PostCategory = 'Aviso' | 'Tarea' | 'Actividad' | 'Urgente';
 
 /**
- * Notice interface (Requisito 5: interfaces estrictas)
+ * Notice interface (Diario de aula)
  */
 export interface Notice {
   id: string;
@@ -31,9 +31,6 @@ export interface ScheduleItem {
 
 export type DayOfWeek = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes';
 
-/**
- * TimetableDay interface (Requisito 5)
- */
 export interface TimetableDay {
   day: DayOfWeek;
   items: ScheduleItem[];
@@ -50,50 +47,11 @@ export interface CalendarEvent {
   time?: string;
 }
 
-/**
- * MealPlan interface (Requisito 5)
- */
-export interface MealPlan {
-  day: DayOfWeek;
-  dateStr: string;
-  firstCourse: string;
-  secondCourse: string;
-  garnish: string;
-  dessert: string;
-  calories: string;
-  allergens: string[];
-}
-
-// Alias for backwards compatibility
-export type DailyMenu = MealPlan;
-
-/**
- * ConferenceRequest interface (Requisito 5)
- */
-export interface ConferenceRequest {
-  id: string;
-  studentName: string;
-  parentName: string;
-  phone: string;
-  email: string;
-  preferredSlot: string;
-  subject: string;
-  status: 'pendiente' | 'confirmada' | 'atendida';
-  createdAt: string;
-}
-
-// Alias for backwards compatibility
-export type TutoriaRequest = ConferenceRequest;
-
 export interface AppConfig {
   classTitle: string;
   schoolName: string;
   teacherName: string;
-  teacherEmail: string;
-  schoolPhone: string;
-  driveUrl: string;
-  youtubeUrl: string;
-  tutoriaScheduleText: string;
-  teacherPin: string;  // Requisito 1: PIN de 4 dígitos (defecto: '1234')
-  sheetsUrl: string;   // Requisito 2: URL de Google Sheets CSV/JSON
+  driveFolderUrl: string; // Restringido exclusivamente a la carpeta autorizada del aula
+  youtubeAuthorizedUrl: string; // Restringido exclusivamente al vídeo o lista autorizada del aula
+  sheetsUrl: string;
 }

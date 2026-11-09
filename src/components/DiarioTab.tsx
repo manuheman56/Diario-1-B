@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
-import { PostCategory, PostItem } from '../types';
+import React, { useState, useRef } from 'react';
+import { AppConfig, PostItem } from '../types';
 import {
-  Plus,
   Search,
   Share2,
-  Trash2,
   CheckCircle2,
   Circle,
   AlertCircle,
@@ -13,42 +11,69 @@ import {
   Printer,
   Sparkles,
   BookOpen,
-  RefreshCw,
-  Table,
   Check,
+  RefreshCw,
+  ArrowDown,
+  School,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface DiarioTabProps {
   posts: PostItem[];
-  onOpenNewPost: () => void;
   onToggleTask: (id: string) => void;
-  onDeletePost: (id: string) => void;
   onSharePost: (post: PostItem) => void;
-  role: 'family' | 'teacher';
-  sheetsUrl?: string;
-  isSyncingSheets?: boolean;
-  onRefreshSheets?: () => void;
-  sheetsError?: string | null;
-  onOpenSettings?: () => void;
+  isRefreshing?: boolean;
+  onRefresh?: () => Promise<void> | void;
+  config?: AppConfig;
 }
 
 export const DiarioTab: React.FC<DiarioTabProps> = ({
   posts,
-  onOpenNewPost,
   onToggleTask,
-  onDeletePost,
   onSharePost,
-  role,
-  sheetsUrl = '',
-  isSyncingSheets = false,
-  onRefreshSheets,
-  sheetsError = null,
-  onOpenSettings,
+  isRefreshing = false,
+  onRefresh,
+  config,
 }) => {
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+
+  // Pull-to-refresh state
+  const [pullY, setPullY] = useState(0);
+  const touchStartY = useRef(0);
+  const isPulling = useRef(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      touchStartY.current = e.touches[0].clientY;
+      isPulling.current = true;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling.current) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - touchStartY.current;
+    if (diff > 0 && diff < 120) {
+      setPullY(diff);
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (!isPulling.current) return;
+    isPulling.current = false;
+    if (pullY > 60 && onRefresh) {
+      setPullY(50);
+      try {
+        await onRefresh();
+      } finally {
+        setPullY(0);
+      }
+    } else {
+      setPullY(0);
+    }
+  };
 
   // Formatted date
   const todayStr = new Intl.DateTimeFormat('es-ES', {
@@ -83,7 +108,6 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
   const handleTaskCheck = (id: string, currentlyCompleted?: boolean) => {
     onToggleTask(id);
     if (!currentlyCompleted) {
-      // Fire celebratory confetti
       try {
         confetti({
           particleCount: 50,
@@ -101,7 +125,40 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
   };
 
   return (
-    <div className="space-y-4 pb-6">
+    <div
+      className="space-y-4 pb-6 relative"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh Indicator */}
+      {(pullY > 0 || isRefreshing) && (
+        <div
+          className="flex items-center justify-center py-2 transition-all duration-200 overflow-hidden text-xs text-sky-700 font-semibold"
+          style={{ height: `${Math.max(pullY, isRefreshing ? 40 : 0)}px` }}
+        >
+          <div className="flex items-center gap-1.5 bg-sky-50 px-3 py-1 rounded-full border border-sky-200 shadow-2xs">
+            {isRefreshing ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                <span>Actualizando el diario...</span>
+              </>
+            ) : (
+              <>
+                <ArrowDown
+                  className={`w-3.5 h-3.5 text-sky-600 transition-transform ${
+                    pullY > 60 ? 'rotate-180' : ''
+                  }`}
+                />
+                <span>
+                  {pullY > 60 ? 'Suelta para actualizar' : 'Desliza para actualizar'}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 1. Welcome Hero Banner */}
       <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-teal-700 rounded-3xl p-5 text-white shadow-lg shadow-indigo-600/20 relative overflow-hidden">
         <div className="relative z-10 space-y-2.5">
@@ -123,19 +180,11 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
             pendientes para hacer en familia.
           </p>
 
-          {/* Action Row */}
+          {/* Action Row: Buscar e Imprimir */}
           <div className="pt-2 flex items-center gap-2 flex-wrap">
             <button
-              onClick={onOpenNewPost}
-              className="bg-white text-indigo-950 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md hover:bg-indigo-50 active:scale-95 transition cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5 text-indigo-600 stroke-[3]" />
-              <span>Nuevo Aviso</span>
-            </button>
-
-            <button
               onClick={() => setShowSearch(!showSearch)}
-              className="bg-white/15 hover:bg-white/25 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer backdrop-blur-xs"
+              className="bg-white/15 hover:bg-white/25 text-white font-medium px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer backdrop-blur-xs active:scale-95"
             >
               <Search className="w-3.5 h-3.5" />
               <span>{showSearch ? 'Ocultar' : 'Buscar'}</span>
@@ -144,7 +193,7 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
             <button
               onClick={handlePrint}
               title="Imprimir diario escolar"
-              className="bg-white/15 hover:bg-white/25 text-white font-medium p-2 rounded-xl text-xs flex items-center justify-center transition cursor-pointer"
+              className="bg-white/15 hover:bg-white/25 text-white font-medium p-2 rounded-xl text-xs flex items-center justify-center transition cursor-pointer active:scale-95"
             >
               <Printer className="w-3.5 h-3.5" />
             </button>
@@ -154,67 +203,6 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
         {/* Decorative background shape */}
         <div className="absolute -right-6 -bottom-8 opacity-10 pointer-events-none">
           <BookOpen className="w-44 h-44 text-white" />
-        </div>
-      </div>
-
-      {/* Google Sheets Sync Banner */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs shadow-2xs">
-        <div className="flex items-center gap-2 min-w-0">
-          <span
-            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-              isSyncingSheets
-                ? 'bg-amber-400 animate-ping'
-                : sheetsUrl
-                ? 'bg-emerald-500'
-                : 'bg-indigo-500'
-            }`}
-          />
-          <div className="min-w-0 truncate">
-            {sheetsUrl ? (
-              <span className="font-semibold text-slate-800 flex items-center gap-1.5 truncate">
-                <Table className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>
-                  {isSyncingSheets
-                    ? 'Sincronizando con Google Sheets...'
-                    : sheetsError
-                    ? 'Error al conectar hoja (Usando datos locales)'
-                    : 'Avisos sincronizados con Google Sheets'}
-                </span>
-              </span>
-            ) : (
-              <span className="text-slate-600 flex items-center gap-1.5 truncate">
-                <span className="font-medium text-slate-700">Tablón de avisos local</span>
-                <span className="text-[10px] text-slate-400 hidden sm:inline">
-                  (Conecta una hoja de Google Sheets en Ajustes)
-                </span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          {sheetsUrl ? (
-            <button
-              onClick={onRefreshSheets}
-              disabled={isSyncingSheets}
-              className="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-xl transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
-              title="Refrescar avisos de Google Sheets ahora"
-            >
-              <RefreshCw
-                className={`w-3 h-3 ${isSyncingSheets ? 'animate-spin' : ''}`}
-              />
-              <span>Actualizar</span>
-            </button>
-          ) : (
-            role === 'teacher' && onOpenSettings && (
-              <button
-                onClick={onOpenSettings}
-                className="text-[11px] font-bold text-indigo-700 hover:underline cursor-pointer"
-              >
-                Conectar Sheets
-              </button>
-            )
-          )}
         </div>
       </div>
 
@@ -316,18 +304,6 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
           <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
           En Clase
         </button>
-
-        <button
-          onClick={() => setActiveFilter('Examen')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeFilter === 'Examen'
-              ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-          Exámenes
-        </button>
       </div>
 
       {/* Feed List */}
@@ -339,10 +315,12 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
             </div>
             <div>
               <p className="text-xs font-bold text-slate-700">
-                No hay avisos en esta categoría
+                No hay avisos nuevos por el momento
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Prueba a seleccionar otro filtro o publica un nuevo aviso.
+                {activeFilter !== 'all'
+                  ? 'No hay avisos en esta categoría. Puedes consultar el resto de novedades.'
+                  : 'Aquí aparecerán las novedades, tareas y circulares escolares.'}
               </p>
             </div>
             {activeFilter !== 'all' && (
@@ -368,9 +346,6 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
             } else if (post.tag === 'Actividad') {
               badgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-200';
               if (!post.icon) badgeEmoji = '🎨';
-            } else if (post.tag === 'Examen') {
-              badgeStyle = 'bg-purple-50 text-purple-800 border-purple-200';
-              if (!post.icon) badgeEmoji = '📝';
             } else if (post.tag === 'Urgente') {
               badgeStyle = 'bg-red-50 text-red-800 border-red-300 ring-2 ring-red-100';
               if (!post.icon) badgeEmoji = '🚨';
@@ -396,13 +371,6 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                       <span>{badgeEmoji}</span>
                       <span>{post.tag}</span>
                     </span>
-
-                    {post.source === 'sheets' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        <Table className="w-2.5 h-2.5 text-emerald-700" />
-                        Google Sheets
-                      </span>
-                    )}
 
                     {post.important && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">
@@ -484,16 +452,6 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                       <Share2 className="w-3 h-3" />
                       <span>Compartir</span>
                     </button>
-
-                    {role === 'teacher' && post.source !== 'sheets' && (
-                      <button
-                        onClick={() => onDeletePost(post.id)}
-                        className="text-slate-400 hover:text-rose-600 transition p-1 rounded-lg hover:bg-rose-50 cursor-pointer"
-                        title="Eliminar aviso (Modo Docente)"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
                   </div>
                 </div>
               </article>
@@ -501,6 +459,25 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
           })
         )}
       </div>
+
+      {/* Datos fijos del colegio y tutor (minimalista) */}
+      {config && (
+        <div className="mt-6 pt-4 border-t border-slate-200/80 bg-slate-100/70 rounded-3xl p-4 text-xs space-y-2 text-slate-600 shadow-2xs">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+              <School className="w-3.5 h-3.5 text-sky-700" />
+              {config.schoolName}
+            </span>
+            <span className="text-[11px] text-slate-500 font-medium">
+              Tutor: <strong className="text-slate-800">{config.teacherName}</strong>
+            </span>
+          </div>
+
+          <p className="text-[10px] text-slate-400 text-center pt-2 border-t border-slate-200/50">
+            Comunicaciones del centro, ausencias y gestiones oficiales gestionadas vía Séneca / iPasen.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

@@ -4,20 +4,12 @@ import {
   Clock,
   CalendarDays,
   MapPin,
-  User,
-  Info,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
   Calendar as CalendarIcon,
-  Sparkles,
 } from 'lucide-react';
 
 interface HorarioCalendarioTabProps {
   schedule: Record<DayOfWeek, ScheduleItem[]>;
   events: CalendarEvent[];
-  onAddEvent?: (event: CalendarEvent) => void;
-  role: 'family' | 'teacher';
 }
 
 const DAYS: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -25,7 +17,6 @@ const DAYS: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
   schedule,
   events,
-  role,
 }) => {
   const [subView, setSubView] = useState<'horario' | 'calendario'>('horario');
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
@@ -40,7 +31,7 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(defaultDay);
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<number | null>(4); // Nov 4 default
 
-  // Calendar month state (November 2026)
+  // Calendar month state (November 2026 default)
   const [currentMonthIndex] = useState(10); // 10 = Noviembre (0-indexed)
   const [currentYear] = useState(2026);
 
@@ -51,6 +42,8 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
       ev.month === currentMonthIndex &&
       ev.year === currentYear
   );
+
+  const currentDaySchedule = schedule[selectedDay] || [];
 
   return (
     <div className="space-y-4 pb-6">
@@ -142,82 +135,79 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
           {/* Day View */}
           {viewMode === 'day' && (
             <div className="space-y-2.5">
-              {schedule[selectedDay].map((item, index) => (
-                <div
-                  key={index}
-                  className={`p-3.5 rounded-2xl border border-slate-200/80 border-l-4 bg-white shadow-xs flex items-center justify-between gap-3 ${item.color}`}
-                >
-                  <div className="min-w-0">
-                    <h4 className="font-bold text-xs text-slate-900 truncate">
-                      {item.subject}
-                    </h4>
-                    <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-slate-400" />
-                        <span>{item.loc}</span>
-                      </span>
-                      {item.teacher && (
+              {currentDaySchedule.length > 0 ? (
+                currentDaySchedule.map((item, index) => (
+                  <div
+                    key={index}
+                    className={`p-3.5 rounded-2xl border border-slate-200/80 border-l-4 bg-white shadow-xs flex items-center justify-between gap-3 ${item.color}`}
+                  >
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-xs text-slate-900 truncate">
+                        {item.subject}
+                      </h4>
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
                         <span className="flex items-center gap-1 truncate">
-                          <User className="w-3 h-3 text-slate-400" />
-                          <span>{item.teacher}</span>
+                          <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="truncate">{item.loc}</span>
                         </span>
-                      )}
+                      </div>
                     </div>
-                  </div>
 
-                  <span className="text-[11px] font-bold text-slate-700 bg-slate-100/90 px-2.5 py-1 rounded-xl border border-slate-200 shrink-0">
-                    {item.time}
-                  </span>
+                    <span className="text-[11px] font-bold text-slate-700 bg-slate-100/90 px-2.5 py-1 rounded-xl border border-slate-200 shrink-0">
+                      {item.time}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center text-xs text-slate-400">
+                  No hay clases programadas para este día.
                 </div>
-              ))}
+              )}
             </div>
           )}
 
           {/* Whole Week Matrix View */}
           {viewMode === 'week' && (
-            <div className="space-y-4">
-              {DAYS.map((day) => (
-                <div
-                  key={day}
-                  className="bg-white rounded-2xl border border-slate-200 p-3 shadow-xs"
-                >
-                  <h4 className="font-bold text-xs text-indigo-900 border-b border-slate-100 pb-1.5 mb-2">
-                    {day}
-                  </h4>
-                  <div className="space-y-1.5">
-                    {schedule[day].map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-slate-50 border border-slate-100"
-                      >
-                        <span className="font-semibold text-slate-800 truncate mr-2">
-                          {item.subject}
-                        </span>
-                        <span className="text-[10px] text-slate-500 shrink-0 font-medium">
-                          {item.time}
-                        </span>
+            <div className="space-y-3">
+              {DAYS.map((day) => {
+                const dayItems = schedule[day] || [];
+                return (
+                  <div
+                    key={day}
+                    className="bg-white rounded-2xl border border-slate-200 p-3 shadow-xs"
+                  >
+                    <h4 className="font-bold text-xs text-indigo-900 border-b border-slate-100 pb-1.5 mb-2">
+                      {day}
+                    </h4>
+                    {dayItems.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {dayItems.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg bg-slate-50 border border-slate-100"
+                          >
+                            <div className="min-w-0 pr-2">
+                              <span className="font-semibold text-slate-800 block truncate">
+                                {item.subject}
+                              </span>
+                              <span className="text-[10px] text-slate-400 block truncate">
+                                {item.loc}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-600 shrink-0 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
+                              {item.time}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic">Sin clases</p>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
-
-          {/* Physical Education & Water Reminder Alert */}
-          <div className="p-3.5 bg-amber-50/90 border border-amber-200/80 rounded-2xl flex items-start gap-3 text-xs text-amber-900 shadow-xs">
-            <span className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
-              <Info className="w-4 h-4" />
-            </span>
-            <div className="leading-relaxed">
-              <strong className="block text-amber-950 font-bold mb-0.5">
-                Recordatorio de Educación Física
-              </strong>
-              Los <strong>martes</strong> y <strong>jueves</strong> tenemos
-              sesión de psicomotricidad y deporte. Imprescindible acudir con ropa
-              cómoda, calzado deportivo y botella de agua marcada con su nombre.
-            </div>
-          </div>
         </div>
       )}
 
@@ -267,7 +257,6 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
 
             {/* Days Grid (Nov 2026 starts on Sunday Nov 1 if Monday=col 0, offset = 6) */}
             <div className="grid grid-cols-7 gap-1 text-center text-xs">
-              {/* Nov 2026: 1st is Sunday, so 6 blanks for Monday start */}
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={`blank-${i}`} className="py-2.5"></div>
               ))}
@@ -383,73 +372,79 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
               Próximos Eventos del Trimestre
             </h4>
 
-            {events.map((ev) => {
-              const monthNames = [
-                'Ene',
-                'Feb',
-                'Mar',
-                'Abr',
-                'May',
-                'Jun',
-                'Jul',
-                'Ago',
-                'Sep',
-                'Oct',
-                'Nov',
-                'Dic',
-              ];
+            {events.length > 0 ? (
+              events.map((ev) => {
+                const monthNames = [
+                  'Ene',
+                  'Feb',
+                  'Mar',
+                  'Abr',
+                  'May',
+                  'Jun',
+                  'Jul',
+                  'Ago',
+                  'Sep',
+                  'Oct',
+                  'Nov',
+                  'Dic',
+                ];
 
-              let badgeColor = 'bg-amber-50 text-amber-800 border-amber-200';
-              let badgeText = 'Salida';
-              let bgBox = 'bg-amber-100 text-amber-800';
+                let badgeColor = 'bg-amber-50 text-amber-800 border-amber-200';
+                let badgeText = 'Salida';
+                let bgBox = 'bg-amber-100 text-amber-800';
 
-              if (ev.type === 'festivo') {
-                badgeColor = 'bg-rose-50 text-rose-800 border-rose-200';
-                badgeText = 'Festivo';
-                bgBox = 'bg-rose-100 text-rose-800';
-              } else if (ev.type === 'evaluacion') {
-                badgeColor = 'bg-indigo-50 text-indigo-800 border-indigo-200';
-                badgeText = 'Notas';
-                bgBox = 'bg-indigo-100 text-indigo-800';
-              } else if (ev.type === 'lectivo') {
-                badgeColor = 'bg-emerald-50 text-emerald-800 border-emerald-200';
-                badgeText = 'Jornada';
-                bgBox = 'bg-emerald-100 text-emerald-800';
-              }
+                if (ev.type === 'festivo') {
+                  badgeColor = 'bg-rose-50 text-rose-800 border-rose-200';
+                  badgeText = 'Festivo';
+                  bgBox = 'bg-rose-100 text-rose-800';
+                } else if (ev.type === 'evaluacion') {
+                  badgeColor = 'bg-indigo-50 text-indigo-800 border-indigo-200';
+                  badgeText = 'Notas';
+                  bgBox = 'bg-indigo-100 text-indigo-800';
+                } else if (ev.type === 'lectivo') {
+                  badgeColor = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                  badgeText = 'Jornada';
+                  bgBox = 'bg-emerald-100 text-emerald-800';
+                }
 
-              return (
-                <div
-                  key={ev.id}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center gap-3 shadow-xs hover:shadow-md transition"
-                >
+                return (
                   <div
-                    className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 ${bgBox}`}
+                    key={ev.id}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center gap-3 shadow-xs hover:shadow-md transition"
                   >
-                    <span className="text-[9px] uppercase font-semibold">
-                      {monthNames[ev.month]}
-                    </span>
-                    <span className="text-sm font-extrabold leading-none">
-                      {ev.day}
+                    <div
+                      className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 ${bgBox}`}
+                    >
+                      <span className="text-[9px] uppercase font-semibold">
+                        {monthNames[ev.month] || 'Nov'}
+                      </span>
+                      <span className="text-sm font-extrabold leading-none">
+                        {ev.day}
+                      </span>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h5 className="text-xs font-bold text-slate-900 truncate">
+                        {ev.title}
+                      </h5>
+                      <p className="text-[11px] text-slate-500 leading-tight line-clamp-2">
+                        {ev.description}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shrink-0 ${badgeColor}`}
+                    >
+                      {badgeText}
                     </span>
                   </div>
-
-                  <div className="flex-1 min-w-0">
-                    <h5 className="text-xs font-bold text-slate-900 truncate">
-                      {ev.title}
-                    </h5>
-                    <p className="text-[11px] text-slate-500 leading-tight line-clamp-2">
-                      {ev.description}
-                    </p>
-                  </div>
-
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shrink-0 ${badgeColor}`}
-                  >
-                    {badgeText}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center text-xs text-slate-400">
+                No hay eventos programados en este momento.
+              </div>
+            )}
           </div>
         </div>
       )}
