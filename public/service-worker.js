@@ -47,7 +47,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // A. Google Fonts caching (Cache-First)
+  // A. Google Sheets requests: Always Network-First (live data for parents)
+  if (url.hostname.includes('docs.google.com') || url.pathname.includes('/spreadsheets/')) {
+    event.respondWith(
+      fetch(request).catch(() => {
+        // Fallback to cache if offline
+        return caches.match(request);
+      })
+    );
+    return;
+  }
+
+  // B. Google Fonts caching (Cache-First)
   if (url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com') {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) => {

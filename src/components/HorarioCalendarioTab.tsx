@@ -10,6 +10,7 @@ import {
 interface HorarioCalendarioTabProps {
   schedule: Record<DayOfWeek, ScheduleItem[]>;
   events: CalendarEvent[];
+  initialSubView?: 'horario' | 'calendario';
 }
 
 const DAYS: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -17,8 +18,16 @@ const DAYS: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
   schedule,
   events,
+  initialSubView = 'horario',
 }) => {
-  const [subView, setSubView] = useState<'horario' | 'calendario'>('horario');
+  const [subView, setSubView] = useState<'horario' | 'calendario'>(initialSubView);
+
+  React.useEffect(() => {
+    if (initialSubView) {
+      setSubView(initialSubView);
+    }
+  }, [initialSubView]);
+
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
 
   // Determine current day of week (0=Sun, 1=Mon, ..., 5=Fri)

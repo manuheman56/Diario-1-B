@@ -10,6 +10,9 @@ import {
   Notice,
   ScheduleItem,
   DayOfWeek,
+  MainTabType,
+  SubScheduleTab,
+  SubResourceTab,
 } from './types';
 import {
   initialConfig,
@@ -18,10 +21,12 @@ import {
   schoolEvents,
 } from './data/defaultData';
 import { Header } from './components/Header';
-import { BottomNav, TabType } from './components/BottomNav';
+import { BottomNav } from './components/BottomNav';
+import { InicioTab } from './components/InicioTab';
 import { DiarioTab } from './components/DiarioTab';
+import { AvisosTab } from './components/AvisosTab';
 import { HorarioCalendarioTab } from './components/HorarioCalendarioTab';
-import { MultimediaTab } from './components/MultimediaTab';
+import { RecursosTab } from './components/RecursosTab';
 import { InstallModal } from './components/InstallModal';
 import { Toast } from './components/Toast';
 import {
@@ -35,7 +40,7 @@ import { WifiOff } from 'lucide-react';
 export default function App() {
   const isOnline = useOnlineStatus();
 
-  // App Fixed State
+  // App Fixed Configuration (C.E.I.P. Dr. Fleming - 1º Primaria B - Tutor: Manuel Herrera)
   const [config] = useState<AppConfig>(initialConfig);
 
   // Tablón de avisos (conserva el estado local del checklist de tareas familiares)
@@ -49,8 +54,12 @@ export default function App() {
   const [schedule, setSchedule] = useState<Record<DayOfWeek, ScheduleItem[]>>(weeklySchedule);
   const [events, setEvents] = useState<CalendarEvent[]>(schoolEvents);
 
-  // UI View States
-  const [activeTab, setActiveTab] = useState<TabType>('diario');
+  // Navigation View States
+  const [activeTab, setActiveTab] = useState<MainTabType>('inicio');
+  const [subScheduleTab, setSubScheduleTab] = useState<SubScheduleTab>('horario');
+  const [subResourceTab, setSubResourceTab] = useState<SubResourceTab>('aprendemos');
+
+  // UI View Mode (Mobile frame vs responsive wide)
   const [isMobileFrame, setIsMobileFrame] = useState<boolean>(true);
   const [showPwaBanner, setShowPwaBanner] = useState<boolean>(true);
 
@@ -103,12 +112,10 @@ export default function App() {
             completed: localTasksCompleted.has(n.title.toLowerCase().trim()),
           }));
         });
-      } else {
-        setPosts((prev) => (prev.length > 0 ? prev : []));
       }
 
       // 2. Actualizar Horario directamente desde la pestaña 'Horario' (cero localStorage)
-      if (fetchedSchedule) {
+      if (fetchedSchedule && Object.keys(fetchedSchedule).length > 0) {
         setSchedule(fetchedSchedule);
       }
 
@@ -118,11 +125,11 @@ export default function App() {
       }
 
       if (isManualPull) {
-        showToast('Datos escolares actualizados desde la nube');
+        showToast('Datos escolares actualizados');
       }
     } catch {
       if (isManualPull) {
-        showToast('No se pudo actualizar en este momento');
+        showToast('No se pudo conectar con el servidor');
       }
     } finally {
       setIsSyncing(false);
@@ -134,10 +141,10 @@ export default function App() {
     syncAllFromSheets(false);
   }, [syncAllFromSheets]);
 
-  // Homework check toggle (checklist familiar)
+  // Homework check toggle (checklist familiar con confetti)
   const handleToggleTask = (id: string) => {
-    setPosts(
-      posts.map((p) => {
+    setPosts((prev) =>
+      prev.map((p) => {
         if (p.id === id) {
           const updated = !p.completed;
           showToast(
@@ -168,8 +175,31 @@ export default function App() {
     }
   };
 
+  // Direct navigation handler from Dashboard shortcuts
+  const handleNavigate = (
+    tab: MainTabType,
+    subTab?: SubScheduleTab | SubResourceTab
+  ) => {
+    setActiveTab(tab);
+    if (tab === 'horario' && (subTab === 'horario' || subTab === 'calendario')) {
+      setSubScheduleTab(subTab);
+    }
+    if (tab === 'recursos' && (subTab === 'aprendemos' || subTab === 'fotos')) {
+      setSubResourceTab(subTab);
+    }
+    // Scroll smoothly to top of main container
+    const mainEl = document.querySelector('main');
+    if (mainEl) {
+      mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const pendingHomeworkCount = posts.filter(
     (p) => p.tag === 'Tarea' && !p.completed
+  ).length;
+
+  const urgentNoticesCount = posts.filter(
+    (p) => p.important || p.tag === 'Urgente'
   ).length;
 
   return (
@@ -205,6 +235,17 @@ export default function App() {
 
         {/* Scrollable Main Content Area */}
         <main className="flex-1 overflow-y-auto no-scrollbar px-4 py-4 space-y-4">
+          {activeTab === 'inicio' && (
+            <InicioTab
+              config={config}
+              posts={posts}
+              events={events}
+              onNavigate={handleNavigate}
+              onRefresh={() => syncAllFromSheets(true)}
+              isRefreshing={isSyncing}
+            />
+          )}
+
           {activeTab === 'diario' && (
             <DiarioTab
               posts={posts}
@@ -216,27 +257,43 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'avisos' && (
+            <AvisosTab
+              posts={posts}
+              onSharePost={handleSharePost}
+              isRefreshing={isSyncing}
+              onRefresh={() => syncAllFromSheets(true)}
+            />
+          )}
+
           {activeTab === 'horario' && (
             <HorarioCalendarioTab
               schedule={schedule}
               events={events}
+              initialSubView={subScheduleTab}
             />
           )}
 
-          {activeTab === 'multimedia' && (
-            <MultimediaTab
+          {activeTab === 'recursos' && (
+            <RecursosTab
               config={config}
+              initialSubView={subResourceTab}
             />
           )}
         </main>
 
-        {/* Bottom Navigation */}
+        {/* Bottom Navigation con 5 accesos directos y corrección táctil integral */}
         <BottomNav
           activeTab={activeTab}
           onTabChange={(tab) => {
             setActiveTab(tab);
+            const mainEl = document.querySelector('main');
+            if (mainEl) {
+              mainEl.scrollTo({ top: 0, behavior: 'instant' });
+            }
           }}
           pendingTasksCount={pendingHomeworkCount}
+          urgentNoticesCount={urgentNoticesCount}
         />
       </div>
 

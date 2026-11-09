@@ -1,7 +1,7 @@
 export type PostCategory = 'Aviso' | 'Tarea' | 'Actividad' | 'Urgente';
 
 /**
- * Notice interface (Diario de aula)
+ * Notice interface (Diario de aula / Novedades / Avisos)
  */
 export interface Notice {
   id: string;
@@ -14,6 +14,7 @@ export interface Notice {
   completed?: boolean;
   important?: boolean;
   icon?: string;
+  imageUrl?: string; // Fotografía opcional adjunta a la actividad
   source?: 'local' | 'sheets';
 }
 
@@ -47,6 +48,18 @@ export interface CalendarEvent {
   time?: string;
 }
 
+export interface EducationalResource {
+  id: string;
+  category: 'lectura' | 'escritura' | 'matematicas' | 'juegos' | 'refuerzo';
+  title: string;
+  description: string;
+  level: string; // e.g. "1.º Primaria"
+  tips: string[];
+  externalUrl?: string;
+  externalLabel?: string;
+  badge: string;
+}
+
 export interface AppConfig {
   classTitle: string;
   schoolName: string;
@@ -55,3 +68,8 @@ export interface AppConfig {
   youtubeAuthorizedUrl: string; // Restringido exclusivamente al vídeo o lista autorizada del aula
   sheetsUrl: string;
 }
+
+export type MainTabType = 'inicio' | 'diario' | 'avisos' | 'horario' | 'recursos';
+export type SubResourceTab = 'aprendemos' | 'fotos' | 'multimedia';
+export type SubScheduleTab = 'horario' | 'calendario';
+

@@ -395,6 +395,18 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                   {post.title}
                 </h3>
 
+                {/* Optional attached image for class activities or notes */}
+                {post.imageUrl && (
+                  <div className="my-2.5 rounded-2xl overflow-hidden border border-slate-200 aspect-video max-h-56 bg-slate-100">
+                    <img
+                      src={post.imageUrl}
+                      alt={post.title}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+
                 {/* Content */}
                 <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
                   {post.content}

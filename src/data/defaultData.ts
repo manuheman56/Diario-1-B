@@ -1,4 +1,4 @@
-import { AppConfig, CalendarEvent, DayOfWeek, PostItem, ScheduleItem } from '../types';
+import { AppConfig, CalendarEvent, DayOfWeek, EducationalResource, PostItem, ScheduleItem } from '../types';
 import { SHEETS_CSV_URL } from '../services/sheetsService';
 
 /**
@@ -19,24 +19,36 @@ export const initialConfig: AppConfig = {
 export const initialPosts: PostItem[] = [
   {
     id: 'post-1',
-    title: 'Bienvenida a la app',
+    title: 'Bienvenida a la app del aula',
     tag: 'Aviso',
     date: '06/11/2026',
     timestamp: Date.now() - 3600000 * 48,
-    content: 'Estrenamos el tablón digital del aula. Aquí podréis ver avisos y tareas diarias.',
+    content: 'Estrenamos el portal digital de 1º B. Aquí podréis consultar las actividades diarias, tareas para casa y avisos importantes de don Manuel Herrera.',
     author: 'Manuel Herrera',
     icon: '📢',
     important: true,
   },
   {
     id: 'post-2',
-    title: 'Ficha de lectura',
+    title: 'Ficha de comprensión lectora (Tema 3)',
     tag: 'Tarea',
     date: '09/11/2026',
     timestamp: Date.now() - 3600000 * 2,
-    content: 'Completar la ficha de comprensión lectora de la lectura del tema 3.',
+    content: 'Completar con calma la ficha de comprensión lectora de la lectura del tema 3. Recordar leer el texto dos veces antes de responder a las preguntas.',
     author: 'Manuel Herrera',
     icon: '📝',
+    completed: false,
+  },
+  {
+    id: 'post-3',
+    title: 'Taller de otoño: estampación con hojas secas',
+    tag: 'Actividad',
+    date: '05/11/2026',
+    timestamp: Date.now() - 3600000 * 72,
+    content: 'Hoy hemos realizado un mural colectivo con las hojas que trajisteis de casa. Han aprendido a mezclar tonos marrones, amarillos y ocres trabajando la creatividad en equipo.',
+    author: 'Manuel Herrera',
+    icon: '🎨',
+    imageUrl: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=700&auto=format&fit=crop&q=80',
     completed: false,
   },
 ];
@@ -53,7 +65,7 @@ export const weeklySchedule: Record<DayOfWeek, ScheduleItem[]> = {
     { time: '09:00 - 10:00', subject: 'Matemáticas (Cálculo y Juegos)', loc: 'Aula 1ºB', color: 'border-l-emerald-500 bg-emerald-50/50 text-emerald-900', teacher: 'Manuel Herrera' },
     { time: '10:00 - 11:00', subject: 'Lengua Extranjera (Inglés)', loc: 'Aula de Idiomas', color: 'border-l-sky-500 bg-sky-50/50 text-sky-900', teacher: 'Sarah Jenkins' },
     { time: '11:00 - 11:30', subject: 'Recreo & Juegos Tradicionales', loc: 'Patio Principal', color: 'border-l-amber-500 bg-amber-50/50 text-amber-900' },
-    { time: '11:30 - 12:30', subject: 'Educación Física (¡Llevar Zapatillas!)', loc: 'Pabellón Polideportivo', color: 'border-l-rose-500 bg-rose-50/50 text-rose-900', teacher: 'Marcos Peña' },
+    { time: '11:30 - 12:30', subject: 'Educación Física (¡Zapatillas y agua!)', loc: 'Pabellón Polideportivo', color: 'border-l-rose-500 bg-rose-50/50 text-rose-900', teacher: 'Marcos Peña' },
     { time: '12:30 - 14:00', subject: 'Lengua (Lectura y Caligrafía)', loc: 'Aula 1ºB', color: 'border-l-indigo-500 bg-indigo-50/50 text-indigo-900', teacher: 'Manuel Herrera' }
   ],
   Miércoles: [
@@ -96,7 +108,7 @@ export const schoolEvents: CalendarEvent[] = [
     month: 10,
     year: 2026,
     title: 'Día Universal del Niño y la Niña',
-    description: 'Jornada de actividades de convivencia y derechos en el patio.',
+    description: 'Jornada escolar de convivencia y talleres de derechos de la infancia en el patio.',
     type: 'lectivo',
     time: 'Durante la jornada'
   },
@@ -123,10 +135,82 @@ export const schoolEvents: CalendarEvent[] = [
     day: 22,
     month: 11,
     year: 2026,
-    title: 'Festival de Invierno y Entrega de Boletines',
-    description: 'Actuación navideña del alumnado de 1º y cierre del 1er trimestre escolar.',
+    title: 'Festival de Invierno y Cierre de Trimestre',
+    description: 'Actuación musical de villancicos de 1º B y entrega de informes del primer trimestre.',
     type: 'evaluacion',
     time: '11:00 h'
+  }
+];
+
+export const educationalResources: EducationalResource[] = [
+  {
+    id: 'rec-1',
+    category: 'lectura',
+    title: 'Pautas para los 10 minutos de lectura diaria en casa',
+    description: 'Consejos pedagógicos para afianzar el hábito lector en 1.º de Primaria de forma lúdica y sin presiones.',
+    level: '1.º Primaria',
+    badge: 'Lectura',
+    tips: [
+      'Alternar párrafos: una frase lee el adulto, la siguiente el alumno.',
+      'Preguntar qué cree que va a pasar a continuación para estimular la comprensión.',
+      'Felicitar el esfuerzo con palabras afectuosas, no corregir bruscamente.'
+    ],
+    externalUrl: 'https://leer.es',
+    externalLabel: 'Portal Educativo Leer.es'
+  },
+  {
+    id: 'rec-2',
+    category: 'escritura',
+    title: 'Trazo de grafías y caligrafía divertida',
+    description: 'Orientaciones sobre la correcta sujeción del lápiz (agarre trípode), postura de la espalda y dirección de las letras.',
+    level: '1.º Primaria',
+    badge: 'Escritura',
+    tips: [
+      'Cuidar el agarre en pinza con pulgar e índice, apoyando en el dedo medio.',
+      'Trabajar trazos en arena, harina o pizarra antes de pasar a la libreta.',
+      'Respetar la separación entre palabras dejando un dedo de distancia.'
+    ]
+  },
+  {
+    id: 'rec-3',
+    category: 'matematicas',
+    title: 'Los amigos del 10 y cálculo mental manipulativo',
+    description: 'Estrategias lúdicas para memorizar las parejas de números que suman 10 (1+9, 2+8, 3+7, 4+6, 5+5).',
+    level: '1.º Primaria',
+    badge: 'Matemáticas',
+    tips: [
+      'Usar las dos manos como herramienta visual constante.',
+      'Juegos con baraja española: sacar una carta y decir qué carta falta para hacer 10.',
+      'Contar objetos cotidianos (frutas, cubiertos, pinzas de la ropa).'
+    ]
+  },
+  {
+    id: 'rec-4',
+    category: 'juegos',
+    title: 'Plataformas de juegos educativos interactivos recomendadas',
+    description: 'Selección de portales educativos sin publicidad invasiva ni registro con actividades adaptadas a niños de 6 a 7 años.',
+    level: '1.º Primaria',
+    badge: 'Juegos',
+    tips: [
+      'Vedoque: Juegos de mecanografía infantil, sumas y cálculo rápido.',
+      'Árbol ABC: Canciones y lecturas interactivas de vocales y consonantes.',
+      'Límite de tiempo recomendado en pantalla: 20-30 minutos por sesión.'
+    ],
+    externalUrl: 'https://www.vedoque.com',
+    externalLabel: 'Visitar Vedoque Infantil'
+  },
+  {
+    id: 'rec-5',
+    category: 'refuerzo',
+    title: 'Rutina autónoma de mochila y estuche',
+    description: 'Guía visual para que los alumnos y alumnas preparen su material escolar con creciente independencia cada tarde.',
+    level: '1.º Primaria',
+    badge: 'Autonomía',
+    tips: [
+      'Revisar juntos el horario del día siguiente antes de cenar.',
+      'Comprobar los lápices con punta y la goma en el estuche.',
+      'Colocar la botella de agua y el almuerzo saludable en el compartimento exterior.'
+    ]
   }
 ];
 
@@ -134,14 +218,14 @@ export const multimediaAlbums = [
   {
     id: 'alb-1',
     title: 'Taller de Otoño y Hojas Secas',
-    date: 'Octubre 2026',
+    date: 'Noviembre 2026',
     count: '34 fotografías',
     coverUrl: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&auto=format&fit=crop&q=80',
     tag: 'Manualidades'
   },
   {
     id: 'alb-2',
-    title: 'Visita de la Policía Local (Educación Vial)',
+    title: 'Visita de Educación Vial y Policía Local',
     date: 'Octubre 2026',
     count: '18 fotografías',
     coverUrl: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=600&auto=format&fit=crop&q=80',
@@ -149,7 +233,7 @@ export const multimediaAlbums = [
   },
   {
     id: 'alb-3',
-    title: 'Experimento: Germinación de Lentejas',
+    title: 'Experimento de Ciencias: Germinación de Semillas',
     date: 'Noviembre 2026',
     count: '26 fotografías',
     coverUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
@@ -164,7 +248,6 @@ export const educationalVideos = [
     duration: '3:45 min',
     subject: 'Ciencias de la Naturaleza',
     thumbnail: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&auto=format&fit=crop&q=80',
-    // Usamos el modo de privacidad mejorada de YouTube (sin cookies y sin recomendaciones externas)
     embedUrl: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&modestbranding=1'
   },
   {
