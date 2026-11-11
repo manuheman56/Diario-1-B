@@ -238,7 +238,9 @@ console.assert(parsedNoticiaRows[0].id === 'noticia001', 'El ID debe ser noticia
 console.assert(parsedNoticiaRows[0].titulo === '¡Bienvenidos a nuestro diario de aula!', 'Título no coincide');
 console.assert(parsedNoticiaRows[0].fecha === '11/11/2026', 'Fecha no coincide');
 console.assert(parsedNoticiaRows[0].destacado === true, 'destacado=SI debe ser evaluado a true');
-console.assert(parsedNoticiaRows[0].important === true, 'important debe ser true');
+console.assert(parsedNoticiaRows[0].important === false, 'important no debe ser true para publicación General');
+console.assert(parsedNoticiaRows[0].categoria === 'General', 'categoria debe ser General');
+console.assert(parsedNoticiaRows[0].tag === 'General', 'tag debe ser General');
 console.assert(parsedNoticiaRows[0].estado === 'PUBLICAR', 'Estado debe ser PUBLICAR');
 console.assert(parsedNoticiaRows[0].orden === 1, 'Orden debe ser 1');
 
@@ -269,8 +271,11 @@ const payloadWithNoticia = parseAppsScriptPayload({
 console.assert(payloadWithNoticia.posts.length === 1, 'Debe devolver 1 post en el payload de Apps Script');
 console.assert(payloadWithNoticia.posts[0].id === 'noticia001', 'ID del post debe ser noticia001');
 console.assert(payloadWithNoticia.posts[0].title === '¡Bienvenidos a nuestro diario de aula!', 'Título del post incorrecto');
-console.assert(payloadWithNoticia.posts[0].important === true, 'El post debe ser important=true por destacado=SI');
-console.log('✓ Fila oficial noticia001 validada y procesada correctamente por React.\n');
+console.assert(payloadWithNoticia.posts[0].categoria === 'General', 'La categoría debe ser General');
+console.assert(payloadWithNoticia.posts[0].tag === 'General', 'El tag debe ser General');
+console.assert(payloadWithNoticia.posts[0].destacado === true, 'El post debe ser destacado=true');
+console.assert(payloadWithNoticia.posts[0].important === false, 'El post General no debe ser categorizado como aviso importante/urgente');
+console.log('✓ Fila oficial noticia001 validada: categoría "General", destacado=true, important=false (no es aviso urgente).\n');
 
 // 16. Verificación de infraestructura de diagnóstico seguro y versión desplegada en Code.gs
 console.log('16. Verificando infraestructura de diagnóstico seguro en Code.gs...');

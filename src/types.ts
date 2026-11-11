@@ -1,4 +1,4 @@
-export type PostCategory = 'Aviso' | 'Tarea' | 'Actividad' | 'Urgente' | 'Proyecto';
+export type PostCategory = 'General' | 'Aviso' | 'Tarea' | 'Actividad' | 'Urgente' | 'Proyecto' | string;
 
 export type PublicacionEstado = 'PUBLICAR' | 'BORRADOR' | 'ARCHIVADO';
 

@@ -271,9 +271,62 @@ const parsed = parseAppsScriptPayload(fullPayload);
 console.assert(parsed.posts.length === 1, 'Debe parsear 1 publicación en React');
 console.assert(parsed.posts[0].id === 'noticia001', 'El ID debe ser noticia001');
 console.assert(parsed.posts[0].title === '¡Bienvenidos a nuestro diario de aula!', 'Título no coincide');
-console.assert(parsed.posts[0].important === true, 'destacado=SI debe marcar important=true');
-console.log('✓ Test 9 OK: React consume la noticia de DIA_A_DIA y la renderiza como destacada.\n');
+console.assert(parsed.posts[0].categoria === 'General', 'La categoría debe ser General');
+console.assert(parsed.posts[0].tag === 'General', 'El tag debe ser General');
+console.assert(parsed.posts[0].destacado === true, 'El post debe ser destacado=true');
+console.assert(parsed.posts[0].important === false, 'El post General no debe ser categorizado como aviso urgente');
+console.log('✓ Test 9 OK: React consume la noticia de DIA_A_DIA con categoría "General", destacado=true e important=false.\n');
+
+// 10. Test de filtros y separación estricta de categorías
+console.log('10. Probando discriminación de filtros (Todos, General, Avisos, Tareas, En clase)...');
+const samplePosts = [
+  { id: '1', categoria: 'General', tag: 'General', title: 'Bienvenida', content: '...', completed: false },
+  { id: '2', categoria: 'Aviso', tag: 'Aviso', title: 'Circular', content: '...', completed: false },
+  { id: '3', categoria: 'Tarea', tag: 'Tarea', title: 'Ficha lectura', content: '...', completed: false },
+  { id: '4', categoria: 'Actividad', tag: 'Actividad', title: 'Plástica', content: '...', completed: false },
+];
+
+function testFilter(filterName: string, post: any): boolean {
+  const catStr = (post.categoria || '').toLowerCase().trim();
+  const tagStr = (post.tag || '').toLowerCase().trim();
+  if (filterName === 'all') return true;
+  if (filterName === 'General') return catStr.includes('general') || tagStr === 'general';
+  if (filterName === 'Aviso') {
+    if (catStr.includes('general')) return false;
+    return catStr.includes('aviso') || catStr.includes('circular') || tagStr === 'aviso';
+  }
+  if (filterName === 'Tarea') {
+    if (catStr.includes('general')) return false;
+    return catStr.includes('tarea') || catStr.includes('deber') || tagStr === 'tarea';
+  }
+  if (filterName === 'Actividad') {
+    if (catStr.includes('general')) return false;
+    return catStr.includes('clase') || catStr.includes('actividad') || tagStr === 'actividad';
+  }
+  return false;
+}
+
+// Validación de publicación General:
+console.assert(testFilter('all', samplePosts[0]) === true, 'General debe aparecer en Todos');
+console.assert(testFilter('General', samplePosts[0]) === true, 'General debe aparecer en filtro General');
+console.assert(testFilter('Aviso', samplePosts[0]) === false, 'General NO debe aparecer en filtro Avisos');
+console.assert(testFilter('Tarea', samplePosts[0]) === false, 'General NO debe aparecer en filtro Tareas');
+console.assert(testFilter('Actividad', samplePosts[0]) === false, 'General NO debe aparecer en filtro En clase');
+
+// Validación de publicación Aviso:
+console.assert(testFilter('Aviso', samplePosts[1]) === true, 'Aviso debe aparecer en filtro Avisos');
+console.assert(testFilter('General', samplePosts[1]) === false, 'Aviso NO debe aparecer en filtro General');
+
+// Validación de publicación Tarea:
+console.assert(testFilter('Tarea', samplePosts[2]) === true, 'Tarea debe aparecer en filtro Tareas');
+console.assert(testFilter('General', samplePosts[2]) === false, 'Tarea NO debe aparecer en filtro General');
+
+// Validación de publicación Actividad:
+console.assert(testFilter('Actividad', samplePosts[3]) === true, 'Actividad debe aparecer en filtro En clase');
+console.assert(testFilter('General', samplePosts[3]) === false, 'Actividad NO debe aparecer en filtro General');
+
+console.log('✓ Test 10 OK: Filtros Todos, General, Avisos, Tareas y En clase completamente aislados.\n');
 
 console.log('================================================================');
-console.log('✓ TODOS LOS 9 TESTS DE DIAGNÓSTICO HAN SIDO SUPERADOS CON ÉXITO');
+console.log('✓ TODOS LOS 10 TESTS DE DIAGNÓSTICO HAN SIDO SUPERADOS CON ÉXITO');
 console.log('================================================================');

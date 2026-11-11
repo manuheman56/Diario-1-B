@@ -85,12 +85,41 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
 
   // Filter logic
   const filteredPosts = posts.filter((post) => {
-    const matchesCategory =
-      activeFilter === 'all'
-        ? true
-        : activeFilter === 'pending'
-        ? post.tag === 'Tarea' && !post.completed
-        : post.tag.toLowerCase() === activeFilter.toLowerCase();
+    const catStr = (post.categoria || '').toLowerCase().trim();
+    const tagStr = (post.tag || '').toLowerCase().trim();
+
+    let matchesCategory = false;
+    if (activeFilter === 'all') {
+      matchesCategory = true;
+    } else if (activeFilter === 'pending') {
+      const isTask = catStr.includes('tarea') || catStr.includes('deber') || tagStr === 'tarea';
+      matchesCategory = isTask && !post.completed;
+    } else if (activeFilter === 'General') {
+      matchesCategory = catStr.includes('general') || tagStr === 'general';
+    } else if (activeFilter === 'Aviso') {
+      // Excluir estrictamente publicaciones de categoría General
+      if (catStr.includes('general')) {
+        matchesCategory = false;
+      } else {
+        matchesCategory = catStr.includes('aviso') || catStr.includes('circular') || tagStr === 'aviso';
+      }
+    } else if (activeFilter === 'Tarea') {
+      // Excluir estrictamente publicaciones de categoría General
+      if (catStr.includes('general')) {
+        matchesCategory = false;
+      } else {
+        matchesCategory = catStr.includes('tarea') || catStr.includes('deber') || tagStr === 'tarea';
+      }
+    } else if (activeFilter === 'Actividad') {
+      // Excluir estrictamente publicaciones de categoría General
+      if (catStr.includes('general')) {
+        matchesCategory = false;
+      } else {
+        matchesCategory = catStr.includes('clase') || catStr.includes('actividad') || tagStr === 'actividad';
+      }
+    } else {
+      matchesCategory = catStr === activeFilter.toLowerCase() || tagStr === activeFilter.toLowerCase();
+    }
 
     const matchesSearch =
       searchQuery.trim() === '' ||
@@ -101,9 +130,11 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
     return matchesCategory && matchesSearch;
   });
 
-  const pendingHomeworkCount = posts.filter(
-    (p) => p.tag === 'Tarea' && !p.completed
-  ).length;
+  const pendingHomeworkCount = posts.filter((p) => {
+    const cat = (p.categoria || p.tag || '').toLowerCase();
+    const isTask = cat.includes('tarea') || cat.includes('deber');
+    return isTask && !p.completed;
+  }).length;
 
   const handleTaskCheck = (id: string, currentlyCompleted?: boolean) => {
     onToggleTask(id);
@@ -270,6 +301,18 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
         </button>
 
         <button
+          onClick={() => setActiveFilter('General')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            activeFilter === 'General'
+              ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+          General
+        </button>
+
+        <button
           onClick={() => setActiveFilter('Aviso')}
           className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
             activeFilter === 'Aviso'
@@ -315,12 +358,12 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
             </div>
             <div>
               <p className="text-xs font-bold text-slate-700">
-                No hay avisos nuevos por el momento
+                No hay publicaciones en esta sección por el momento
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5">
                 {activeFilter !== 'all'
-                  ? 'No hay avisos en esta categoría. Puedes consultar el resto de novedades.'
-                  : 'Aquí aparecerán las novedades, tareas y circulares escolares.'}
+                  ? 'No hay publicaciones en esta categoría. Puedes consultar el resto de novedades escolares.'
+                  : 'Aquí aparecerán las novedades, tareas y actividades de la clase.'}
               </p>
             </div>
             {activeFilter !== 'all' && (
@@ -328,27 +371,39 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                 onClick={() => setActiveFilter('all')}
                 className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer"
               >
-                Ver todos los avisos
+                Ver todas las publicaciones
               </button>
             )}
           </div>
         ) : (
           filteredPosts.map((post) => {
-            const isHomework = post.tag === 'Tarea';
+            const cat = (post.categoria || post.tag || '').toLowerCase();
+            const isHomework = cat.includes('tarea') || cat.includes('deber');
             const isCompleted = post.completed ?? false;
 
             // Badge styling
-            let badgeStyle = 'bg-rose-50 text-rose-700 border-rose-200';
-            let badgeEmoji = post.icon || '📢';
-            if (post.tag === 'Tarea') {
+            let badgeStyle = 'bg-sky-50 text-sky-800 border-sky-200';
+            let badgeEmoji = post.icon || '📰';
+
+            if (cat.includes('tarea') || cat.includes('deber')) {
               badgeStyle = 'bg-amber-50 text-amber-800 border-amber-200';
               if (!post.icon) badgeEmoji = '✏️';
-            } else if (post.tag === 'Actividad') {
+            } else if (cat.includes('clase') || cat.includes('actividad')) {
               badgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-200';
               if (!post.icon) badgeEmoji = '🎨';
-            } else if (post.tag === 'Urgente') {
+            } else if (cat.includes('urgente')) {
               badgeStyle = 'bg-red-50 text-red-800 border-red-300 ring-2 ring-red-100';
               if (!post.icon) badgeEmoji = '🚨';
+            } else if (cat.includes('aviso') || cat.includes('circular')) {
+              badgeStyle = 'bg-rose-50 text-rose-700 border-rose-200';
+              if (!post.icon) badgeEmoji = '📢';
+            } else if (cat.includes('proyecto')) {
+              badgeStyle = 'bg-purple-50 text-purple-800 border-purple-200';
+              if (!post.icon) badgeEmoji = '🚀';
+            } else {
+              // General u otras categorías
+              badgeStyle = 'bg-sky-50 text-sky-800 border-sky-200';
+              if (!post.icon) badgeEmoji = '📰';
             }
 
             return (
@@ -357,8 +412,8 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                 className={`bg-white p-4 rounded-3xl border transition-all duration-200 shadow-card hover:shadow-md ${
                   isHomework && isCompleted
                     ? 'border-emerald-200 bg-emerald-50/20'
-                    : post.important
-                    ? 'border-amber-300 ring-2 ring-amber-100'
+                    : post.destacado
+                    ? 'border-indigo-200 ring-2 ring-indigo-50 shadow-sm'
                     : 'border-slate-200/80'
                 }`}
               >
@@ -369,13 +424,20 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                       className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badgeStyle}`}
                     >
                       <span>{badgeEmoji}</span>
-                      <span>{post.tag}</span>
+                      <span>{post.categoria || post.tag || 'General'}</span>
                     </span>
 
+                    {post.destacado && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                        <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                        Destacado
+                      </span>
+                    )}
+
                     {post.important && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">
                         <AlertCircle className="w-2.5 h-2.5" />
-                        Importante
+                        Urgente
                       </span>
                     )}
                   </div>

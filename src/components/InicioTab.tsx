@@ -48,16 +48,36 @@ export const InicioTab: React.FC<InicioTabProps> = ({
   }).format(new Date());
   const capitalizedDate = todayStr.charAt(0).toUpperCase() + todayStr.slice(1);
 
-  // Urgent notices check (from AVISOS or DIA_A_DIA)
-  const urgentAviso = avisos?.find((a) => a.important || a.tipo?.toLowerCase().includes('urgente'));
+  // Urgent notices check (strictly from real urgent notices in AVISOS or genuinely urgent posts, NEVER general or featured posts)
+  const urgentAviso = avisos?.find((a) =>
+    a.tipo?.toLowerCase().includes('urgente') ||
+    a.prioridad?.toLowerCase().includes('urgente') ||
+    a.prioridad?.toLowerCase().includes('alta')
+  );
+
   const urgentPost = urgentAviso
     ? {
         id: urgentAviso.id,
         title: urgentAviso.titulo,
         content: urgentAviso.mensaje,
         date: urgentAviso.fecha_publicacion,
+        targetTab: 'avisos' as MainTabType,
       }
-    : posts.find((p) => p.important || p.tag === 'Urgente');
+    : (() => {
+        const p = posts.find((item) =>
+          (item.tag || '').toLowerCase() === 'urgente' ||
+          (item.categoria || '').toLowerCase() === 'urgente'
+        );
+        return p
+          ? {
+              id: p.id,
+              title: p.title,
+              content: p.content,
+              date: p.date,
+              targetTab: 'diario' as MainTabType,
+            }
+          : null;
+      })();
 
   // Pending homework check
   const pendingTasks = posts.filter((p) => p.tag === 'Tarea' && !p.completed);
@@ -123,7 +143,7 @@ export const InicioTab: React.FC<InicioTabProps> = ({
       {/* 2. Urgent / Important Notice Banner (if active) */}
       {urgentPost && (
         <div
-          onClick={() => onNavigate('avisos')}
+          onClick={() => onNavigate(urgentPost.targetTab || 'avisos')}
           className="bg-rose-50 border border-rose-200/90 rounded-2xl p-3.5 flex items-start gap-3 shadow-xs hover:bg-rose-100/80 transition cursor-pointer"
         >
           <span className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 mt-0.5">
@@ -327,11 +347,19 @@ export const InicioTab: React.FC<InicioTabProps> = ({
                 onClick={() => onNavigate('diario')}
                 className="p-4 bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition cursor-pointer space-y-1.5"
               >
-                <div className="flex items-center justify-between text-[11px] text-slate-400">
-                  <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                    <span>{post.icon || '📌'}</span>
-                    <span>{post.tag}</span>
-                  </span>
+                <div className="flex items-center justify-between text-[11px] text-slate-400 gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                      <span>{post.icon || '📰'}</span>
+                      <span>{post.categoria || post.tag || 'General'}</span>
+                    </span>
+                    {post.destacado && (
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.2 rounded-full inline-flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                        Destacado
+                      </span>
+                    )}
+                  </div>
                   <span>{post.date}</span>
                 </div>
                 <h4 className="font-display font-bold text-xs text-slate-900">

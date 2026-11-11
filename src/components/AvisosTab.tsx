@@ -48,7 +48,10 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
           icon: a.important ? '🚨' : '📌',
         }))
       : posts
-          .filter((p) => p.tag !== 'Tarea')
+          .filter((p) => {
+            const cat = (p.categoria || p.tag || '').toLowerCase();
+            return cat.includes('aviso') || cat.includes('circular') || cat.includes('urgente');
+          })
           .map((p) => ({
             id: p.id,
             title: p.title,
@@ -56,7 +59,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
             date: p.date,
             deadline: undefined,
             important: p.important || p.tag === 'Urgente',
-            tag: p.tag,
+            tag: p.categoria || p.tag || 'Aviso',
             prioridad: p.important ? 'Alta' : 'Normal',
             author: p.author,
             link: p.enlace_url,

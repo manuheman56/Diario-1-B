@@ -248,13 +248,18 @@ export function formatSpanishTime(rawTime: string): string {
 /**
  * Normaliza categorías del diario escolar
  */
-function normalizeCategory(raw: string): PostCategory {
-  const lower = (raw || '').toLowerCase().trim();
+export function normalizeCategory(raw: string): PostCategory {
+  const trimmed = (raw || '').trim();
+  const lower = trimmed.toLowerCase();
+  if (!lower) return 'General';
+  if (lower === 'general' || lower.includes('general')) return 'General';
   if (lower.includes('tarea') || lower.includes('deber')) return 'Tarea';
   if (lower.includes('clase') || lower.includes('actividad')) return 'Actividad';
-  if (lower.includes('urgente') || lower.includes('importante')) return 'Urgente';
+  if (lower.includes('urgente')) return 'Urgente';
+  if (lower.includes('aviso') || lower.includes('circular')) return 'Aviso';
   if (lower.includes('proyecto')) return 'Proyecto';
-  return 'Aviso';
+  // Si el docente utiliza una categoría específica en la hoja, se preserva con la primera letra en mayúscula:
+  return (trimmed.charAt(0).toUpperCase() + trimmed.slice(1)) as PostCategory;
 }
 
 /**
@@ -349,7 +354,7 @@ export function parseDiaADiaRows(rows: string[][]): DiaADiaItem[] {
     const fecha = formatSpanishDate(rawFecha);
     const titulo = colTitulo !== -1 ? row[colTitulo] || '' : '';
     const contenido = colContenido !== -1 ? row[colContenido] || '' : '';
-    const categoria = colCat !== -1 ? row[colCat] || 'Actividad' : 'Actividad';
+    const categoria = colCat !== -1 && row[colCat] ? row[colCat].trim() : 'General';
     const imagen_url = colImg !== -1 ? row[colImg] : undefined;
     const enlace_url = colUrl !== -1 ? row[colUrl] : undefined;
     const destacado = colDestacado !== -1 ? parseDestacado(row[colDestacado]) : false;
@@ -358,6 +363,7 @@ export function parseDiaADiaRows(rows: string[][]): DiaADiaItem[] {
     if (!titulo && !contenido) continue;
 
     const postCat = normalizeCategory(categoria);
+    const isUrgent = postCat === 'Urgente' || categoria.toLowerCase().includes('urgente');
 
     items.push({
       id,
@@ -376,10 +382,21 @@ export function parseDiaADiaRows(rows: string[][]): DiaADiaItem[] {
       date: fecha || 'Hoy',
       timestamp: Date.now() - orden * 1000,
       completed: false,
-      important: destacado || postCat === 'Urgente',
+      important: isUrgent,
       author: 'Manuel Herrera',
       imageUrl: imagen_url || undefined,
-      icon: postCat === 'Tarea' ? '📝' : postCat === 'Actividad' ? '🎨' : postCat === 'Urgente' ? '🚨' : '📢',
+      icon:
+        postCat === 'Tarea'
+          ? '📝'
+          : postCat === 'Actividad'
+          ? '🎨'
+          : postCat === 'Urgente'
+          ? '🚨'
+          : postCat === 'Aviso'
+          ? '📢'
+          : postCat === 'Proyecto'
+          ? '🚀'
+          : '📰',
     });
   }
 
@@ -933,10 +950,12 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
       const fecha = formatSpanishDate(item.fecha || '');
       const titulo = item.titulo || '';
       const contenido = item.contenido || '';
-      const categoria = item.categoria || 'Actividad';
+      const rawCategoria = item.categoria || '';
+      const categoria = rawCategoria.trim() || 'General';
       const postCat = normalizeCategory(categoria);
       const orden = typeof item.orden === 'number' ? item.orden : idx;
       const destacado = parseDestacado(item.destacado);
+      const isUrgent = postCat === 'Urgente' || categoria.toLowerCase().includes('urgente');
 
       return {
         id: item.id || `dia-${idx}`,
@@ -955,10 +974,21 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
         date: fecha || 'Hoy',
         timestamp: Date.now() - orden * 1000,
         completed: false,
-        important: destacado || postCat === 'Urgente',
+        important: isUrgent,
         author: 'Manuel Herrera',
         imageUrl: item.imagen_url || undefined,
-        icon: postCat === 'Tarea' ? '📝' : postCat === 'Actividad' ? '🎨' : postCat === 'Urgente' ? '🚨' : '📢',
+        icon:
+          postCat === 'Tarea'
+            ? '📝'
+            : postCat === 'Actividad'
+            ? '🎨'
+            : postCat === 'Urgente'
+            ? '🚨'
+            : postCat === 'Aviso'
+            ? '📢'
+            : postCat === 'Proyecto'
+            ? '🚀'
+            : '📰',
       };
     })
     .sort((a, b) => a.orden - b.orden);
