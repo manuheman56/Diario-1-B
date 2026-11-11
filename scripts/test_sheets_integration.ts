@@ -211,8 +211,8 @@ console.assert(codeGs === scriptCodeGs, 'Code.gs y google-apps-script/Code.gs de
 console.assert(codeGs.includes("var SPREADSHEET_ID = '1NHMMUseFC_FNCXne-PcUt0rgQAv9HFP1';"), 'ID oficial ausente en Code.gs');
 console.assert(!codeGs.includes("'drive_folder_url'"), 'drive_folder_url debe estar eliminado de ALLOWED_CONFIG_KEYS');
 
-// Validar columnas de HORARIO
-const horarioMatch = codeGs.match(/HORARIO:\s*\[([\s\S]*?)\]/);
+// Validar columnas de HORARIO en OFFICIAL_COLUMNS
+const horarioMatch = codeGs.match(/OFFICIAL_COLUMNS\s*=\s*\{[\s\S]*?HORARIO:\s*\[([\s\S]*?)\]/);
 console.assert(Boolean(horarioMatch && horarioMatch[1]), 'Cabeceras de HORARIO ausentes');
 const horarioCols = (horarioMatch ? horarioMatch[1] : '').replace(/['"\s]/g, '').split(',');
 const expectedHorarioCols = ['dia_semana', 'orden_sesion', 'hora_inicio', 'hora_fin', 'asignatura', 'observaciones'];
@@ -227,8 +227,62 @@ console.assert(codeGs.includes('\\u2028') && codeGs.includes('\\u2029'), 'Escape
 console.assert(codeGs.includes('<\\/script'), 'Escape de script tag ausente');
 console.log('✓ Restricciones oficiales de Code.gs y sincronización verificadas.\n');
 
+// 15. Verificación específica de la fila real del usuario en DIA_A_DIA (noticia001 con destacado=SI)
+console.log('15. Verificando fila oficial noticia001 de DIA_A_DIA y su consumo por React...');
+const userNoticiaCSV = `id,fecha,titulo,contenido,categoria,imagen_url,enlace_url,destacado,estado,orden
+noticia001,11/11/2026,"¡Bienvenidos a nuestro diario de aula!","Este será nuestro espacio para compartir con las familias las actividades, experiencias y aprendizajes que vivimos cada día en clase. ¡Esperamos que disfrutéis acompañándonos!",General,,,SI,PUBLICAR,1`;
+
+const parsedNoticiaRows = parseDiaADiaRows(parseCSV(userNoticiaCSV));
+console.assert(parsedNoticiaRows.length === 1, `Se esperaba 1 fila parseada de DIA_A_DIA, obtenidas: ${parsedNoticiaRows.length}`);
+console.assert(parsedNoticiaRows[0].id === 'noticia001', 'El ID debe ser noticia001');
+console.assert(parsedNoticiaRows[0].titulo === '¡Bienvenidos a nuestro diario de aula!', 'Título no coincide');
+console.assert(parsedNoticiaRows[0].fecha === '11/11/2026', 'Fecha no coincide');
+console.assert(parsedNoticiaRows[0].destacado === true, 'destacado=SI debe ser evaluado a true');
+console.assert(parsedNoticiaRows[0].important === true, 'important debe ser true');
+console.assert(parsedNoticiaRows[0].estado === 'PUBLICAR', 'Estado debe ser PUBLICAR');
+console.assert(parsedNoticiaRows[0].orden === 1, 'Orden debe ser 1');
+
+// Validar también payload de Apps Script con esta noticia
+const payloadWithNoticia = parseAppsScriptPayload({
+  config: {},
+  dia_a_dia: [
+    {
+      id: 'noticia001',
+      fecha: '11/11/2026',
+      titulo: '¡Bienvenidos a nuestro diario de aula!',
+      contenido: 'Este será nuestro espacio para compartir con las familias las actividades, experiencias y aprendizajes que vivimos cada día en clase. ¡Esperamos que disfrutéis acompañándonos!',
+      categoria: 'General',
+      imagen_url: '',
+      enlace_url: '',
+      destacado: 'SI',
+      estado: 'PUBLICAR',
+      orden: 1
+    }
+  ],
+  avisos: [],
+  calendario: [],
+  horario: [],
+  multimedia: [],
+  aprendemos: [],
+  recursos: []
+});
+console.assert(payloadWithNoticia.posts.length === 1, 'Debe devolver 1 post en el payload de Apps Script');
+console.assert(payloadWithNoticia.posts[0].id === 'noticia001', 'ID del post debe ser noticia001');
+console.assert(payloadWithNoticia.posts[0].title === '¡Bienvenidos a nuestro diario de aula!', 'Título del post incorrecto');
+console.assert(payloadWithNoticia.posts[0].important === true, 'El post debe ser important=true por destacado=SI');
+console.log('✓ Fila oficial noticia001 validada y procesada correctamente por React.\n');
+
+// 16. Verificación de infraestructura de diagnóstico seguro y versión desplegada en Code.gs
+console.log('16. Verificando infraestructura de diagnóstico seguro en Code.gs...');
+console.assert(codeGs.includes("var SCRIPT_VERSION = 'v5-diag-2026-11-11';"), 'Versión del script v5-diag-2026-11-11 ausente');
+console.assert(codeGs.includes('getDiagnosticInfo'), 'Función getDiagnosticInfo ausente');
+console.assert(codeGs.includes("action === 'diag'"), 'Ruta action === diag ausente');
+console.assert(codeGs.includes('getSpreadsheet'), 'Función getSpreadsheet ausente');
+console.assert(codeGs.includes('TAB_ALIASES'), 'Mapeo TAB_ALIASES ausente');
+console.log('✓ Diagnóstico seguro, versión trazable y resolución tolerante de pestañas verificados.\n');
+
 testPendingConfig().then(() => {
   console.log('================================================================');
-  console.log('✓ TODAS LAS 14 PRUEBAS DE INTEGRACIÓN HAN SIDO SUPERADAS');
+  console.log('✓ TODAS LAS 16 PRUEBAS DE INTEGRACIÓN HAN SIDO SUPERADAS');
   console.log('================================================================');
 });

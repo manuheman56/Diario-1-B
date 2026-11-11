@@ -3,6 +3,7 @@
  * EL DIARIO DEL AULA — 1.º B | C.E.I.P. Dr. Fleming
  * Intermediario Seguro de Solo Lectura en Google Apps Script
  * ============================================================================
+ * Versión de diagnóstico seguro: v5-diag-2026-11-11
  * Tutor: Manuel Herrera
  * ID Hoja de Cálculo: 1NHMMUseFC_FNCXne-PcUt0rgQAv9HFP1
  *
@@ -13,8 +14,12 @@
  * - Quién tiene acceso: "Cualquier persona" ("Anyone, even anonymous").
  * - ESTRICTAMENTE DE SOLO LECTURA: Se bloquea cualquier petición POST o mutación.
  * - Lista CERRADA de 8 pestañas autorizadas (rechaza cualquier otra hoja).
+ * - Búsqueda tolerante de pestañas y alias: Resuelve DIA_A_DIA, DÍA A DÍA, Diario, etc.
+ * - Detección automática de fila de cabeceras: Soporta hojas con fila 1 vacía o título.
+ * - Diagnóstico seguro integrado (?action=diag): Reporta nombres reales de pestañas,
+ *   cabeceras y conteos SIN exponer datos personales ni contenido de filas.
  * - Limitación ESTRICTA de columnas devueltas: Solo las cabeceras oficiales.
- * - Filtro ESTRICTO de estado: Solo se devuelven filas con estado exactamente "PUBLICAR".
+ * - Filtro ESTRICTO de estado: Solo se devuelven filas con estado "PUBLICAR" / "PUBLICADO".
  * - "BORRADOR" y "ARCHIVADO" nunca salen del servidor de Google.
  * - CONFIGURACION filtra una lista cerrada de claves públicas (sin drive_folder_url).
  * - HORARIO devuelve exclusivamente: dia_semana, orden_sesion, hora_inicio, hora_fin, asignatura y observaciones.
@@ -22,6 +27,9 @@
  * - Salida en JSON o JSONP con escape de caracteres especiales y validación de callback.
  * ============================================================================
  */
+
+// Versión del script para verificar en producción que el despliegue está actualizado
+var SCRIPT_VERSION = 'v5-diag-2026-11-11';
 
 // Identificador oficial de la hoja de cálculo del aula
 var SPREADSHEET_ID = '1NHMMUseFC_FNCXne-PcUt0rgQAv9HFP1';
@@ -40,6 +48,63 @@ var ALLOWED_TABS = [
   'APRENDEMOS',
   'RECURSOS'
 ];
+
+// Alias y nombres comunes de pestañas físicas en Google Sheets
+var TAB_ALIASES = {
+  DIA_A_DIA: [
+    'dia_a_dia',
+    'dia a dia',
+    'diario',
+    'diario_de_aula',
+    'diario de aula',
+    'noticias',
+    'publicaciones',
+    'dia_a_dia_1b',
+    'dia_a_dia_1_b',
+    'dia a dia 1b',
+    'dia a dia 1º b',
+    'dia a dia 1.º b',
+    'dia'
+  ],
+  CONFIGURACION: [
+    'configuracion',
+    'config',
+    'ajustes',
+    'datos_generales'
+  ],
+  AVISOS: [
+    'avisos',
+    'notificaciones',
+    'circulares',
+    'aviso'
+  ],
+  CALENDARIO: [
+    'calendario',
+    'eventos',
+    'agenda'
+  ],
+  HORARIO: [
+    'horario',
+    'sesiones',
+    'tiempo'
+  ],
+  MULTIMEDIA: [
+    'multimedia',
+    'fotos',
+    'videos',
+    'fotografias'
+  ],
+  APRENDEMOS: [
+    'aprendemos',
+    'en_clase',
+    'actividades_aula'
+  ],
+  RECURSOS: [
+    'recursos',
+    'biblioteca',
+    'materiales'
+  ]
+};
 
 // Lista cerrada de claves públicas autorizadas de CONFIGURACION (sin drive_folder_url)
 var ALLOWED_CONFIG_KEYS = [
@@ -130,55 +195,72 @@ var COLUMN_ALIASES = {
 function doGet(e) {
   try {
     e = e || { parameter: {} };
-    var action = String(e.parameter.action || '').trim().toLowerCase();
-    var sheetParam = String(e.parameter.sheet || e.parameter.collection || '').trim().toUpperCase();
-    var callback = String(e.parameter.callback || '').trim();
+    var action = cleanString(e.parameter.action).toLowerCase();
+    var sheetParam = cleanString(e.parameter.sheet || e.parameter.collection).toUpperCase();
+    var callback = cleanString(e.parameter.callback);
 
-    // 1. OPERACIÓN: ping (comprueba disponibilidad sin exponer datos)
+    // 1. OPERACIÓN: ping (comprueba disponibilidad y versión desplegada)
     if (action === 'ping') {
       return createResponse({
         success: true,
         status: 'ok',
+        version: SCRIPT_VERSION,
         app: 'El Diario del Aula - 1.º B',
         timestamp: new Date().toISOString()
       }, callback);
     }
 
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var ss = getSpreadsheet();
     if (!ss) {
       return createResponse({
         success: false,
+        version: SCRIPT_VERSION,
         error: 'No se pudo acceder a la hoja de cálculo del aula.'
       }, callback);
     }
 
-    // 2. OPERACIÓN: get (consulta de una colección individual permitida)
+    // 2. OPERACIÓN: diag (diagnóstico seguro de estructura y DIA_A_DIA sin exponer datos personales)
+    if (action === 'diag' || action === 'diagnostico') {
+      return createResponse({
+        success: true,
+        status: 'ok',
+        action: 'diag',
+        version: SCRIPT_VERSION,
+        timestamp: new Date().toISOString(),
+        diag: getDiagnosticInfo(ss)
+      }, callback);
+    }
+
+    // 3. OPERACIÓN: get (consulta de una colección individual permitida)
     if (action === 'get' || sheetParam) {
       if (!sheetParam) {
         return createResponse({
           success: false,
+          version: SCRIPT_VERSION,
           error: 'Parámetro de colección no especificado.'
         }, callback);
       }
 
-      // Verificación estricta contra la lista cerrada de 8 pestañas
-      if (ALLOWED_TABS.indexOf(sheetParam) === -1) {
+      var matchedTab = findAllowedTab(sheetParam);
+      if (!matchedTab) {
         return createResponse({
           success: false,
+          version: SCRIPT_VERSION,
           error: 'Colección no autorizada.'
         }, callback);
       }
 
-      var singleData = readAuthorizedTab(ss, sheetParam);
+      var singleData = readAuthorizedTab(ss, matchedTab);
       return createResponse({
         success: true,
-        collection: sheetParam,
+        version: SCRIPT_VERSION,
+        collection: matchedTab,
         timestamp: new Date().toISOString(),
         data: singleData
       }, callback);
     }
 
-    // 3. OPERACIÓN: all (por defecto: devuelve todas las colecciones autorizadas)
+    // 4. OPERACIÓN: all (por defecto: devuelve todas las 8 colecciones autorizadas + diagnóstico de verificación)
     var allData = {
       config: readConfigTab(ss),
       dia_a_dia: readStandardTab(ss, 'DIA_A_DIA'),
@@ -192,14 +274,17 @@ function doGet(e) {
 
     return createResponse({
       success: true,
+      version: SCRIPT_VERSION,
       timestamp: new Date().toISOString(),
+      diag: getDiagnosticInfo(ss),
       data: allData
     }, callback);
 
   } catch (err) {
     return createResponse({
       success: false,
-      error: 'Error interno en el servicio escolar.'
+      version: SCRIPT_VERSION,
+      error: 'Error interno en el servicio escolar: ' + String(err && err.message ? err.message : err)
     }, callback);
   }
 }
@@ -210,8 +295,226 @@ function doGet(e) {
 function doPost(e) {
   return createResponse({
     success: false,
+    version: SCRIPT_VERSION,
     error: 'Operación no permitida. Este servicio es estrictamente de solo lectura.'
   }, '');
+}
+
+/**
+ * Obtiene la hoja de cálculo:
+ * 1. Prioriza getActiveSpreadsheet() si el script está vinculado como contenedor (Extensiones > Apps Script).
+ * 2. Si es independiente, recurre a openById(SPREADSHEET_ID).
+ */
+function getSpreadsheet() {
+  var ss = null;
+  try {
+    if (typeof SpreadsheetApp.getActiveSpreadsheet === 'function') {
+      ss = SpreadsheetApp.getActiveSpreadsheet();
+      if (ss) return ss;
+    }
+  } catch (e1) {}
+
+  try {
+    ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    if (ss) return ss;
+  } catch (e2) {}
+
+  return null;
+}
+
+/**
+ * Genera un diagnóstico estructural seguro:
+ * - Informa de los nombres físicos reales de las pestañas encontradas
+ * - Informa de la fila de cabeceras detectada y los nombres de columnas
+ * - Informa del número de filas totales y las que tienen estado PUBLICAR
+ * - NO incluye ningún dato personal, títulos de noticias ni contenido sensible
+ */
+function getDiagnosticInfo(ss) {
+  var diag = {
+    version: SCRIPT_VERSION,
+    spreadsheet_id: SPREADSHEET_ID,
+    spreadsheet_name: '',
+    spreadsheet_timezone: '',
+    sheets_found: [],
+    dia_a_dia: {
+      found: false,
+      matched_sheet_name: null,
+      total_rows: 0,
+      total_cols: 0,
+      header_row: null,
+      headers: [],
+      estado_col_index: -1,
+      id_col_index: -1,
+      titulo_col_index: -1,
+      total_data_rows: 0,
+      unique_estados_found: [],
+      count_publicar: 0,
+      rows_returned_count: 0
+    }
+  };
+
+  if (!ss) {
+    diag.error = 'No se pudo abrir la hoja de cálculo.';
+    return diag;
+  }
+
+  try {
+    diag.spreadsheet_name = ss.getName();
+    diag.spreadsheet_timezone = ss.getSpreadsheetTimeZone();
+
+    var sheets = ss.getSheets();
+    for (var i = 0; i < sheets.length; i++) {
+      var s = sheets[i];
+      diag.sheets_found.push({
+        index: i,
+        name: s.getName(),
+        rows: s.getLastRow(),
+        cols: s.getLastColumn()
+      });
+    }
+
+    var diaSheet = getSheetTolerant(ss, 'DIA_A_DIA');
+    if (diaSheet) {
+      diag.dia_a_dia.found = true;
+      diag.dia_a_dia.matched_sheet_name = diaSheet.getName();
+      diag.dia_a_dia.total_rows = diaSheet.getLastRow();
+      diag.dia_a_dia.total_cols = diaSheet.getLastColumn();
+
+      var data = diaSheet.getDataRange().getValues();
+      if (data && data.length > 0) {
+        var headerRowIdx = findHeaderRowIndex(data, ['estado', 'status', 'id', 'titulo']);
+        diag.dia_a_dia.header_row = headerRowIdx + 1; // 1-indexed
+
+        var headers = normalizeHeaders(data[headerRowIdx]);
+        diag.dia_a_dia.headers = headers;
+
+        var estadoColIdx = findHeaderIndex(headers, ['estado', 'status']);
+        diag.dia_a_dia.estado_col_index = estadoColIdx;
+        diag.dia_a_dia.id_col_index = findHeaderIndex(headers, ['id', 'identificacion']);
+        diag.dia_a_dia.titulo_col_index = findHeaderIndex(headers, ['titulo', 'title']);
+
+        var estadosMap = {};
+        var countPub = 0;
+        var countReturned = 0;
+
+        for (var r = headerRowIdx + 1; r < data.length; r++) {
+          var row = data[r];
+          if (!row || row.length === 0) continue;
+          var isEmpty = row.every(function(cell) { return cell === '' || cell === null || cell === undefined; });
+          if (isEmpty) continue;
+
+          var estadoVal = estadoColIdx !== -1 ? cleanString(row[estadoColIdx]).toUpperCase() : '';
+          estadosMap[estadoVal] = true;
+          if (estadoVal === 'PUBLICAR' || estadoVal === 'PUBLICADO') {
+            countPub++;
+            // Validar si tiene contenido mínimo id o titulo
+            var idVal = diag.dia_a_dia.id_col_index !== -1 ? cleanString(row[diag.dia_a_dia.id_col_index]) : '';
+            var tituloVal = diag.dia_a_dia.titulo_col_index !== -1 ? cleanString(row[diag.dia_a_dia.titulo_col_index]) : '';
+            if (idVal || tituloVal) {
+              countReturned++;
+            }
+          }
+        }
+
+        diag.dia_a_dia.total_data_rows = Math.max(0, data.length - (headerRowIdx + 1));
+        diag.dia_a_dia.unique_estados_found = Object.keys(estadosMap);
+        diag.dia_a_dia.count_publicar = countPub;
+        diag.dia_a_dia.rows_returned_count = countReturned;
+      }
+    }
+  } catch (err) {
+    diag.error = String(err && err.message ? err.message : err);
+  }
+
+  return diag;
+}
+
+/**
+ * Localiza la hoja en la hoja de cálculo de forma tolerante a:
+ * 1. Coincidencia exacta (ej. "DIA_A_DIA")
+ * 2. Normalización del nombre (sin tildes, minúsculas, guiones por espacios)
+ * 3. Lista de alias habituales (ej. "Diario", "Diario de Aula", "Día a Día 1º B")
+ */
+function getSheetTolerant(ss, sheetName) {
+  if (!ss) return null;
+
+  // 1. Búsqueda exacta directa
+  var sheet = ss.getSheetByName(sheetName);
+  if (sheet) return sheet;
+
+  // 2. Búsqueda normalizada directa
+  var targetNorm = normalizeSheetName(sheetName);
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    var cur = sheets[i];
+    if (normalizeSheetName(cur.getName()) === targetNorm) {
+      return cur;
+    }
+  }
+
+  // 3. Búsqueda mediante lista de alias de la pestaña
+  var aliases = TAB_ALIASES[sheetName] || [];
+  for (var a = 0; a < aliases.length; a++) {
+    var aliasNorm = normalizeSheetName(aliases[a]);
+    for (var j = 0; j < sheets.length; j++) {
+      if (normalizeSheetName(sheets[j].getName()) === aliasNorm) {
+        return sheets[j];
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Normaliza nombres de hojas y pestañas para comparación segura
+ */
+function normalizeSheetName(str) {
+  if (!str) return '';
+  return String(str)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
+    .toLowerCase()
+    .replace(/[\s\-_]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+/**
+ * Comprueba si un parámetro corresponde a una de las 8 pestañas autorizadas
+ */
+function findAllowedTab(param) {
+  var normParam = normalizeSheetName(param);
+  for (var i = 0; i < ALLOWED_TABS.length; i++) {
+    var tabKey = ALLOWED_TABS[i];
+    if (normalizeSheetName(tabKey) === normParam) {
+      return tabKey;
+    }
+    var aliases = TAB_ALIASES[tabKey] || [];
+    for (var a = 0; a < aliases.length; a++) {
+      if (normalizeSheetName(aliases[a]) === normParam) {
+        return tabKey;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Localiza automáticamente la fila que contiene las cabeceras reales.
+ * Examina las primeras 6 filas por si el usuario incluyó títulos o filas vacías al inicio.
+ */
+function findHeaderRowIndex(data, targetColAliases) {
+  var maxScanRows = Math.min(6, data.length);
+  for (var r = 0; r < maxScanRows; r++) {
+    var candidateHeaders = normalizeHeaders(data[r]);
+    for (var a = 0; a < targetColAliases.length; a++) {
+      if (candidateHeaders.indexOf(targetColAliases[a]) !== -1) {
+        return r;
+      }
+    }
+  }
+  return 0;
 }
 
 /**
@@ -219,20 +522,21 @@ function doPost(e) {
  * Excluye explícitamente cualquier dato privado o sensible (como drive_folder_url).
  */
 function readConfigTab(ss) {
-  var sheet = ss.getSheetByName('CONFIGURACION');
+  var sheet = getSheetTolerant(ss, 'CONFIGURACION');
   if (!sheet) return {};
 
   var data = sheet.getDataRange().getValues();
   if (!data || data.length < 2) return {};
 
+  var headerRowIdx = findHeaderRowIndex(data, ['clave', 'key', 'parametro']);
   var config = {};
-  for (var i = 1; i < data.length; i++) {
-    var key = String(data[i][0] || '').trim().toLowerCase();
+  for (var i = headerRowIdx + 1; i < data.length; i++) {
+    var key = cleanString(data[i][0]).toLowerCase();
     var val = data[i][1];
 
     // Solo se entregan las claves estrictamente públicas
     if (key && ALLOWED_CONFIG_KEYS.indexOf(key) !== -1) {
-      config[key] = (val === null || val === undefined) ? '' : String(val).trim();
+      config[key] = (val === null || val === undefined) ? '' : cleanString(val);
     }
   }
   return config;
@@ -244,13 +548,14 @@ function readConfigTab(ss) {
  * dia_semana, orden_sesion, hora_inicio, hora_fin, asignatura y observaciones.
  */
 function readHorarioTab(ss) {
-  var sheet = ss.getSheetByName('HORARIO');
+  var sheet = getSheetTolerant(ss, 'HORARIO');
   if (!sheet) return [];
 
   var data = sheet.getDataRange().getValues();
   if (!data || data.length < 2) return [];
 
-  var headers = normalizeHeaders(data[0]);
+  var headerRowIdx = findHeaderRowIndex(data, ['dia_semana', 'asignatura', 'hora_inicio', 'dia']);
+  var headers = normalizeHeaders(data[headerRowIdx]);
   var estadoColIdx = findHeaderIndex(headers, ['estado', 'status']);
 
   var officialCols = OFFICIAL_COLUMNS.HORARIO;
@@ -263,15 +568,16 @@ function readHorarioTab(ss) {
 
   var rows = [];
 
-  for (var i = 1; i < data.length; i++) {
+  for (var i = headerRowIdx + 1; i < data.length; i++) {
     var row = data[i];
-    var isEmpty = row.every(function(cell) { return cell === '' || cell === null; });
+    if (!row || row.length === 0) continue;
+    var isEmpty = row.every(function(cell) { return cell === '' || cell === null || cell === undefined; });
     if (isEmpty) continue;
 
     // Si la hoja tuviese columna estado, solo admitir PUBLICAR
     if (estadoColIdx !== -1) {
-      var estadoVal = String(row[estadoColIdx] || '').trim().toUpperCase();
-      if (estadoVal && estadoVal !== 'PUBLICAR') {
+      var estadoVal = cleanString(row[estadoColIdx]).toUpperCase();
+      if (estadoVal && estadoVal !== 'PUBLICAR' && estadoVal !== 'PUBLICADO') {
         continue;
       }
     }
@@ -305,17 +611,19 @@ function readHorarioTab(ss) {
 
 /**
  * Lector de pestañas estándar con EXIGENCIA OBLIGATORIA de columna "estado"
- * y filtrado estricto a registros exactamente con valor "PUBLICAR".
+ * y filtrado estricto a registros exactamente con valor "PUBLICAR" o "PUBLICADO".
  * Devuelve objetos que contienen ÚNICAMENTE las cabeceras oficiales del proyecto.
  */
 function readStandardTab(ss, sheetName) {
-  var sheet = ss.getSheetByName(sheetName);
+  var sheet = getSheetTolerant(ss, sheetName);
   if (!sheet) return [];
 
   var data = sheet.getDataRange().getValues();
   if (!data || data.length < 2) return [];
 
-  var headers = normalizeHeaders(data[0]);
+  // Localizar la fila real de cabeceras (por si existen filas iniciales de título o vacías)
+  var headerRowIdx = findHeaderRowIndex(data, ['estado', 'status', 'id', 'titulo']);
+  var headers = normalizeHeaders(data[headerRowIdx]);
   var estadoColIdx = findHeaderIndex(headers, ['estado', 'status']);
 
   // EXIGENCIA DE SEGURIDAD: La columna estado es obligatoria en estas pestañas
@@ -333,14 +641,15 @@ function readStandardTab(ss, sheetName) {
 
   var rows = [];
 
-  for (var i = 1; i < data.length; i++) {
+  for (var i = headerRowIdx + 1; i < data.length; i++) {
     var row = data[i];
-    var isEmpty = row.every(function(cell) { return cell === '' || cell === null; });
+    if (!row || row.length === 0) continue;
+    var isEmpty = row.every(function(cell) { return cell === '' || cell === null || cell === undefined; });
     if (isEmpty) continue;
 
-    // FILTRO ESTRICTO: Solo registros con estado exactamente igual a "PUBLICAR"
-    var estadoVal = String(row[estadoColIdx] || '').trim().toUpperCase();
-    if (estadoVal !== 'PUBLICAR') {
+    // FILTRO ESTRICTO: Solo registros con estado PUBLICAR o PUBLICADO
+    var estadoVal = cleanString(row[estadoColIdx]).toUpperCase();
+    if (estadoVal !== 'PUBLICAR' && estadoVal !== 'PUBLICADO') {
       continue; // Excluye BORRADOR, ARCHIVADO o celdas vacías
     }
 
@@ -390,36 +699,44 @@ function readAuthorizedTab(ss, tabName) {
 }
 
 /**
- * Normaliza cabeceras (minúsculas, sin tildes, con guiones bajos)
+ * Normaliza cabeceras (minúsculas, sin tildes, sin caracteres invisibles, con guiones bajos)
  */
 function normalizeHeaders(headerRow) {
   var normalized = [];
   for (var i = 0; i < headerRow.length; i++) {
-    var raw = String(headerRow[i] || '').trim().toLowerCase();
-    raw = raw.replace(/[áàäâ]/g, 'a')
-             .replace(/[éèëê]/g, 'e')
-             .replace(/[íìïî]/g, 'i')
-             .replace(/[óòöô]/g, 'o')
-             .replace(/[úùüû]/g, 'u')
-             .replace(/[ñ]/g, 'n')
-             .replace(/[\s\-_]+/g, '_');
+    var raw = cleanString(headerRow[i]);
+    raw = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    raw = raw.replace(/[^\w]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
     normalized.push(raw);
   }
   return normalized;
 }
 
 /**
- * Localiza índice de cabecera por lista de alias
+ * Localiza índice de cabecera priorizando alias oficiales exactos
  */
 function findHeaderIndex(headers, aliases) {
-  for (var i = 0; i < headers.length; i++) {
-    for (var a = 0; a < aliases.length; a++) {
-      if (headers[i] === aliases[a]) {
+  for (var a = 0; a < aliases.length; a++) {
+    var target = aliases[a];
+    for (var i = 0; i < headers.length; i++) {
+      if (headers[i] === target) {
         return i;
       }
     }
   }
   return -1;
+}
+
+/**
+ * Limpieza de espacios en blanco y caracteres unicode invisibles (BOM, zero-width, non-breaking space)
+ */
+function cleanString(val) {
+  if (val === null || val === undefined) {
+    return '';
+  }
+  return String(val)
+    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ')
+    .trim();
 }
 
 /**
@@ -430,10 +747,8 @@ function formatCellValue(val) {
     return '';
   }
   if (val instanceof Date) {
-    var hours = val.getHours();
-    var mins = val.getMinutes();
-    var secs = val.getSeconds();
-    if (hours === 0 && mins === 0 && secs === 0) {
+    var timeFormatted = Utilities.formatDate(val, TIMEZONE, 'HH:mm:ss');
+    if (timeFormatted === '00:00:00') {
       return Utilities.formatDate(val, TIMEZONE, 'dd/MM/yyyy');
     } else {
       return Utilities.formatDate(val, TIMEZONE, 'dd/MM/yyyy HH:mm');
@@ -445,7 +760,7 @@ function formatCellValue(val) {
   if (typeof val === 'number') {
     return val;
   }
-  return String(val).trim();
+  return cleanString(val);
 }
 
 /**
