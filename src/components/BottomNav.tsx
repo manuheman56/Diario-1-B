@@ -23,41 +23,70 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   pendingTasksCount = 0,
   urgentNoticesCount = 0,
 }) => {
+  const isHorarioOrCal = activeTab === 'horario' || activeTab === 'calendario';
+  const isRecursosOrAprendemos =
+    activeTab === 'recursos' || activeTab === 'aprendemos' || activeTab === 'multimedia';
+
   const tabs: {
     id: MainTabType;
     label: string;
     icon: React.ReactNode;
+    isActive: boolean;
     badge?: number;
     badgeColor?: string;
+    onClick: () => void;
   }[] = [
     {
       id: 'inicio',
       label: 'Inicio',
       icon: <Sparkles className="w-5 h-5" />,
+      isActive: activeTab === 'inicio',
+      onClick: () => onTabChange('inicio'),
     },
     {
       id: 'diario',
       label: 'Día a Día',
       icon: <BookOpen className="w-5 h-5" />,
+      isActive: activeTab === 'diario',
       badge: pendingTasksCount > 0 ? pendingTasksCount : undefined,
       badgeColor: 'bg-amber-500',
+      onClick: () => onTabChange('diario'),
     },
     {
       id: 'avisos',
       label: 'Avisos',
       icon: <Bell className="w-5 h-5" />,
+      isActive: activeTab === 'avisos',
       badge: urgentNoticesCount > 0 ? urgentNoticesCount : undefined,
       badgeColor: 'bg-rose-500 animate-pulse',
+      onClick: () => onTabChange('avisos'),
     },
     {
       id: 'horario',
-      label: 'Horario',
+      label: activeTab === 'calendario' ? 'Calendario' : 'Horario',
       icon: <Clock className="w-5 h-5" />,
+      isActive: isHorarioOrCal,
+      onClick: () => {
+        // Si ya está en horario, conmuta a calendario para máxima agilidad en móvil
+        if (activeTab === 'horario') {
+          onTabChange('calendario');
+        } else {
+          onTabChange('horario');
+        }
+      },
     },
     {
       id: 'recursos',
-      label: 'Recursos',
+      label: activeTab === 'aprendemos' ? 'Aprendemos' : activeTab === 'multimedia' ? 'Fotos/Vídeos' : 'Recursos',
       icon: <GraduationCap className="w-5 h-5" />,
+      isActive: isRecursosOrAprendemos,
+      onClick: () => {
+        if (activeTab === 'recursos') {
+          onTabChange('aprendemos');
+        } else {
+          onTabChange('recursos');
+        }
+      },
     },
   ];
 
@@ -65,20 +94,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     <nav
       className="sticky bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-1.5 pt-1.5 pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-lg pointer-events-auto"
       role="tablist"
-      aria-label="Navegación principal"
+      aria-label="Navegación principal inferior"
     >
       <div className="flex items-stretch justify-between w-full max-w-lg mx-auto gap-0.5 sm:gap-1">
         {tabs.map((tab) => {
-          const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
               role="tab"
-              aria-selected={isActive}
-              onClick={() => onTabChange(tab.id)}
+              aria-selected={tab.isActive}
+              onClick={tab.onClick}
               className={`flex-1 min-w-0 min-h-[52px] flex flex-col items-center justify-center py-1 px-0.5 rounded-2xl transition-all duration-150 cursor-pointer select-none touch-manipulation active:scale-95 ${
-                isActive
+                tab.isActive
                   ? 'text-indigo-600 font-extrabold bg-indigo-50/70 shadow-2xs'
                   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 font-medium'
               }`}
@@ -98,7 +126,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               <span className="text-[10px] sm:text-[11px] mt-1 tracking-tight truncate w-full text-center leading-none">
                 {tab.label}
               </span>
-              {isActive && (
+              {tab.isActive && (
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-1"></span>
               )}
             </button>

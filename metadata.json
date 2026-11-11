@@ -1,6 +1,6 @@
 {
   "name": "El Diario del Aula",
-  "description": "Portal escolar interactivo y diario de clase para familias y docentes: avisos del día, tareas, horario semanal, calendario escolar, menú de comedor y tutorías.",
+  "description": "El Diario del Aula de 1.º de Primaria B del C.E.I.P. Dr. Fleming. Información diaria, avisos, horario, calendario escolar, multimedia y recursos pedagógicos para las familias.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -71,12 +71,21 @@ export const InstallModal: React.FC<InstallModalProps> = ({ isOpen, onClose }) =
           </div>
         </div>
 
-        <button
-          onClick={onClose}
-          className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 rounded-xl transition cursor-pointer shadow-md"
-        >
-          ¡Entendido!
-        </button>
+        <div className="pt-1 flex flex-col gap-2">
+          <button
+            onClick={onClose}
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 rounded-xl transition cursor-pointer shadow-md"
+          >
+            ¡Entendido!
+          </button>
+          <a
+            href="/el-diario-del-aula-1b.zip"
+            download="el-diario-del-aula-1b.zip"
+            className="w-full text-center py-2 text-[11px] font-semibold text-slate-500 hover:text-indigo-600 transition"
+          >
+            Descargar código del proyecto (ZIP para GitHub / Netlify)
+          </a>
+        </div>
       </div>
     </div>
   );

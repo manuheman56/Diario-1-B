@@ -1,4 +1,4 @@
-const CACHE_NAME = 'diario-aula-v2';
+const CACHE_NAME = 'diario-aula-v3';
 
 const STATIC_ASSETS = [
   '/',
@@ -6,22 +6,24 @@ const STATIC_ASSETS = [
   '/manifest.json',
   '/pwa-192x192.png',
   '/pwa-512x512.png',
+  '/pwa-maskable-512x512.png',
   '/apple-touch-icon.png',
   '/favicon.png',
   '/icon.png',
 ];
 
-// 1. Install event: Pre-cache app shell
+// 1. Install event: Pre-cache app shell and force immediate activation
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
+  // Force the waiting service worker to become the active service worker
   self.skipWaiting();
 });
 
-// 2. Activate event: Clean old caches and claim clients
+// 2. Activate event: Clean up stale caches from previous versions and claim all clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -34,10 +36,11 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  // Take control of all open pages immediately
   self.clients.claim();
 });
 
-// 3. Fetch event: Stale-While-Revalidate and Cache-First strategy
+// 3. Fetch event: Netlify-safe caching strategy
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -47,8 +50,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // A. Google Sheets requests: Always Network-First (live data for parents)
-  if (url.hostname.includes('docs.google.com') || url.pathname.includes('/spreadsheets/')) {
+  // A. Google Apps Script Web App requests: Always Network-First (live classroom updates for families)
+  if (url.hostname.includes('script.google.com') || url.hostname.includes('script.googleusercontent.com')) {
     event.respondWith(
       fetch(request).catch(() => {
         // Fallback to cache if offline
@@ -67,7 +70,9 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
           return fetch(request).then((networkResponse) => {
-            cache.put(request, networkResponse.clone());
+            if (networkResponse && networkResponse.status === 200) {
+              cache.put(request, networkResponse.clone());
+            }
             return networkResponse;
           });
         });
@@ -76,15 +81,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // B. Navigation requests (HTML SPA): Network-First, fallback to cached index.html
+  // C. Navigation requests (HTML SPA): Network-First, fallback to cached index.html
+  // This guarantees that any new Netlify deployment with new JS bundle hashes is received immediately
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((networkResponse) => {
-          return caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, networkResponse.clone());
-            return networkResponse;
-          });
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
+          return networkResponse;
         })
         .catch(() => {
           return caches.match('/index.html') || caches.match('/');
@@ -93,7 +102,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // C. Static assets (JS, CSS, images, icons): Stale-While-Revalidate
+  // D. Static assets (JS, CSS, images, icons): Stale-While-Revalidate
   event.respondWith(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.match(request).then((cachedResponse) => {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { AppConfig } from '../types';
-import { multimediaAlbums, educationalVideos } from '../data/defaultData';
+import { AppConfig, MultimediaItem } from '../types';
+import { initialMultimedia } from '../data/defaultData';
 import {
   ShieldCheck,
   Play,
@@ -15,16 +15,17 @@ import {
 
 interface MultimediaTabProps {
   config: AppConfig;
+  items?: MultimediaItem[];
 }
 
-export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config }) => {
+export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config, items }) => {
   const [activeVideo, setActiveVideo] = useState<{
     title: string;
     embedUrl: string;
-    subject: string;
+    subject?: string;
   } | null>(null);
 
-  const [selectedAlbum, setSelectedAlbum] = useState<typeof multimediaAlbums[0] | null>(null);
+  const [selectedItem, setSelectedItem] = useState<MultimediaItem | null>(null);
   const [showDriveInfoModal, setShowDriveInfoModal] = useState(false);
 
   // Sanitiza el enlace de Google Drive para garantizar que SOLO apunte a una carpeta específica
@@ -33,11 +34,9 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config }) => {
     if (!raw || raw.includes('PEGA_AQUÍ') || raw.startsWith('[')) {
       return null;
     }
-    // Si ya es un enlace de carpeta completo
     if (raw.startsWith('http')) {
       return raw;
     }
-    // Si es solo el ID de la carpeta
     return `https://drive.google.com/drive/folders/${raw}`;
   };
 
@@ -50,6 +49,11 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config }) => {
       setShowDriveInfoModal(true);
     }
   };
+
+  // Usar items dinámicos de Google Apps Script (pestaña MULTIMEDIA) o lista vacía
+  const activeMediaList = items !== undefined ? items : [];
+  const photos = activeMediaList.filter((m) => m.tipo === 'FOTOGRAFIA');
+  const videos = activeMediaList.filter((m) => m.tipo === 'VIDEO');
 
   return (
     <div className="space-y-4 pb-6">
@@ -74,11 +78,11 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config }) => {
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="font-display font-bold text-slate-900 text-sm">
-                  Carpeta de Fotos de Clase
+                  Fotografías del Aula ({photos.length})
                 </h3>
               </div>
               <p className="text-[11px] text-slate-500">
-                Acceso restringido únicamente a la carpeta del curso
+                Acceso restringido únicamente al material autorizado de clase
               </p>
             </div>
           </div>
@@ -89,38 +93,51 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config }) => {
         </div>
 
         <p className="text-xs text-slate-600 leading-relaxed bg-white/80 p-3 rounded-2xl border border-blue-100/80">
-          Por privacidad y seguridad, esta sección está configurada para filtrar
-          únicamente la carpeta específica de 1º de Primaria B, sin acceso al
-          resto del almacenamiento en la nube.
+          Por privacidad y seguridad, esta sección filtra únicamente fotografías
+          autorizadas de 1º de Primaria B, sin acceso al resto del almacenamiento en la nube.
         </p>
 
-        {/* Álbumes autorizados dentro de la app */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {multimediaAlbums.map((alb) => (
-            <div
-              key={alb.id}
-              onClick={() => setSelectedAlbum(alb)}
-              className="group block bg-white rounded-2xl p-2.5 border border-slate-200/70 shadow-2xs hover:border-blue-300 hover:shadow-xs transition cursor-pointer"
-            >
-              <div className="relative aspect-video rounded-xl overflow-hidden mb-2 bg-slate-100">
-                <img
-                  src={alb.coverUrl}
-                  alt={alb.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                />
-                <span className="absolute bottom-1 right-1 text-[9px] font-bold bg-black/70 text-white px-1.5 py-0.5 rounded-md">
-                  {alb.count}
-                </span>
+        {/* Álbumes y fotos autorizados dentro de la app */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {photos.length === 0 ? (
+            <p className="text-xs text-slate-400 italic col-span-3 text-center py-4 bg-white/60 rounded-2xl">
+              No hay fotografías publicadas por el momento.
+            </p>
+          ) : (
+            photos.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => setSelectedItem(item)}
+                className="group block bg-white rounded-2xl p-2.5 border border-slate-200/70 shadow-2xs hover:border-blue-300 hover:shadow-xs transition cursor-pointer"
+              >
+                <div className="relative aspect-video rounded-xl overflow-hidden mb-2 bg-slate-100">
+                  <img
+                    src={item.miniatura_url || item.url_media}
+                    alt={item.titulo}
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      // Fallback visual silencioso
+                      (e.currentTarget as HTMLElement).style.opacity = '0.5';
+                    }}
+                  />
+                  {item.actividad_relacionada && (
+                    <span className="absolute bottom-1 right-1 text-[9px] font-bold bg-black/70 text-white px-1.5 py-0.5 rounded-md truncate max-w-[90%]">
+                      {item.actividad_relacionada}
+                    </span>
+                  )}
+                </div>
+                <h4 className="font-bold text-[11px] text-slate-800 truncate">
+                  {item.titulo}
+                </h4>
+                <p className="text-[10px] text-slate-400">{item.fecha}</p>
               </div>
-              <h4 className="font-bold text-[11px] text-slate-800 truncate">
-                {alb.title}
-              </h4>
-              <p className="text-[10px] text-slate-400">{alb.date}</p>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
-        {/* Botón único a la carpeta autorizada (sin explorador general de Drive) */}
+        {/* Botón único a la carpeta autorizada de Drive */}
         <button
           onClick={handleOpenDriveFolder}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-98 cursor-pointer"
@@ -131,7 +148,7 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config }) => {
         </button>
       </div>
 
-      {/* 2. YouTube - Reproductor Seguro en App (Sin enlaces externos al canal general) */}
+      {/* 2. YouTube - Reproductor Seguro en App */}
       <div className="bg-gradient-to-br from-rose-50 via-red-50/70 to-amber-50/50 border border-red-200/90 rounded-3xl p-4.5 shadow-card space-y-3.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -140,7 +157,7 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config }) => {
             </div>
             <div>
               <h3 className="font-display font-bold text-slate-900 text-sm">
-                Vídeos Educativos del Aula
+                Vídeos Educativos del Aula ({videos.length})
               </h3>
               <p className="text-[11px] text-slate-500">
                 Reproducción segura dentro de la app sin acceso a canales personales
@@ -161,33 +178,49 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config }) => {
 
         {/* Video Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {educationalVideos.map((vid) => (
-            <div
-              key={vid.id}
-              onClick={() => setActiveVideo(vid)}
-              className="bg-white rounded-2xl p-2.5 border border-slate-200 shadow-2xs hover:border-red-300 hover:shadow-xs transition cursor-pointer group"
-            >
-              <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 mb-2">
-                <img
-                  src={vid.thumbnail}
-                  alt={vid.title}
-                  className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition duration-300"
-                />
-                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                  <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
-                    <Play className="w-4 h-4 ml-0.5" />
+          {videos.length === 0 ? (
+            <p className="text-xs text-slate-400 italic col-span-2 text-center py-4 bg-white/60 rounded-2xl">
+              No hay vídeos publicados en este momento.
+            </p>
+          ) : (
+            videos.map((vid) => (
+              <div
+                key={vid.id}
+                onClick={() =>
+                  setActiveVideo({
+                    title: vid.titulo,
+                    embedUrl: vid.embedUrl || vid.url_media,
+                    subject: vid.actividad_relacionada || 'Vídeo escolar',
+                  })
+                }
+                className="bg-white rounded-2xl p-2.5 border border-slate-200 shadow-2xs hover:border-red-300 hover:shadow-xs transition cursor-pointer group"
+              >
+                <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 mb-2">
+                  <img
+                    src={vid.miniatura_url || '/pwa-512x512.png'}
+                    alt={vid.titulo}
+                    className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition duration-300"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.opacity = '0.4';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
+                      <Play className="w-4 h-4 ml-0.5" />
+                    </div>
                   </div>
                 </div>
-                <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                  {vid.duration}
+                <h4 className="font-bold text-xs text-slate-900 line-clamp-1 group-hover:text-red-700 transition">
+                  {vid.titulo}
+                </h4>
+                <span className="text-[10px] text-slate-500">
+                  {vid.actividad_relacionada || vid.fecha}
                 </span>
               </div>
-              <h4 className="font-bold text-xs text-slate-900 line-clamp-1 group-hover:text-red-700 transition">
-                {vid.title}
-              </h4>
-              <span className="text-[10px] text-slate-500">{vid.subject}</span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -209,28 +242,31 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config }) => {
       {/* Modal Reproductor de Vídeo Interno Seguro */}
       {activeVideo && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl space-y-3">
+          <div className="bg-white w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl space-y-3">
             <div className="p-4 pb-0 flex items-center justify-between">
               <div>
                 <h4 className="font-display font-bold text-slate-900 text-sm">
                   {activeVideo.title}
                 </h4>
-                <p className="text-[11px] text-slate-500">
-                  {activeVideo.subject}
-                </p>
+                {activeVideo.subject && (
+                  <p className="text-[11px] text-slate-500">
+                    {activeVideo.subject}
+                  </p>
+                )}
               </div>
               <button
+                type="button"
                 onClick={() => setActiveVideo(null)}
-                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-100 cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Iframe con privacidad estricta (sin enlaces a cuentas personales) */}
+            {/* Iframe con privacidad estricta */}
             <div className="relative aspect-video bg-black">
               <iframe
-                src={`${activeVideo.embedUrl}&autoplay=1`}
+                src={`${activeVideo.embedUrl}${activeVideo.embedUrl.includes('?') ? '&' : '?'}autoplay=1`}
                 title={activeVideo.title}
                 className="w-full h-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -254,22 +290,23 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config }) => {
         </div>
       )}
 
-      {/* Modal Álbum Interno */}
-      {selectedAlbum && (
+      {/* Modal Fotografía / Álbum Interno */}
+      {selectedItem && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl p-5 space-y-3">
+          <div className="bg-white w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-display font-bold text-slate-900 text-sm">
-                  {selectedAlbum.title}
+                  {selectedItem.titulo}
                 </h4>
                 <p className="text-[11px] text-slate-500">
-                  {selectedAlbum.date} · {selectedAlbum.count}
+                  {selectedItem.fecha} {selectedItem.actividad_relacionada && `· ${selectedItem.actividad_relacionada}`}
                 </p>
               </div>
               <button
-                onClick={() => setSelectedAlbum(null)}
-                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-100 cursor-pointer"
+                type="button"
+                onClick={() => setSelectedItem(null)}
+                className="text-slate-400 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -277,20 +314,23 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config }) => {
 
             <div className="aspect-video rounded-2xl overflow-hidden bg-slate-100">
               <img
-                src={selectedAlbum.coverUrl}
-                alt={selectedAlbum.title}
+                src={selectedItem.url_media || selectedItem.miniatura_url}
+                alt={selectedItem.titulo}
                 className="w-full h-full object-cover"
+                loading="lazy"
+                referrerPolicy="no-referrer"
               />
             </div>
 
-            <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-              Fotografías archivadas en la carpeta de aula protegida de 1º B.
-              Consulte con el tutor Manuel Herrera si requiere alguna copia para el dosier del alumno/a.
-            </p>
+            {selectedItem.descripcion && (
+              <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-100 leading-relaxed">
+                {selectedItem.descripcion}
+              </p>
+            )}
 
             <button
-              onClick={() => setSelectedAlbum(null)}
-              className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer hover:bg-slate-800"
+              onClick={() => setSelectedItem(null)}
+              className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer hover:bg-slate-800 active:scale-98"
             >
               Cerrar visualizador
             </button>

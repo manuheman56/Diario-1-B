@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Notice } from '../types';
+import { AvisoItem, Notice } from '../types';
 import {
   Bell,
   Search,
@@ -9,36 +9,70 @@ import {
   UserCheck,
   Printer,
   Calendar,
-  Check,
+  ExternalLink,
 } from 'lucide-react';
 
 interface AvisosTabProps {
-  posts: Notice[];
-  onSharePost: (post: Notice) => void;
+  avisos?: AvisoItem[];
+  posts?: Notice[];
+  onSharePost: (item: { title: string; content: string }) => void;
   isRefreshing?: boolean;
   onRefresh?: () => Promise<void> | void;
 }
 
 export const AvisosTab: React.FC<AvisosTabProps> = ({
-  posts,
+  avisos,
+  posts = [],
   onSharePost,
   isRefreshing = false,
   onRefresh,
 }) => {
-  const [filter, setFilter] = useState<'all' | 'urgente' | 'aviso' | 'actividad'>('all');
+  const [filter, setFilter] = useState<'all' | 'urgente' | 'general' | 'actividad'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
-  // Filter posts that are announcements or general notices (not solely homework exercises)
-  const noticePosts = posts.filter((p) => p.tag !== 'Tarea');
+  // Normalizar avisos desde pestaña AVISOS o fallback a posts
+  const normalizedAvisos =
+    avisos && avisos.length > 0
+      ? avisos.map((a) => ({
+          id: a.id,
+          title: a.titulo,
+          content: a.mensaje,
+          date: a.fecha_publicacion,
+          deadline: a.fecha_limite,
+          important: a.important,
+          tag: a.tipo || (a.important ? 'Urgente' : 'Aviso'),
+          prioridad: a.prioridad,
+          author: a.author || 'Manuel Herrera',
+          link: a.enlace_url,
+          icon: a.important ? '🚨' : '📌',
+        }))
+      : posts
+          .filter((p) => p.tag !== 'Tarea')
+          .map((p) => ({
+            id: p.id,
+            title: p.title,
+            content: p.content,
+            date: p.date,
+            deadline: undefined,
+            important: p.important || p.tag === 'Urgente',
+            tag: p.tag,
+            prioridad: p.important ? 'Alta' : 'Normal',
+            author: p.author,
+            link: p.enlace_url,
+            icon: p.icon || '📌',
+          }));
 
-  const filteredNotices = noticePosts.filter((post) => {
+  const filteredNotices = normalizedAvisos.filter((post) => {
+    const isUrgent = post.important || post.tag === 'Urgente' || post.prioridad === 'Alta';
     const matchesCategory =
       filter === 'all'
         ? true
         : filter === 'urgente'
-        ? post.important || post.tag === 'Urgente'
-        : post.tag.toLowerCase() === filter.toLowerCase();
+        ? isUrgent
+        : filter === 'general'
+        ? !isUrgent && post.tag.toLowerCase().includes('aviso')
+        : post.tag.toLowerCase().includes('actividad');
 
     const matchesSearch =
       searchQuery.trim() === '' ||
@@ -48,7 +82,9 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
     return matchesCategory && matchesSearch;
   });
 
-  const urgentCount = noticePosts.filter((p) => p.important || p.tag === 'Urgente').length;
+  const urgentCount = normalizedAvisos.filter(
+    (p) => p.important || p.tag === 'Urgente' || p.prioridad === 'Alta'
+  ).length;
 
   return (
     <div className="space-y-4 pb-6 animate-in fade-in duration-300">
@@ -61,7 +97,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
               Tablón de Comunicaciones
             </span>
             {urgentCount > 0 && (
-              <span className="text-[11px] font-extrabold bg-white text-rose-900 px-2.5 py-0.5 rounded-full shadow-xs">
+              <span className="text-[11px] font-extrabold bg-white text-rose-900 px-2.5 py-0.5 rounded-full shadow-xs animate-pulse">
                 {urgentCount} urgente{urgentCount > 1 ? 's' : ''}
               </span>
             )}
@@ -78,6 +114,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
           {/* Quick Actions */}
           <div className="pt-2 flex items-center gap-2">
             <button
+              type="button"
               onClick={() => setShowSearch(!showSearch)}
               className="bg-white/15 hover:bg-white/25 text-white font-medium px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer backdrop-blur-xs"
             >
@@ -86,6 +123,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={() => window.print()}
               title="Imprimir avisos"
               className="bg-white/15 hover:bg-white/25 text-white font-medium p-2 rounded-xl text-xs flex items-center justify-center transition cursor-pointer"
@@ -115,6 +153,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
           <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
               className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-slate-600"
             >
@@ -127,6 +166,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
       {/* 3. Filter Pills */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
         <button
+          type="button"
           onClick={() => setFilter('all')}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
             filter === 'all'
@@ -134,10 +174,11 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
               : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-          Todos ({noticePosts.length})
+          Todos ({normalizedAvisos.length})
         </button>
 
         <button
+          type="button"
           onClick={() => setFilter('urgente')}
           className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
             filter === 'urgente'
@@ -150,27 +191,16 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
         </button>
 
         <button
-          onClick={() => setFilter('aviso')}
+          type="button"
+          onClick={() => setFilter('general')}
           className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            filter === 'aviso'
+            filter === 'general'
               ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
               : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
           }`}
         >
           <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
           Generales
-        </button>
-
-        <button
-          onClick={() => setFilter('actividad')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            filter === 'actividad'
-              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-          Actividades
         </button>
       </div>
 
@@ -191,6 +221,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
             </div>
             {filter !== 'all' && (
               <button
+                type="button"
                 onClick={() => setFilter('all')}
                 className="text-xs text-rose-600 font-bold hover:underline cursor-pointer"
               >
@@ -200,7 +231,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
           </div>
         ) : (
           filteredNotices.map((post) => {
-            const isUrgent = post.important || post.tag === 'Urgente';
+            const isUrgent = post.important;
 
             return (
               <article
@@ -213,7 +244,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
               >
                 {/* Header Row */}
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {isUrgent ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
                         <AlertCircle className="w-3 h-3 text-rose-600" />
@@ -221,8 +252,15 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
-                        <span>{post.icon || '📌'}</span>
+                        <span>{post.icon}</span>
                         <span>{post.tag}</span>
+                      </span>
+                    )}
+
+                    {post.deadline && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                        <Calendar className="w-2.5 h-2.5" />
+                        Límite: {post.deadline}
                       </span>
                     )}
                   </div>
@@ -241,6 +279,21 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
                   {post.content}
                 </p>
 
+                {/* Optional external link button */}
+                {post.link && (
+                  <div className="pt-1">
+                    <a
+                      href={post.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200 transition"
+                    >
+                      <span>Abrir enlace / documento</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
+
                 {/* Footer with Author and Share */}
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                   <span className="flex items-center gap-1.5 font-medium text-slate-500 truncate mr-2">
@@ -249,7 +302,8 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
                   </span>
 
                   <button
-                    onClick={() => onSharePost(post)}
+                    type="button"
+                    onClick={() => onSharePost({ title: post.title, content: post.content })}
                     className="hover:text-rose-600 font-medium transition flex items-center gap-1 cursor-pointer text-slate-500 hover:bg-slate-100 px-2.5 py-1 rounded-lg"
                     title="Compartir o copiar comunicado"
                   >

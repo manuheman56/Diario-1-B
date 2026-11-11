@@ -18,10 +18,12 @@ import {
 } from 'lucide-react';
 
 import { initialConfig } from '../data/defaultData';
+import { AvisoItem } from '../types';
 
 interface InicioTabProps {
   posts: Notice[];
   events: CalendarEvent[];
+  avisos?: AvisoItem[];
   onNavigate: (tab: MainTabType, subTab?: SubScheduleTab | SubResourceTab) => void;
   isRefreshing?: boolean;
   onRefresh?: () => void;
@@ -31,6 +33,7 @@ interface InicioTabProps {
 export const InicioTab: React.FC<InicioTabProps> = ({
   posts,
   events,
+  avisos,
   onNavigate,
   isRefreshing = false,
   onRefresh,
@@ -45,8 +48,16 @@ export const InicioTab: React.FC<InicioTabProps> = ({
   }).format(new Date());
   const capitalizedDate = todayStr.charAt(0).toUpperCase() + todayStr.slice(1);
 
-  // Urgent notices check
-  const urgentPost = posts.find((p) => p.important || p.tag === 'Urgente');
+  // Urgent notices check (from AVISOS or DIA_A_DIA)
+  const urgentAviso = avisos?.find((a) => a.important || a.tipo?.toLowerCase().includes('urgente'));
+  const urgentPost = urgentAviso
+    ? {
+        id: urgentAviso.id,
+        title: urgentAviso.titulo,
+        content: urgentAviso.mensaje,
+        date: urgentAviso.fecha_publicacion,
+      }
+    : posts.find((p) => p.important || p.tag === 'Urgente');
 
   // Pending homework check
   const pendingTasks = posts.filter((p) => p.tag === 'Tarea' && !p.completed);
@@ -65,7 +76,7 @@ export const InicioTab: React.FC<InicioTabProps> = ({
           <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/15 text-sky-100 backdrop-blur-md border border-white/10">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              {config.classTitle} · Curso 2026/27
+              {config.classTitle} · {config.schoolYear || 'Curso 2026/27'}
             </span>
             <span className="text-[11px] font-medium text-indigo-100 bg-black/20 px-2.5 py-1 rounded-full">
               {capitalizedDate}
@@ -77,8 +88,8 @@ export const InicioTab: React.FC<InicioTabProps> = ({
               El Diario del Aula
             </h2>
             <p className="text-xs text-indigo-100/90 leading-relaxed mt-1 max-w-sm">
-              Bienvenidas, familias. Portal informativo oficial de 1.º B para seguir el aprendizaje,
-              actividades y vida diaria de nuestra clase.
+              {config.welcomeMessage ||
+                'Bienvenidas, familias. Portal informativo oficial de 1.º B para seguir el aprendizaje, actividades y vida diaria de nuestra clase.'}
             </p>
           </div>
 
@@ -206,7 +217,8 @@ export const InicioTab: React.FC<InicioTabProps> = ({
 
           {/* C. Horario */}
           <button
-            onClick={() => onNavigate('horario', 'horario')}
+            type="button"
+            onClick={() => onNavigate('horario')}
             className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-emerald-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
           >
             <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-2 group-hover:scale-105 transition">
@@ -214,13 +226,14 @@ export const InicioTab: React.FC<InicioTabProps> = ({
             </div>
             <span className="font-bold text-xs text-slate-900">Horario Semanal</span>
             <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">
-              Clases de lunes a viernes
+              Sesiones de lunes a viernes
             </span>
           </button>
 
           {/* D. Calendario */}
           <button
-            onClick={() => onNavigate('horario', 'calendario')}
+            type="button"
+            onClick={() => onNavigate('calendario')}
             className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-amber-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
           >
             <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-2 group-hover:scale-105 transition">
@@ -228,13 +241,14 @@ export const InicioTab: React.FC<InicioTabProps> = ({
             </div>
             <span className="font-bold text-xs text-slate-900">Calendario</span>
             <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">
-              Excursiones y festivos
+              Salidas y festivos
             </span>
           </button>
 
           {/* E. Fotos y Vídeos */}
           <button
-            onClick={() => onNavigate('recursos', 'multimedia')}
+            type="button"
+            onClick={() => onNavigate('multimedia')}
             className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-sky-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
           >
             <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center mb-2 group-hover:scale-105 transition">
@@ -242,21 +256,42 @@ export const InicioTab: React.FC<InicioTabProps> = ({
             </div>
             <span className="font-bold text-xs text-slate-900">Fotos y Vídeos</span>
             <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">
-              Rincón audiovisual seguro
+              Galería segura de clase
             </span>
           </button>
 
-          {/* F. Aprendemos */}
+          {/* F. Aprendemos (Qué trabajamos en clase) */}
           <button
-            onClick={() => onNavigate('recursos', 'aprendemos')}
+            type="button"
+            onClick={() => onNavigate('aprendemos')}
             className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-purple-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
           >
             <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center mb-2 group-hover:scale-105 transition">
-              <GraduationCap className="w-4 h-4" />
+              <School className="w-4 h-4" />
             </div>
             <span className="font-bold text-xs text-slate-900">Aprendemos</span>
             <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">
-              Lectura y matemáticas
+              Qué trabajamos en el aula
+            </span>
+          </button>
+
+          {/* G. Recursos (Biblioteca para casa) */}
+          <button
+            type="button"
+            onClick={() => onNavigate('recursos')}
+            className="col-span-2 sm:col-span-1 p-3.5 bg-gradient-to-br from-indigo-50/80 to-sky-50/80 rounded-2xl border border-indigo-200/80 shadow-xs hover:border-indigo-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
+          >
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center mb-2 group-hover:scale-105 transition">
+              <GraduationCap className="w-4 h-4" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-xs text-indigo-950">Recursos en Casa</span>
+              <span className="text-[9px] font-extrabold bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded-full">
+                Biblioteca
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">
+              Juegos, fichas PDF y pautas
             </span>
           </button>
         </div>
@@ -278,27 +313,36 @@ export const InicioTab: React.FC<InicioTabProps> = ({
         </div>
 
         <div className="space-y-2.5">
-          {recentPosts.map((post) => (
-            <div
-              key={post.id}
-              onClick={() => onNavigate('diario')}
-              className="p-4 bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition cursor-pointer space-y-1.5"
-            >
-              <div className="flex items-center justify-between text-[11px] text-slate-400">
-                <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                  <span>{post.icon || '📌'}</span>
-                  <span>{post.tag}</span>
-                </span>
-                <span>{post.date}</span>
-              </div>
-              <h4 className="font-display font-bold text-xs text-slate-900">
-                {post.title}
-              </h4>
-              <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                {post.content}
+          {recentPosts.length === 0 ? (
+            <div className="p-5 bg-white rounded-3xl border border-slate-200/80 text-center text-xs text-slate-500 space-y-1 shadow-xs">
+              <p className="font-bold text-slate-800">No hay publicaciones recientes</p>
+              <p className="text-[11px] text-slate-400">
+                Las actividades, tareas y notas del aula se mostrarán aquí en cuanto se publiquen.
               </p>
             </div>
-          ))}
+          ) : (
+            recentPosts.map((post) => (
+              <div
+                key={post.id}
+                onClick={() => onNavigate('diario')}
+                className="p-4 bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition cursor-pointer space-y-1.5"
+              >
+                <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                    <span>{post.icon || '📌'}</span>
+                    <span>{post.tag}</span>
+                  </span>
+                  <span>{post.date}</span>
+                </div>
+                <h4 className="font-display font-bold text-xs text-slate-900">
+                  {post.title}
+                </h4>
+                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                  {post.content}
+                </p>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

@@ -94,7 +94,7 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
       {/* ================= 1. VISTA HORARIO ================= */}
       {subView === 'horario' && (
         <div className="space-y-3.5 animate-in fade-in duration-200">
-          {/* Day selection tabs */}
+          {/* Day selection tabs with 44px min touch target */}
           <div className="flex justify-between gap-1 bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs">
             {DAYS.map((day) => {
               const isSelected = selectedDay === day;
@@ -106,14 +106,15 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
               return (
                 <button
                   key={day}
+                  type="button"
                   onClick={() => setSelectedDay(day)}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition text-center relative cursor-pointer ${
+                  className={`flex-1 min-h-[44px] py-2 px-1 rounded-xl text-xs font-bold transition text-center relative cursor-pointer touch-manipulation active:scale-95 flex flex-col items-center justify-center ${
                     isSelected
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <span>{day.slice(0, 3)}</span>
+                  <span className="leading-tight">{day.slice(0, 3)}</span>
                   {isToday && (
                     <span
                       className={`block text-[8px] uppercase tracking-tighter ${
@@ -134,8 +135,9 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
               Clases del {selectedDay}
             </span>
             <button
+              type="button"
               onClick={() => setViewMode(viewMode === 'day' ? 'week' : 'day')}
-              className="text-indigo-600 hover:underline font-bold text-[11px] cursor-pointer"
+              className="text-indigo-600 hover:underline font-bold text-[11px] cursor-pointer min-h-[32px] flex items-center"
             >
               {viewMode === 'day' ? 'Ver semana completa' : 'Ver día a día'}
             </button>
@@ -148,7 +150,7 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                 currentDaySchedule.map((item, index) => (
                   <div
                     key={index}
-                    className={`p-3.5 rounded-2xl border border-slate-200/80 border-l-4 bg-white shadow-xs flex items-center justify-between gap-3 ${item.color}`}
+                    className="p-3.5 rounded-2xl border border-slate-200/90 bg-white shadow-xs flex items-center justify-between gap-3 hover:border-indigo-200 transition"
                   >
                     <div className="min-w-0">
                       <h4 className="font-bold text-xs text-slate-900 truncate">
@@ -159,10 +161,15 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                           <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                           <span className="truncate">{item.loc}</span>
                         </span>
+                        {item.teacher && (
+                          <span className="text-[10px] text-slate-400 truncate">
+                            · {item.teacher}
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    <span className="text-[11px] font-bold text-slate-700 bg-slate-100/90 px-2.5 py-1 rounded-xl border border-slate-200 shrink-0">
+                    <span className="text-[11px] font-bold text-indigo-900 bg-indigo-50/80 px-2.5 py-1 rounded-xl border border-indigo-100 shrink-0">
                       {item.time}
                     </span>
                   </div>
