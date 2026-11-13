@@ -20,6 +20,21 @@ import {
 import { initialConfig } from '../data/defaultData';
 import { AvisoItem } from '../types';
 
+const SHORT_MONTH_NAMES = [
+  'Ene',
+  'Feb',
+  'Mar',
+  'Abr',
+  'May',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dic',
+];
+
 interface InicioTabProps {
   posts: Notice[];
   events: CalendarEvent[];
@@ -398,7 +413,9 @@ export const InicioTab: React.FC<InicioTabProps> = ({
                 className="p-3 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3 cursor-pointer hover:border-amber-200 transition"
               >
                 <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 flex flex-col items-center justify-center font-bold shrink-0">
-                  <span className="text-[9px] uppercase font-semibold">Nov</span>
+                  <span className="text-[9px] uppercase font-semibold">
+                    {SHORT_MONTH_NAMES[ev.month] ?? ''}
+                  </span>
                   <span className="text-sm font-extrabold leading-none">{ev.day}</span>
                 </div>
                 <div className="min-w-0 flex-1">

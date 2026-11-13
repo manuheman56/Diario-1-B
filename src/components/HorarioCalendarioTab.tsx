@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { CalendarEvent, DayOfWeek, ScheduleItem } from '../types';
 import {
   Clock,
   CalendarDays,
   MapPin,
   Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface HorarioCalendarioTabProps {
@@ -14,6 +16,98 @@ interface HorarioCalendarioTabProps {
 }
 
 const DAYS: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+
+export const MONTH_NAMES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+] as const;
+
+export const SHORT_MONTH_NAMES = [
+  'Ene',
+  'Feb',
+  'Mar',
+  'Abr',
+  'May',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dic',
+] as const;
+
+export function getDaysInMonth(year: number, monthIndex: number): number {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+export function getMonthLeadingEmptyCells(year: number, monthIndex: number): number {
+  // getDay(): 0 = Domingo, 1 = Lunes ... 6 = Sábado -> Convertimos a semana iniciada en Lunes (0 = Lunes ... 6 = Domingo)
+  const firstDayOfWeek = new Date(year, monthIndex, 1).getDay();
+  return (firstDayOfWeek + 6) % 7;
+}
+
+export function getSchoolTermLabel(monthIndex: number): string {
+  if (monthIndex >= 8 && monthIndex <= 11) return 'Primer Trimestre Escolar';
+  if (monthIndex >= 0 && monthIndex <= 2) return 'Segundo Trimestre Escolar';
+  if (monthIndex >= 3 && monthIndex <= 5) return 'Tercer Trimestre Escolar';
+  return 'Periodo No Lectivo';
+}
+
+export function stepCalendarMonth(
+  year: number,
+  monthIndex: number,
+  delta: -1 | 1
+): { year: number; monthIndex: number } {
+  const nextMonth = monthIndex + delta;
+  if (nextMonth < 0) {
+    return { year: year - 1, monthIndex: 11 };
+  }
+  if (nextMonth > 11) {
+    return { year: year + 1, monthIndex: 0 };
+  }
+  return { year, monthIndex: nextMonth };
+}
+
+function toDateCodeFromSpanish(dateStr?: string): number | null {
+  if (!dateStr) return null;
+  const match = dateStr.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+  const d = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  const y = parseInt(match[3], 10);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return y * 10000 + m * 100 + d;
+}
+
+export function doesEventFallOnDate(
+  ev: CalendarEvent,
+  day: number,
+  monthIndex: number,
+  year: number
+): boolean {
+  const targetCode = year * 10000 + (monthIndex + 1) * 100 + day;
+  const startCode = toDateCodeFromSpanish(ev.fecha_inicio);
+  const endCode = toDateCodeFromSpanish(ev.fecha_fin);
+
+  if (startCode !== null && endCode !== null && endCode >= startCode) {
+    return targetCode >= startCode && targetCode <= endCode;
+  }
+  if (startCode !== null) {
+    return targetCode === startCode;
+  }
+  return ev.day === day && ev.month === monthIndex && ev.year === year;
+}
 
 export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
   schedule,
@@ -30,27 +124,65 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
 
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
 
+  // Fecha real actual del dispositivo (calculada dinámicamente al montar)
+  const today = useMemo(() => {
+    const now = new Date();
+    return {
+      day: now.getDate(),
+      month: now.getMonth(),
+      year: now.getFullYear(),
+      dayOfWeek: now.getDay(),
+    };
+  }, []);
+
   // Determine current day of week (0=Sun, 1=Mon, ..., 5=Fri)
-  const currentDayIndex = new Date().getDay();
+  const currentDayIndex = today.dayOfWeek;
   const defaultDay: DayOfWeek =
     currentDayIndex >= 1 && currentDayIndex <= 5
       ? DAYS[currentDayIndex - 1]
       : 'Lunes';
 
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(defaultDay);
-  const [selectedCalendarDay, setSelectedCalendarDay] = useState<number | null>(4); // Nov 4 default
 
-  // Calendar month state (November 2026 default)
-  const [currentMonthIndex] = useState(10); // 10 = Noviembre (0-indexed)
-  const [currentYear] = useState(2026);
+  // Estado dinámico del calendario escolar (inicializado en la fecha real actual)
+  const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(today.month);
+  const [currentYear, setCurrentYear] = useState<number>(today.year);
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<number | null>(today.day);
+
+  const isViewingCurrentMonth =
+    currentMonthIndex === today.month && currentYear === today.year;
+
+  const isSelectedToday =
+    selectedCalendarDay !== null &&
+    selectedCalendarDay === today.day &&
+    isViewingCurrentMonth;
+
+  const handleChangeMonth = (delta: -1 | 1) => {
+    const next = stepCalendarMonth(currentYear, currentMonthIndex, delta);
+    setCurrentYear(next.year);
+    setCurrentMonthIndex(next.monthIndex);
+    // Al cambiar de mes, solo preseleccionar "hoy" si regresamos al mes y año actuales
+    setSelectedCalendarDay(
+      next.monthIndex === today.month && next.year === today.year ? today.day : null
+    );
+  };
+
+  const handleGoToToday = () => {
+    setCurrentYear(today.year);
+    setCurrentMonthIndex(today.month);
+    setSelectedCalendarDay(today.day);
+  };
+
+  const leadingEmptyCells = getMonthLeadingEmptyCells(currentYear, currentMonthIndex);
+  const daysInMonth = getDaysInMonth(currentYear, currentMonthIndex);
 
   // Filter events for the selected day in calendar
-  const selectedDayEvents = events.filter(
-    (ev) =>
-      ev.day === selectedCalendarDay &&
-      ev.month === currentMonthIndex &&
-      ev.year === currentYear
-  );
+  const selectedDayEvents =
+    selectedCalendarDay !== null
+      ? events.filter((ev) =>
+          doesEventFallOnDate(ev, selectedCalendarDay, currentMonthIndex, currentYear)
+        )
+      : [];
 
   const currentDaySchedule = schedule[selectedDay] || [];
 
@@ -232,32 +364,68 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
         <div className="space-y-4 animate-in fade-in duration-200">
           {/* Calendar Card */}
           <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-card space-y-3.5">
-            {/* Header with Month */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-display font-extrabold text-slate-900 text-sm">
-                  Noviembre 2026
+            {/* Header with Month Navigation */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-display font-extrabold text-slate-900 text-sm sm:text-base leading-tight">
+                  {MONTH_NAMES[currentMonthIndex]} {currentYear}
                 </h3>
-                <span className="text-[10px] text-slate-400 font-medium">
-                  Primer Trimestre Escolar
+                <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+                  {getSchoolTermLabel(currentMonthIndex)}
                 </span>
               </div>
 
-              {/* Legend */}
-              <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-500">
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  Lectivo
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                  Salida
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                  Festivo
-                </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {!isViewingCurrentMonth && (
+                  <button
+                    type="button"
+                    onClick={handleGoToToday}
+                    className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition cursor-pointer active:scale-95"
+                  >
+                    Hoy
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleChangeMonth(-1)}
+                  aria-label="Mes anterior"
+                  className="w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 flex items-center justify-center transition cursor-pointer active:scale-95"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChangeMonth(1)}
+                  aria-label="Mes siguiente"
+                  className="w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 flex items-center justify-center transition cursor-pointer active:scale-95"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-500 pt-0.5 border-t border-slate-100">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                Hoy
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                Lectivo
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                Salida
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                Festivo
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                Evaluación
+              </span>
             </div>
 
             {/* Weekdays row */}
@@ -271,35 +439,35 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
               <span className="text-rose-400">D</span>
             </div>
 
-            {/* Days Grid (Nov 2026 starts on Sunday Nov 1 if Monday=col 0, offset = 6) */}
+            {/* Dynamic Days Grid (Week starts on Monday) */}
             <div className="grid grid-cols-7 gap-1 text-center text-xs">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={`blank-${i}`} className="py-2.5"></div>
+              {Array.from({ length: leadingEmptyCells }).map((_, i) => (
+                <div key={`blank-${i}`} className="min-h-[42px] py-1.5" aria-hidden="true"></div>
               ))}
 
-              {Array.from({ length: 30 }).map((_, idx) => {
+              {Array.from({ length: daysInMonth }).map((_, idx) => {
                 const day = idx + 1;
-                const isToday = day === 4;
+                const isToday = day === today.day && isViewingCurrentMonth;
                 const isSelected = selectedCalendarDay === day;
-                const isWeekend = (idx + 6) % 7 === 5 || (idx + 6) % 7 === 6;
+                const cellIndex = leadingEmptyCells + idx;
+                const isWeekend = cellIndex % 7 === 5 || cellIndex % 7 === 6;
 
-                // Check if any event falls on this day
-                const dayEvent = events.find(
-                  (ev) =>
-                    ev.day === day &&
-                    ev.month === currentMonthIndex &&
-                    ev.year === currentYear
+                // Check if any events fall on this day
+                const dayEvents = events.filter((ev) =>
+                  doesEventFallOnDate(ev, day, currentMonthIndex, currentYear)
                 );
+                const dayEvent = dayEvents[0];
 
                 let cellClass =
-                  'relative py-2.5 rounded-xl font-bold transition flex flex-col items-center justify-center cursor-pointer ';
+                  'relative min-h-[42px] py-1.5 rounded-xl font-bold transition flex flex-col items-center justify-center cursor-pointer select-none touch-manipulation active:scale-95 ';
 
                 if (isSelected) {
-                  cellClass +=
-                    ' bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200';
+                  cellClass += isToday
+                    ? ' bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300'
+                    : ' bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200';
                 } else if (isToday) {
                   cellClass +=
-                    ' bg-indigo-100 text-indigo-900 border border-indigo-300 font-extrabold';
+                    ' bg-indigo-50 text-indigo-900 border-2 border-indigo-400 font-extrabold';
                 } else if (dayEvent?.type === 'salida') {
                   cellClass +=
                     ' bg-amber-100 text-amber-900 border border-amber-300 font-extrabold';
@@ -309,46 +477,58 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                 } else if (dayEvent?.type === 'evaluacion') {
                   cellClass +=
                     ' bg-purple-100 text-purple-800 border border-purple-300 font-extrabold';
+                } else if (dayEvent?.type === 'lectivo') {
+                  cellClass +=
+                    ' bg-emerald-50 text-emerald-900 border border-emerald-300 font-extrabold';
                 } else if (isWeekend) {
                   cellClass += ' text-slate-300 hover:bg-slate-50';
                 } else {
                   cellClass += ' text-slate-700 hover:bg-slate-100';
                 }
 
+                const dotColor = isSelected
+                  ? 'bg-white'
+                  : dayEvent?.type === 'salida'
+                  ? 'bg-amber-500'
+                  : dayEvent?.type === 'festivo'
+                  ? 'bg-rose-500'
+                  : dayEvent?.type === 'evaluacion'
+                  ? 'bg-purple-500'
+                  : 'bg-emerald-500';
+
                 return (
-                  <div
-                    key={`day-${day}`}
+                  <button
+                    key={`day-${currentYear}-${currentMonthIndex}-${day}`}
+                    type="button"
                     onClick={() => setSelectedCalendarDay(day)}
+                    aria-label={`${day} de ${MONTH_NAMES[currentMonthIndex]} de ${currentYear}${isToday ? ', hoy' : ''}`}
+                    aria-pressed={isSelected}
                     className={cellClass}
                   >
-                    <span>{day}</span>
-                    {dayEvent && !isSelected && (
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full mt-0.5 ${
-                          dayEvent.type === 'salida'
-                            ? 'bg-amber-500'
-                            : dayEvent.type === 'festivo'
-                            ? 'bg-rose-500'
-                            : 'bg-purple-500'
-                        }`}
-                      ></span>
-                    )}
-                  </div>
+                    <span className="leading-none">{day}</span>
+                    {dayEvent ? (
+                      <span className={`w-1.5 h-1.5 rounded-full mt-1 ${dotColor}`}></span>
+                    ) : isToday && !isSelected ? (
+                      <span className="w-1.5 h-1.5 rounded-full mt-1 bg-indigo-500"></span>
+                    ) : null}
+                  </button>
                 );
               })}
             </div>
           </div>
 
           {/* Selected Day Details Card */}
-          {selectedCalendarDay !== null && (
+          {selectedCalendarDay !== null ? (
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+              <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-800">
                 <span className="flex items-center gap-1.5 text-indigo-700">
-                  <CalendarIcon className="w-3.5 h-3.5" />
-                  Día seleccionado: {selectedCalendarDay} de Noviembre
+                  <CalendarIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    Día seleccionado: {selectedCalendarDay} de {MONTH_NAMES[currentMonthIndex]} de {currentYear}
+                  </span>
                 </span>
-                {selectedCalendarDay === 4 && (
-                  <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
+                {isSelectedToday && (
+                  <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full shrink-0">
                     Hoy
                   </span>
                 )}
@@ -360,51 +540,51 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                     key={ev.id}
                     className="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-1 shadow-xs"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-slate-900">{ev.title}</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 shrink-0">
                         {ev.type.toUpperCase()}
                       </span>
                     </div>
-                    <p className="text-slate-600 text-[11px]">{ev.description}</p>
-                    {ev.time && (
-                      <span className="text-[10px] text-slate-400 font-medium block">
-                        Horario: {ev.time}
-                      </span>
+                    {ev.description && (
+                      <p className="text-slate-600 text-[11px]">{ev.description}</p>
+                    )}
+                    {(ev.time || ev.lugar) && (
+                      <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 font-medium pt-0.5">
+                        {ev.time && <span>Horario: {ev.time}</span>}
+                        {ev.lugar && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-2.5 h-2.5" />
+                            <span>{ev.lugar}</span>
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))
               ) : (
                 <p className="text-[11px] text-slate-500">
-                  Jornada escolar ordinaria según el horario lectivo establecido.
+                  No hay actividades programadas para esta fecha.
                 </p>
               )}
+            </div>
+          ) : (
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] text-slate-500 flex items-center gap-2">
+              <CalendarIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>
+                Pulsa sobre cualquier día de {MONTH_NAMES[currentMonthIndex]} para consultar las actividades programadas.
+              </span>
             </div>
           )}
 
           {/* Próximos Eventos Destacados */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
-              Próximos Eventos del Trimestre
+              Próximos Eventos del Calendario
             </h4>
 
             {events.length > 0 ? (
               events.map((ev) => {
-                const monthNames = [
-                  'Ene',
-                  'Feb',
-                  'Mar',
-                  'Abr',
-                  'May',
-                  'Jun',
-                  'Jul',
-                  'Ago',
-                  'Sep',
-                  'Oct',
-                  'Nov',
-                  'Dic',
-                ];
-
                 let badgeColor = 'bg-amber-50 text-amber-800 border-amber-200';
                 let badgeText = 'Salida';
                 let bgBox = 'bg-amber-100 text-amber-800';
@@ -424,15 +604,21 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                 }
 
                 return (
-                  <div
+                  <button
                     key={ev.id}
-                    className="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center gap-3 shadow-xs hover:shadow-md transition"
+                    type="button"
+                    onClick={() => {
+                      setCurrentYear(ev.year);
+                      setCurrentMonthIndex(ev.month);
+                      setSelectedCalendarDay(ev.day);
+                    }}
+                    className="w-full text-left bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center gap-3 shadow-xs hover:shadow-md hover:border-indigo-200 transition cursor-pointer"
                   >
                     <div
                       className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 ${bgBox}`}
                     >
                       <span className="text-[9px] uppercase font-semibold">
-                        {monthNames[ev.month] || 'Nov'}
+                        {SHORT_MONTH_NAMES[ev.month] ?? ''}
                       </span>
                       <span className="text-sm font-extrabold leading-none">
                         {ev.day}
@@ -453,7 +639,7 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                     >
                       {badgeText}
                     </span>
-                  </div>
+                  </button>
                 );
               })
             ) : (

@@ -231,6 +231,38 @@ export function formatSpanishDate(rawDate: string): string {
 }
 
 /**
+ * Extrae día, mes (0-indexado) y año de una fecha DD/MM/AAAA validada.
+ * Devuelve null si la fecha está vacía o es inválida/ilegible para evitar fechas ficticias.
+ */
+export function parseCalendarDateParts(
+  formattedDate: string
+): { day: number; month: number; year: number } | null {
+  if (!formattedDate) return null;
+  const match = formattedDate.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+
+  const day = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10) - 1; // 0-indexed (0 = Enero ... 11 = Diciembre)
+  const year = parseInt(match[3], 10);
+
+  if (month < 0 || month > 11 || day < 1 || day > 31 || year < 1900 || year > 2100) {
+    return null;
+  }
+
+  // Validación real de calendario (ej. bisiestos, meses de 30/31 días) en hora local sin desfase UTC
+  const checkDate = new Date(year, month, day);
+  if (
+    checkDate.getFullYear() !== year ||
+    checkDate.getMonth() !== month ||
+    checkDate.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return { day, month, year };
+}
+
+/**
  * Normaliza horas a formato HH:MM
  */
 export function formatSpanishTime(rawTime: string): string {
@@ -503,7 +535,7 @@ export function parseCalendarioRows(rows: string[][]): CalendarEvent[] {
     const rawFIni = colFIni !== -1 ? row[colFIni] : '';
     const rawFFin = colFFin !== -1 ? row[colFFin] : '';
     const fIni = formatSpanishDate(rawFIni);
-    const fFin = formatSpanishDate(rawFFin);
+    const fFinRaw = formatSpanishDate(rawFFin);
     const hIni = colHIni !== -1 ? formatSpanishTime(row[colHIni]) : '';
     const hFin = colHFin !== -1 ? formatSpanishTime(row[colHFin]) : '';
     const titulo = colTitulo !== -1 ? row[colTitulo] || '' : '';
@@ -513,18 +545,13 @@ export function parseCalendarioRows(rows: string[][]): CalendarEvent[] {
     const destacado = colDestacado !== -1 ? parseDestacado(row[colDestacado]) : false;
     const orden = colOrden !== -1 ? parseFloat(row[colOrden]) || i : i;
 
-    if (!fIni && !titulo) continue;
+    const parsedStart = parseCalendarDateParts(fIni);
+    if (!parsedStart) continue;
+    if (!titulo && !descripcion) continue;
 
-    let day = 1;
-    let month = 10;
-    let year = 2026;
-
-    if (fIni.includes('/')) {
-      const parts = fIni.split('/');
-      day = parseInt(parts[0], 10) || 1;
-      month = (parseInt(parts[1], 10) || 11) - 1;
-      year = parseInt(parts[2], 10) || 2026;
-    }
+    const { day, month, year } = parsedStart;
+    const parsedEnd = fFinRaw ? parseCalendarDateParts(fFinRaw) : null;
+    const fFin = parsedEnd ? fFinRaw : '';
 
     const catLower = rawCat.toLowerCase();
     let type: 'lectivo' | 'salida' | 'festivo' | 'evaluacion' = 'lectivo';
@@ -1033,24 +1060,22 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
   const rawCal = Array.isArray(rawData.calendario) ? rawData.calendario : [];
   const events: CalendarEvent[] = rawCal
     .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
-    .map((item, idx) => {
+    .map((item, idx): CalendarEvent | null => {
       const fIni = formatSpanishDate(item.fecha_inicio || item.fecha || '');
-      const fFin = item.fecha_fin ? formatSpanishDate(item.fecha_fin) : undefined;
+      const fFinRaw = item.fecha_fin ? formatSpanishDate(item.fecha_fin) : '';
       const hIni = item.hora_inicio ? formatSpanishTime(item.hora_inicio) : '';
       const hFin = item.hora_fin ? formatSpanishTime(item.hora_fin) : '';
       const titulo = item.titulo || '';
       const descripcion = item.descripcion || '';
       const rawCat = item.categoria || 'lectivo';
 
-      let day = 1;
-      let month = 10;
-      let year = 2026;
-      if (fIni.includes('/')) {
-        const parts = fIni.split('/');
-        day = parseInt(parts[0], 10) || 1;
-        month = (parseInt(parts[1], 10) || 11) - 1;
-        year = parseInt(parts[2], 10) || 2026;
-      }
+      const parsedStart = parseCalendarDateParts(fIni);
+      if (!parsedStart) return null;
+      if (!titulo && !descripcion) return null;
+
+      const { day, month, year } = parsedStart;
+      const parsedEnd = fFinRaw ? parseCalendarDateParts(fFinRaw) : null;
+      const fFin = parsedEnd ? fFinRaw : undefined;
 
       const catLower = rawCat.toLowerCase();
       let type: 'lectivo' | 'salida' | 'festivo' | 'evaluacion' = 'lectivo';
@@ -1093,6 +1118,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
         time: time || undefined,
       };
     })
+    .filter((ev): ev is CalendarEvent => ev !== null)
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
 
   // 5. Horario
