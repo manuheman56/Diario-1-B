@@ -1,59 +1,75 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AppConfig, MultimediaItem } from '../types';
-import { initialMultimedia } from '../data/defaultData';
 import {
   ShieldCheck,
-  Play,
-  FolderLock,
   Camera,
-  Film,
-  Lock,
-  X,
   ExternalLink,
-  Info,
+  PartyPopper,
+  Palette,
+  FolderOpen,
+  Youtube,
 } from 'lucide-react';
 
 interface MultimediaTabProps {
-  config: AppConfig;
+  config?: AppConfig;
   items?: MultimediaItem[];
 }
 
-export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config, items }) => {
-  const [activeVideo, setActiveVideo] = useState<{
-    title: string;
-    embedUrl: string;
-    subject?: string;
-  } | null>(null);
+interface DriveAlbumCard {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  icon: React.ReactNode;
+  cardClass: string;
+  iconBgClass: string;
+  footerClass: string;
+}
 
-  const [selectedItem, setSelectedItem] = useState<MultimediaItem | null>(null);
-  const [showDriveInfoModal, setShowDriveInfoModal] = useState(false);
+const DRIVE_ALBUMS: DriveAlbumCard[] = [
+  {
+    id: 'fotografias-aula',
+    title: 'Fotografías del aula',
+    description: 'Un recuerdo de nuestras actividades y momentos compartidos en clase',
+    url: 'https://drive.google.com/drive/folders/1WZvH8J46ub2uFwT34S2pE2XLWbHzUlNl?usp=drive_link',
+    icon: <Camera className="w-5 h-5" />,
+    cardClass:
+      'bg-gradient-to-br from-sky-50 via-blue-50/60 to-white border-sky-200/90 hover:border-sky-300 focus-visible:ring-sky-500',
+    iconBgClass: 'bg-sky-100 text-sky-700 border border-sky-200/80',
+    footerClass: 'text-sky-700 border-sky-200/60',
+  },
+  {
+    id: 'celebraciones',
+    title: 'Celebraciones',
+    description: 'Fiestas, acontecimientos y días especiales de nuestra clase',
+    url: 'https://drive.google.com/drive/folders/1goiI0L52EvoTcYfyu_MYAUlAdTMDcbLy?usp=drive_link',
+    icon: <PartyPopper className="w-5 h-5" />,
+    cardClass:
+      'bg-gradient-to-br from-amber-50 via-orange-50/50 to-white border-amber-200/90 hover:border-amber-300 focus-visible:ring-amber-500',
+    iconBgClass: 'bg-amber-100 text-amber-700 border border-amber-200/80',
+    footerClass: 'text-amber-700 border-amber-200/60',
+  },
+  {
+    id: 'trabajos-proyectos',
+    title: 'Trabajos y proyectos',
+    description: 'Una ventana a las creaciones, actividades y proyectos del alumnado',
+    url: 'https://drive.google.com/drive/folders/1rO4wE-kdI4m1PiJQw51x3X-MU0kiJZ0a?usp=drive_link',
+    icon: <Palette className="w-5 h-5" />,
+    cardClass:
+      'bg-gradient-to-br from-emerald-50 via-teal-50/50 to-white border-emerald-200/90 hover:border-emerald-300 focus-visible:ring-emerald-500',
+    iconBgClass: 'bg-emerald-100 text-emerald-700 border border-emerald-200/80',
+    footerClass: 'text-emerald-700 border-emerald-200/60',
+  },
+];
 
-  // Sanitiza el enlace de Google Drive para garantizar que SOLO apunte a una carpeta específica
-  const getAuthorizedFolderUrl = (): string | null => {
-    const raw = config.driveFolderUrl || '';
-    if (!raw || raw.includes('PEGA_AQUÍ') || raw.startsWith('[')) {
-      return null;
-    }
-    if (raw.startsWith('http')) {
-      return raw;
-    }
-    return `https://drive.google.com/drive/folders/${raw}`;
+export const MultimediaTab: React.FC<MultimediaTabProps> = () => {
+  const handleOpenDriveFolder = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const authorizedFolderUrl = getAuthorizedFolderUrl();
-
-  const handleOpenDriveFolder = () => {
-    if (authorizedFolderUrl) {
-      window.open(authorizedFolderUrl, '_blank', 'noopener,noreferrer');
-    } else {
-      setShowDriveInfoModal(true);
-    }
+  const handleOpenYoutubeChannel = () => {
+    window.open('https://www.youtube.com/@Hormiguitasde1oB', '_blank', 'noopener,noreferrer');
   };
-
-  // Usar items dinámicos de Google Apps Script (pestaña MULTIMEDIA) o lista vacía
-  const activeMediaList = items !== undefined ? items : [];
-  const photos = activeMediaList.filter((m) => m.tipo === 'FOTOGRAFIA');
-  const videos = activeMediaList.filter((m) => m.tipo === 'VIDEO');
 
   return (
     <div className="space-y-4 pb-6">
@@ -63,166 +79,128 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config, items }) =
           Rincón Audiovisual del Aula
         </h2>
         <p className="text-xs text-slate-500 leading-relaxed">
-          Entorno protegido de acceso exclusivo para familias de 1º B.
-          Archivos y vídeos restringidos a las carpetas escolares autorizadas.
+          Entorno protegido de acceso exclusivo para familias de 1.º B.
+          Álbumes compartidos y vídeos educativos del curso.
         </p>
       </div>
 
-      {/* 1. Google Drive Card - Restringido a Carpeta Específica */}
-      <div className="bg-gradient-to-br from-sky-50 via-blue-50/70 to-indigo-50/60 border border-blue-200/90 rounded-3xl p-4.5 shadow-card space-y-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white shadow-xs flex items-center justify-center text-blue-600 shrink-0 border border-blue-100">
-              <Camera className="w-5 h-5" />
+      {/* 1. Galería de fotografías - Tres carpetas independientes en Google Drive */}
+      <section
+        aria-labelledby="galeria-fotografias-heading"
+        className="@container bg-white border border-slate-200/80 rounded-3xl p-4.5 shadow-card space-y-4"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-sky-50 text-sky-700 border border-sky-100 shadow-2xs flex items-center justify-center shrink-0">
+              <FolderOpen className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <h3 className="font-display font-bold text-slate-900 text-sm">
-                  Fotografías del Aula ({photos.length})
-                </h3>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Acceso restringido únicamente al material autorizado de clase
-              </p>
-            </div>
-          </div>
-          <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-            <Lock className="w-2.5 h-2.5" />
-            Ruta Segura
-          </span>
-        </div>
-
-        <p className="text-xs text-slate-600 leading-relaxed bg-white/80 p-3 rounded-2xl border border-blue-100/80">
-          Por privacidad y seguridad, esta sección filtra únicamente fotografías
-          autorizadas de 1º de Primaria B, sin acceso al resto del almacenamiento en la nube.
-        </p>
-
-        {/* Álbumes y fotos autorizados dentro de la app */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          {photos.length === 0 ? (
-            <p className="text-xs text-slate-400 italic col-span-3 text-center py-4 bg-white/60 rounded-2xl">
-              No hay fotografías publicadas por el momento.
-            </p>
-          ) : (
-            photos.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => setSelectedItem(item)}
-                className="group block bg-white rounded-2xl p-2.5 border border-slate-200/70 shadow-2xs hover:border-blue-300 hover:shadow-xs transition cursor-pointer"
+              <h3
+                id="galeria-fotografias-heading"
+                className="font-display font-bold text-slate-900 text-base leading-snug"
               >
-                <div className="relative aspect-video rounded-xl overflow-hidden mb-2 bg-slate-100">
-                  <img
-                    src={item.miniatura_url || item.url_media}
-                    alt={item.titulo}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      // Fallback visual silencioso
-                      (e.currentTarget as HTMLElement).style.opacity = '0.5';
-                    }}
-                  />
-                  {item.actividad_relacionada && (
-                    <span className="absolute bottom-1 right-1 text-[9px] font-bold bg-black/70 text-white px-1.5 py-0.5 rounded-md truncate max-w-[90%]">
-                      {item.actividad_relacionada}
-                    </span>
-                  )}
-                </div>
-                <h4 className="font-bold text-[11px] text-slate-800 truncate">
-                  {item.titulo}
-                </h4>
-                <p className="text-[10px] text-slate-400">{item.fecha}</p>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Botón único a la carpeta autorizada de Drive */}
-        <button
-          onClick={handleOpenDriveFolder}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-98 cursor-pointer"
-        >
-          <FolderLock className="w-3.5 h-3.5" />
-          <span>Abrir Carpeta Autorizada del Aula</span>
-          <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-        </button>
-      </div>
-
-      {/* 2. YouTube - Reproductor Seguro en App */}
-      <div className="bg-gradient-to-br from-rose-50 via-red-50/70 to-amber-50/50 border border-red-200/90 rounded-3xl p-4.5 shadow-card space-y-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white shadow-xs flex items-center justify-center text-red-600 shrink-0 border border-red-100">
-              <Film className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-display font-bold text-slate-900 text-sm">
-                Vídeos Educativos del Aula ({videos.length})
+                Galería de fotografías
               </h3>
-              <p className="text-[11px] text-slate-500">
-                Reproducción segura dentro de la app sin acceso a canales personales
+              <p className="text-xs text-slate-600 leading-relaxed mt-1">
+                Compartimos con vosotros los mejores momentos de nuestra clase organizados por temáticas. Pulsad en cualquier tarjeta para abrir su álbum directamente en Google Drive.
               </p>
             </div>
           </div>
-          <span className="text-[10px] bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-            <Lock className="w-2.5 h-2.5" />
-            Privado
-          </span>
         </div>
 
-        <p className="text-xs text-slate-600 leading-relaxed bg-white/80 p-3 rounded-2xl border border-red-100/80">
-          Los contenidos se reproducen directamente en el visor interno con modo
-          de privacidad activa, sin sugerencias de cuentas personales ni enlaces
-          al canal principal.
-        </p>
-
-        {/* Video Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {videos.length === 0 ? (
-            <p className="text-xs text-slate-400 italic col-span-2 text-center py-4 bg-white/60 rounded-2xl">
-              No hay vídeos publicados en este momento.
-            </p>
-          ) : (
-            videos.map((vid) => (
-              <div
-                key={vid.id}
-                onClick={() =>
-                  setActiveVideo({
-                    title: vid.titulo,
-                    embedUrl: vid.embedUrl || vid.url_media,
-                    subject: vid.actividad_relacionada || 'Vídeo escolar',
-                  })
-                }
-                className="bg-white rounded-2xl p-2.5 border border-slate-200 shadow-2xs hover:border-red-300 hover:shadow-xs transition cursor-pointer group"
-              >
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 mb-2">
-                  <img
-                    src={vid.miniatura_url || '/pwa-512x512.png'}
-                    alt={vid.titulo}
-                    className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition duration-300"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.opacity = '0.4';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                    <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
-                      <Play className="w-4 h-4 ml-0.5" />
-                    </div>
+        {/* Distribución vertical en móvil y adaptable en pantallas mayores */}
+        <div className="grid grid-cols-1 @xl:grid-cols-3 gap-3">
+          {DRIVE_ALBUMS.map((album) => (
+            <button
+              key={album.id}
+              type="button"
+              onClick={() => handleOpenDriveFolder(album.url)}
+              aria-label={`${album.title}: abrir carpeta en Google Drive en una nueva pestaña`}
+              className={`group w-full text-left rounded-2xl p-4 border shadow-2xs transition-all duration-200 cursor-pointer flex flex-col justify-between active:scale-[0.98] hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${album.cardClass}`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs transition-transform duration-200 group-hover:scale-105 ${album.iconBgClass}`}
+                  >
+                    {album.icon}
                   </div>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/90 text-slate-600 border border-slate-200/80 shadow-2xs">
+                    <span>Google Drive</span>
+                  </span>
                 </div>
-                <h4 className="font-bold text-xs text-slate-900 line-clamp-1 group-hover:text-red-700 transition">
-                  {vid.titulo}
+
+                <h4 className="font-display font-bold text-sm text-slate-900 mt-3 leading-snug">
+                  {album.title}
                 </h4>
-                <span className="text-[10px] text-slate-500">
-                  {vid.actividad_relacionada || vid.fecha}
-                </span>
+                <p className="text-xs text-slate-600 leading-relaxed mt-1">
+                  {album.description}
+                </p>
               </div>
-            ))
-          )}
+
+              <div
+                className={`mt-3.5 pt-2.5 border-t flex items-center justify-between text-[11px] font-bold ${album.footerClass}`}
+              >
+                <span>Abrir álbum en Google Drive</span>
+                <ExternalLink className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </div>
+            </button>
+          ))}
         </div>
-      </div>
+      </section>
+
+      {/* 2. Vídeos del aula en YouTube */}
+      <section
+        aria-labelledby="videos-youtube-heading"
+        className="bg-white border border-slate-200/80 rounded-3xl p-4.5 shadow-card space-y-4"
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-rose-50 text-red-600 border border-rose-100 shadow-2xs flex items-center justify-center shrink-0">
+            <Youtube className="w-5 h-5" />
+          </div>
+          <div>
+            <h3
+              id="videos-youtube-heading"
+              className="font-display font-bold text-slate-900 text-base leading-snug"
+            >
+              Vídeos del aula en YouTube
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed mt-1">
+              Acceded directamente al canal de clase para disfrutar en familia de los vídeos y actividades de nuestra aula.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleOpenYoutubeChannel}
+          aria-label="Nuestro canal de YouTube: abrir canal en una nueva pestaña"
+          className="group w-full text-left rounded-2xl p-4 border shadow-2xs transition-all duration-200 cursor-pointer flex flex-col justify-between bg-gradient-to-br from-rose-50 via-red-50/60 to-white border-rose-200/90 hover:border-rose-300 active:scale-[0.98] hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
+        >
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs transition-transform duration-200 group-hover:scale-105 bg-red-600 text-white border border-red-500">
+                <Youtube className="w-5 h-5" />
+              </div>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/90 text-red-700 border border-rose-200/80 shadow-2xs">
+                <span>YouTube</span>
+              </span>
+            </div>
+
+            <h4 className="font-display font-bold text-sm text-slate-900 mt-3 leading-snug">
+              Nuestro canal de YouTube
+            </h4>
+            <p className="text-xs text-slate-600 leading-relaxed mt-1">
+              ¡Visita nuestro canal, disfruta de nuestras actividades y suscríbete para no perderte ningún vídeo!
+            </p>
+          </div>
+
+          <div className="mt-3.5 pt-2.5 border-t border-rose-200/60 flex items-center justify-between text-[11px] font-bold text-red-700">
+            <span>Abrir canal en YouTube</span>
+            <ExternalLink className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+          </div>
+        </button>
+      </section>
 
       {/* 3. RGPD & Privacy Shield reminder */}
       <div className="p-4 bg-slate-100/90 border border-slate-200 rounded-3xl flex items-start gap-3 text-slate-700 text-xs leading-relaxed shadow-xs">
@@ -239,140 +217,6 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({ config, items }) =
         </div>
       </div>
 
-      {/* Modal Reproductor de Vídeo Interno Seguro */}
-      {activeVideo && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl space-y-3">
-            <div className="p-4 pb-0 flex items-center justify-between">
-              <div>
-                <h4 className="font-display font-bold text-slate-900 text-sm">
-                  {activeVideo.title}
-                </h4>
-                {activeVideo.subject && (
-                  <p className="text-[11px] text-slate-500">
-                    {activeVideo.subject}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveVideo(null)}
-                className="text-slate-400 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Iframe con privacidad estricta */}
-            <div className="relative aspect-video bg-black">
-              <iframe
-                src={`${activeVideo.embedUrl}${activeVideo.embedUrl.includes('?') ? '&' : '?'}autoplay=1`}
-                title={activeVideo.title}
-                className="w-full h-full border-0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-
-            <div className="p-4 pt-1 flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                <Lock className="w-3 h-3 text-emerald-600" />
-                Reproducción en entorno protegido
-              </span>
-              <button
-                onClick={() => setActiveVideo(null)}
-                className="bg-slate-900 text-white font-bold text-xs px-4 py-2 rounded-xl hover:bg-slate-800 cursor-pointer active:scale-95"
-              >
-                Cerrar reproductor
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Fotografía / Álbum Interno */}
-      {selectedItem && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-display font-bold text-slate-900 text-sm">
-                  {selectedItem.titulo}
-                </h4>
-                <p className="text-[11px] text-slate-500">
-                  {selectedItem.fecha} {selectedItem.actividad_relacionada && `· ${selectedItem.actividad_relacionada}`}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedItem(null)}
-                className="text-slate-400 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="aspect-video rounded-2xl overflow-hidden bg-slate-100">
-              <img
-                src={selectedItem.url_media || selectedItem.miniatura_url}
-                alt={selectedItem.titulo}
-                className="w-full h-full object-cover"
-                loading="lazy"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-
-            {selectedItem.descripcion && (
-              <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-100 leading-relaxed">
-                {selectedItem.descripcion}
-              </p>
-            )}
-
-            <button
-              onClick={() => setSelectedItem(null)}
-              className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer hover:bg-slate-800 active:scale-98"
-            >
-              Cerrar visualizador
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal informativo si aún no se ha especificado el enlace de carpeta */}
-      {showDriveInfoModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center mx-auto">
-              <FolderLock className="w-5 h-5" />
-            </div>
-            <div className="text-center">
-              <h4 className="font-display font-bold text-slate-900 text-sm">
-                Carpeta Protegida de Google Drive
-              </h4>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                El acceso a Google Drive está estrictamente restringido a la
-                carpeta específica del curso para proteger el resto del
-                almacenamiento.
-              </p>
-            </div>
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-[11px] text-slate-600 space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                <Info className="w-3.5 h-3.5 text-blue-600" />
-                <span>Ruta Autorizada:</span>
-              </div>
-              <p className="italic text-slate-500">
-                1º de Primaria B - C.E.I.P. Dr. Fleming
-              </p>
-            </div>
-            <button
-              onClick={() => setShowDriveInfoModal(false)}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer"
-            >
-              Entendido
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
