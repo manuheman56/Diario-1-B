@@ -8,7 +8,6 @@ import {
   Calculator,
   Compass,
   Palette,
-  CheckCircle,
   ExternalLink,
   Sparkles,
   School,
@@ -209,15 +208,21 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
 
                 {/* Pautas pedagógicas para el seguimiento en familia */}
                 {res.tips && res.tips.length > 0 && (
-                  <div className="bg-slate-50/90 rounded-2xl p-3.5 border border-slate-100 space-y-2">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
-                      Cómo acompañar este aprendizaje:
-                    </span>
-                    <ul className="space-y-1.5 text-xs text-slate-700">
+                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 space-y-3">
+                    <h4 className="text-xs font-bold text-slate-800 tracking-tight">
+                      Cómo acompañar este aprendizaje
+                    </h4>
+                    <ul className="space-y-2.5">
                       {res.tips.map((tip, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                          <span className="leading-tight text-[11px]">{tip}</span>
+                        <li
+                          key={idx}
+                          className="flex items-start gap-2.5 text-xs leading-relaxed text-slate-700"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="w-2 h-2 rounded-full bg-purple-600 shrink-0 mt-[0.42rem]"
+                          />
+                          <span className="flex-1 break-words">{tip}</span>
                         </li>
                       ))}
                     </ul>
