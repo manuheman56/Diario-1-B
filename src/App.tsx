@@ -29,10 +29,12 @@ import { MultimediaTab } from './components/MultimediaTab';
 import { AprendemosTab } from './components/AprendemosTab';
 import { RecursosTab } from './components/RecursosTab';
 import { InstallModal } from './components/InstallModal';
+import { ExitConfirmModal } from './components/ExitConfirmModal';
 import { Toast } from './components/Toast';
 import { syncAllData, sortDiaADiaItems } from './services/sheetsService';
 import { isAppsScriptConfigured } from './config/appsScriptConfig';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
+import { useBackNavigation } from './hooks/useBackNavigation';
 import { WifiOff, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 const emptySchedule: Record<DayOfWeek, ScheduleItem[]> = {
@@ -84,14 +86,20 @@ export default function App() {
   // 8. RECURSOS: Biblioteca educativa para practicar en casa (9.ª Pestaña Oficial)
   const [homeResources, setHomeResources] = useState<HomeLearningResource[]>([]);
 
-  // Navigation View States (Las 8 Secciones Oficiales)
-  const [activeTab, setActiveTab] = useState<MainTabType>('inicio');
+  // Navigation View States (Las 8 Secciones Oficiales) + Historial PWA / Android Atrás
+  const {
+    activeTab,
+    isInstallOpen,
+    isExitModalOpen,
+    navigateToTab,
+    openInstallModal,
+    closeInstallModal,
+    stayInApp,
+    confirmExit,
+  } = useBackNavigation();
 
   // UI View Mode (Mobile frame vs responsive wide)
   const [isMobileFrame, setIsMobileFrame] = useState<boolean>(true);
-
-  // Modal de instalación PWA
-  const [isInstallOpen, setIsInstallOpen] = useState(false);
 
   // Background sync state
   const [isSyncing, setIsSyncing] = useState(false);
@@ -228,20 +236,7 @@ export default function App() {
     tab: MainTabType,
     subTab?: SubScheduleTab | SubResourceTab
   ) => {
-    if (tab === 'horario' && subTab === 'calendario') {
-      setActiveTab('calendario');
-    } else if (tab === 'recursos' && subTab === 'aprendemos') {
-      setActiveTab('aprendemos');
-    } else if (tab === 'recursos' && (subTab === 'fotos' || subTab === 'multimedia')) {
-      setActiveTab('multimedia');
-    } else {
-      setActiveTab(tab);
-    }
-
-    const mainEl = document.querySelector('main');
-    if (mainEl) {
-      mainEl.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    navigateToTab(tab, subTab, 'smooth');
   };
 
   const pendingHomeworkCount = posts.filter(
@@ -276,17 +271,11 @@ export default function App() {
         {/* Header con título del colegio y curso escolar */}
         <Header
           config={config}
-          onOpenInstall={() => setIsInstallOpen(true)}
+          onOpenInstall={openInstallModal}
           isMobileFrame={isMobileFrame}
           onToggleFrame={() => setIsMobileFrame(!isMobileFrame)}
           activeTab={activeTab}
-          onTabChange={(tab) => {
-            setActiveTab(tab);
-            const mainEl = document.querySelector('main');
-            if (mainEl) {
-              mainEl.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-          }}
+          onTabChange={(tab) => navigateToTab(tab, undefined, 'smooth')}
           pendingTasksCount={pendingHomeworkCount}
           urgentNoticesCount={urgentNoticesCount}
         />
@@ -402,13 +391,7 @@ export default function App() {
         {/* Bottom Navigation con 5 accesos directos y corrección táctil integral */}
         <BottomNav
           activeTab={activeTab}
-          onTabChange={(tab) => {
-            setActiveTab(tab);
-            const mainEl = document.querySelector('main');
-            if (mainEl) {
-              mainEl.scrollTo({ top: 0, behavior: 'instant' });
-            }
-          }}
+          onTabChange={(tab) => navigateToTab(tab, undefined, 'instant')}
           pendingTasksCount={pendingHomeworkCount}
           urgentNoticesCount={urgentNoticesCount}
         />
@@ -417,7 +400,14 @@ export default function App() {
       {/* Modal de instalación */}
       <InstallModal
         isOpen={isInstallOpen}
-        onClose={() => setIsInstallOpen(false)}
+        onClose={closeInstallModal}
+      />
+
+      {/* Confirmación discreta al pulsar Atrás desde Inicio */}
+      <ExitConfirmModal
+        isOpen={isExitModalOpen}
+        onStay={stayInApp}
+        onExit={confirmExit}
       />
     </div>
   );
