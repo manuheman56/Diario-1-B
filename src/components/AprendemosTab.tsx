@@ -58,7 +58,7 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
 
           <p className="text-xs text-purple-100/90 leading-relaxed max-w-lg">
             Contenidos curriculares, proyectos activos y experiencias educativas
-            que desarrollamos día a día en el aula con el tutor don Manuel Herrera.
+            que desarrollamos día a día en el aula con El profe Manolo.
           </p>
 
           <div className="pt-1 flex items-center gap-3 text-[11px] text-purple-200 font-medium">
