@@ -361,16 +361,95 @@ export function sortMultimediaItems(items: MultimediaItem[]): MultimediaItem[] {
   );
 }
 
+const INLINE_BULLET_SPLIT_RE = /\s*[•▪◦●‣]+\s*/;
+const CONTEXTUAL_DASH_SPLIT_RE = /(?:^|(?<=[.!?:;])\s+)\s*[-*–—]\s+(?=[A-ZÁÉÍÓÚÑ¡¿])/;
+const NUMBERED_LIST_SPLIT_RE = /(?:^|\s)\d{1,2}[.)]\s+(?=[A-ZÁÉÍÓÚÑ¡¿])/;
+const ABBREVIATION_DOT_PLACEHOLDER = '\u0000';
+
+function splitMultipleSentencesSafely(text: string): string[] {
+  const masked = text
+    .replace(/\bp\.\s*ej\./gi, `p${ABBREVIATION_DOT_PLACEHOLDER} ej${ABBREVIATION_DOT_PLACEHOLDER}`)
+    .replace(
+      /\b(Dr|Dra|Sr|Sra|Prof|Lic|etc|ej|pág|núm|vol|art|aprox|máx|mín|tel|ud|uds)\./gi,
+      `$1${ABBREVIATION_DOT_PLACEHOLDER}`
+    )
+    .replace(/\b([A-ZÁÉÍÓÚÑ])\./g, `$1${ABBREVIATION_DOT_PLACEHOLDER}`);
+
+  const parts = masked
+    .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ¡¿])/)
+    .map((part) => part.replace(/\u0000/g, '.').trim())
+    .filter((part) => part.length > 0);
+
+  return parts.length > 1 ? parts : [text.trim()];
+}
+
+/**
+ * Normaliza una lista de recomendaciones antes de renderizar o almacenar:
+ * - Separa saltos de línea, saltos escapados (\n), viñetas inline (•, ▪, etc.) y listas numeradas.
+ * - Si todas las recomendaciones llegan concatenadas en un único texto separado por puntos,
+ *   las divide de forma segura respetando abreviaturas, siglas y ordinales (1.º, Dr., p. ej.).
+ * - Elimina vacíos, duplicados y cualquier repetición de la explicación.
+ */
+export function normalizeAprendemosTips(
+  rawTips: string[] | undefined,
+  description?: string
+): string[] {
+  if (!Array.isArray(rawTips) || rawTips.length === 0) return [];
+
+  const normalizedDesc = (description || '').trim().toLowerCase();
+
+  const expanded: string[] = [];
+  rawTips.forEach((raw) => {
+    if (typeof raw !== 'string') return;
+    const cleanedRaw = raw
+      .replace(/\\n/g, '\n')
+      .replace(/^c[oó]mo acompañar este aprendizaje\s*:?\s*/i, '');
+
+    cleanedRaw.split(/\r?\n/).forEach((line) => {
+      line.split(INLINE_BULLET_SPLIT_RE).forEach((bulletPart) => {
+        bulletPart.split(NUMBERED_LIST_SPLIT_RE).forEach((numPart) => {
+          numPart.split(CONTEXTUAL_DASH_SPLIT_RE).forEach((part) => {
+            const clean = part.replace(/^[•\-\*–—▪◦●‣]+\s*/, '').trim();
+            if (clean.length > 0) {
+              expanded.push(clean);
+            }
+          });
+        });
+      });
+    });
+  });
+
+  const sentenceExpanded =
+    rawTips.length === 1 && expanded.length === 1
+      ? splitMultipleSentencesSafely(expanded[0])
+      : expanded;
+
+  const seen = new Set<string>();
+  const finalTips: string[] = [];
+  for (const tip of sentenceExpanded) {
+    const clean = tip.replace(/^[•\-\*–—▪◦●‣]+\s*/, '').trim();
+    const key = clean.toLowerCase();
+    if (!clean) continue;
+    if (normalizedDesc && key === normalizedDesc) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    finalTips.push(clean);
+  }
+
+  return finalTips;
+}
+
 /**
  * Separa la columna `descripcion` de APRENDEMOS en:
  * - `description`: exclusivamente la primera línea no vacía (explicación del aprendizaje).
- * - `tips`: exclusivamente las líneas posteriores no vacías, sin prefijos de viñeta ni repetición de la explicación.
+ * - `tips`: exclusivamente las recomendaciones posteriores, sin prefijos de viñeta ni repetición de la explicación.
  */
 export function splitAprendemosDescription(rawDescripcion: string): {
   description: string;
   tips: string[];
 } {
-  const rawLines = String(rawDescripcion || '')
+  const normalizedText = String(rawDescripcion || '').replace(/\\n/g, '\n');
+  const rawLines = normalizedText
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
@@ -379,11 +458,22 @@ export function splitAprendemosDescription(rawDescripcion: string): {
     return { description: '', tips: [] };
   }
 
-  const description = rawLines[0];
-  const tips = rawLines
-    .slice(1)
-    .map((line) => line.replace(/^[•\-\*–—▪◦·]+\s*/, '').trim())
-    .filter((tip) => tip.length > 0 && tip !== description);
+  const firstLineParts = rawLines[0]
+    .split(INLINE_BULLET_SPLIT_RE)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+
+  const description = firstLineParts[0] || rawLines[0];
+  const candidateTipLines = [...firstLineParts.slice(1), ...rawLines.slice(1)];
+
+  if (candidateTipLines.length === 0) {
+    return { description, tips: [] };
+  }
+
+  const tips = normalizeAprendemosTips(
+    candidateTipLines.length === 1 ? [candidateTipLines[0]] : candidateTipLines,
+    description
+  );
 
   return { description, tips };
 }

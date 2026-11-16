@@ -13,6 +13,8 @@ import {
   formatSpanishTime,
   sanitizeYoutubeEmbedUrl,
   syncAllData,
+  normalizeAprendemosTips,
+  splitAprendemosDescription,
   SHEETS_DOCUMENT_ID,
 } from '../src/services/sheetsService';
 
@@ -492,8 +494,76 @@ assertStrict(
 );
 console.log('✓ Todos los 5 casos de APRENDEMOS (explicación + 5 pautas, 1 línea, líneas vacías, sin pautas y sin duplicados) validados.\n');
 
+// 19. Separación segura de recomendaciones concatenadas (viñetas inline, saltos escapados y puntos sin romper abreviaturas)
+console.log('19. Verificando separación segura de recomendaciones concatenadas en APRENDEMOS...');
+
+// 19a. 4 recomendaciones en la misma línea separadas por viñetas inline (•)
+const inlineBulletsDesc =
+  'Estamos practicando sumas hasta el 20. • Utilizar pequeños objetos (p. ej. pinzas). • Aprovechar momentos de juego. • Contar objetos en voz alta. • Dibujar sumas sencillas.';
+const parsedInlineBullets = splitAprendemosDescription(inlineBulletsDesc);
+assertStrict(
+  parsedInlineBullets.description === 'Estamos practicando sumas hasta el 20.',
+  '19a: debe separar la explicación inicial de las viñetas inline'
+);
+assertStrict(
+  JSON.stringify(parsedInlineBullets.tips) ===
+    JSON.stringify([
+      'Utilizar pequeños objetos (p. ej. pinzas).',
+      'Aprovechar momentos de juego.',
+      'Contar objetos en voz alta.',
+      'Dibujar sumas sencillas.',
+    ]),
+  `19a: se esperaban 4 recomendaciones separadas, obtenido: ${JSON.stringify(parsedInlineBullets.tips)}`
+);
+
+// 19b. Un único elemento en res.tips con 4 frases separadas por punto (respetando p. ej. y 1.º)
+const singleConcatTip = [
+  'Utilizar pequeños objetos cotidianos (p. ej. fichas o pinzas) para sumar. Aprovechar los juegos en 1.º de Primaria para plantear retos. Contar objetos en voz alta señalando cada elemento. Dibujar sumas sencillas con estrellas o flores.',
+];
+const normalizedConcat = normalizeAprendemosTips(singleConcatTip, 'Estamos practicando sumas hasta el 20.');
+assertStrict(
+  JSON.stringify(normalizedConcat) ===
+    JSON.stringify([
+      'Utilizar pequeños objetos cotidianos (p. ej. fichas o pinzas) para sumar.',
+      'Aprovechar los juegos en 1.º de Primaria para plantear retos.',
+      'Contar objetos en voz alta señalando cada elemento.',
+      'Dibujar sumas sencillas con estrellas o flores.',
+    ]),
+  `19b: fallo al separar frases concatenadas respetando abreviaturas: ${JSON.stringify(normalizedConcat)}`
+);
+
+// 19c. Saltos escapados (\\n) y numeración (1. ... 2. ... 3. ... 4. ...)
+const escapedNumbered = splitAprendemosDescription(
+  'Trabajamos la lectura diaria.\\n\\n1. Leer juntos un cuento breve. 2. Preguntar qué ocurrió. 3. Identificar personajes. 4. Elogiar su esfuerzo.'
+);
+assertStrict(escapedNumbered.description === 'Trabajamos la lectura diaria.', '19c: explicación incorrecta');
+assertStrict(
+  JSON.stringify(escapedNumbered.tips) ===
+    JSON.stringify([
+      'Leer juntos un cuento breve.',
+      'Preguntar qué ocurrió.',
+      'Identificar personajes.',
+      'Elogiar su esfuerzo.',
+    ]),
+  `19c: fallo en saltos escapados y lista numerada: ${JSON.stringify(escapedNumbered.tips)}`
+);
+
+// 19d. Una sola línea con dos frases de explicación (sin viñetas ni saltos) NO debe dividirse en recomendaciones
+const singleLineTwoSentences = splitAprendemosDescription(
+  'Trabajamos los amigos del 10 en clase. Usamos regletas de colores para interiorizar cada pareja.'
+);
+assertStrict(
+  singleLineTwoSentences.description === 'Trabajamos los amigos del 10 en clase. Usamos regletas de colores para interiorizar cada pareja.',
+  '19d: explicación de una línea no debe truncarse'
+);
+assertStrict(
+  singleLineTwoSentences.tips.length === 0,
+  '19d: una sola línea sin viñetas ni saltos no debe generar tips'
+);
+console.log('✓ Separación segura de recomendaciones concatenadas (4 viñetas independientes, saltos escapados y abreviaturas) verificada.\n');
+
 testPendingConfig().then(() => {
   console.log('================================================================');
-  console.log('✓ TODAS LAS 18 PRUEBAS DE INTEGRACIÓN HAN SIDO SUPERADAS');
+  console.log('✓ TODAS LAS 19 PRUEBAS DE INTEGRACIÓN HAN SIDO SUPERADAS');
   console.log('================================================================');
 });

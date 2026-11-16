@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { educationalResources } from '../data/defaultData';
 import { EducationalResource } from '../types';
+import { normalizeAprendemosTips } from '../services/sheetsService';
 import {
   GraduationCap,
   BookOpen,
@@ -26,13 +27,14 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
   const activeList = resources !== undefined ? resources : [];
 
   const filteredResources = activeList.filter((res) => {
+    const normalizedTips = normalizeAprendemosTips(res.tips, res.description);
     const matchesCategory =
       activeCategory === 'all' || res.category === activeCategory;
     const matchesSearch =
       searchQuery.trim() === '' ||
       res.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       res.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      res.tips.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+      normalizedTips.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return matchesCategory && matchesSearch;
   });
@@ -180,6 +182,7 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
           </div>
         ) : (
           filteredResources.map((res) => {
+            const displayTips = normalizeAprendemosTips(res.tips, res.description);
             return (
               <div
                 key={res.id}
@@ -207,13 +210,13 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
                 </div>
 
                 {/* Pautas pedagógicas para el seguimiento en familia */}
-                {res.tips && res.tips.length > 0 && (
+                {displayTips.length > 0 && (
                   <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 space-y-3">
                     <h4 className="text-xs font-bold text-slate-800 tracking-tight">
                       Cómo acompañar este aprendizaje
                     </h4>
-                    <ul className="space-y-2.5">
-                      {res.tips.map((tip, idx) => (
+                    <ul className="flex flex-col gap-2.5 list-none p-0 m-0">
+                      {displayTips.map((tip, idx) => (
                         <li
                           key={idx}
                           className="flex items-start gap-2.5 text-xs leading-relaxed text-slate-700"
@@ -222,7 +225,7 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
                             aria-hidden="true"
                             className="w-2 h-2 rounded-full bg-purple-600 shrink-0 mt-[0.42rem]"
                           />
-                          <span className="flex-1 break-words">{tip}</span>
+                          <span className="min-w-0 flex-1 break-words">{tip}</span>
                         </li>
                       ))}
                     </ul>
