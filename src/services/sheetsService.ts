@@ -361,10 +361,40 @@ export function sortMultimediaItems(items: MultimediaItem[]): MultimediaItem[] {
   );
 }
 
+/**
+ * Separa la columna `descripcion` de APRENDEMOS en:
+ * - `description`: exclusivamente la primera línea no vacía (explicación del aprendizaje).
+ * - `tips`: exclusivamente las líneas posteriores no vacías, sin prefijos de viñeta ni repetición de la explicación.
+ */
+export function splitAprendemosDescription(rawDescripcion: string): {
+  description: string;
+  tips: string[];
+} {
+  const rawLines = String(rawDescripcion || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (rawLines.length === 0) {
+    return { description: '', tips: [] };
+  }
+
+  const description = rawLines[0];
+  const tips = rawLines
+    .slice(1)
+    .map((line) => line.replace(/^[•\-\*–—▪◦·]+\s*/, '').trim())
+    .filter((tip) => tip.length > 0 && tip !== description);
+
+  return { description, tips };
+}
+
 export function sortAprendemosItems(items: EducationalResource[]): EducationalResource[] {
   return sortByOrdenDesc(
     items.map((item) => ({
-      item,
+      item:
+        typeof item.descripcion === 'string'
+          ? { ...item, ...splitAprendemosDescription(item.descripcion) }
+          : item,
       orden: parseCachedOrden(item.orden),
     }))
   );
@@ -946,18 +976,7 @@ export function parseAprendemosRows(rows: string[][]): EducationalResource[] {
     else if (rawCat.includes('pauta') || rawCat.includes('habito')) category = 'pautas';
     else category = 'lectura';
 
-    const tips: string[] = [];
-    if (descripcion.includes('\n')) {
-      descripcion.split('\n').forEach((line) => {
-        const clean = line.replace(/^[•\-\*]\s*/, '').trim();
-        if (clean.length > 0) tips.push(clean);
-      });
-    } else if (descripcion.includes(';')) {
-      descripcion.split(';').forEach((p) => {
-        const clean = p.trim();
-        if (clean.length > 0) tips.push(clean);
-      });
-    }
+    const { description, tips } = splitAprendemosDescription(descripcion);
 
     entries.push({
       orden: parsedOrden,
@@ -974,9 +993,9 @@ export function parseAprendemosRows(rows: string[][]): EducationalResource[] {
         orden,
         category,
         title: titulo,
-        description: tips.length > 0 ? tips[0] : descripcion,
+        description,
         level: nivel,
-        tips: tips.length > 0 ? tips : [descripcion],
+        tips,
         externalUrl: url_recurso,
         externalLabel: url_recurso ? `Consultar ${tipo_recurso}` : undefined,
         badge: tipo_recurso,
@@ -1377,13 +1396,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
         const parsedOrden = parseNumericOrden(item.orden);
         const orden = parsedOrden ?? -1;
 
-        const tips: string[] = [];
-        if (descripcion.includes('\n')) {
-          descripcion.split('\n').forEach((line: string) => {
-            const clean = line.replace(/^[•\-\*]\s*/, '').trim();
-            if (clean.length > 0) tips.push(clean);
-          });
-        }
+        const { description, tips } = splitAprendemosDescription(descripcion);
 
         return {
           orden: parsedOrden,
@@ -1400,9 +1413,9 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
             orden,
             category,
             title: titulo,
-            description: tips.length > 0 ? tips[0] : descripcion,
+            description,
             level: item.nivel || '1.º Primaria',
-            tips: tips.length > 0 ? tips : [descripcion],
+            tips,
             externalUrl: item.url_recurso || undefined,
             externalLabel: item.url_recurso ? `Consultar ${tipo}` : undefined,
             badge: tipo,

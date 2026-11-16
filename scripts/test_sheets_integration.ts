@@ -128,9 +128,12 @@ ap-3,escritura,Borrador trazo,No mostrar,Ficha,,,1.º Primaria,BORRADOR,3`;
 const parsedAprendemos = parseAprendemosRows(parseCSV(sampleAprendemosCSV));
 console.assert(parsedAprendemos.length === 2, `Se esperaban 2 recursos publicados, se obtuvieron ${parsedAprendemos.length}`);
 console.assert(parsedAprendemos[0].category === 'matematicas', 'Primer recurso debe ser matemáticas (orden 2 DESC)');
+console.assert(parsedAprendemos[0].description === 'Sumas manipulativas con regletas', 'Descripción de una sola línea incorrecta');
+console.assert(parsedAprendemos[0].tips.length === 0, 'Una sola línea no debe generar recomendaciones en tips');
 console.assert(parsedAprendemos[1].category === 'lectura', 'Segundo recurso debe ser lectura (orden 1 DESC)');
-console.assert(parsedAprendemos[1].tips.length === 2, 'Pautas pedagógicas divididas por salto de línea no detectadas');
-console.log('✓ Pestaña APRENDEMOS validada con pautas pedagógicas para el hogar y orden descendente.\n');
+console.assert(parsedAprendemos[1].description === 'Leer 10 minutos al día', 'La explicación debe tomar solo la primera línea');
+console.assert(JSON.stringify(parsedAprendemos[1].tips) === JSON.stringify(['Felicitar el esfuerzo']), 'Solo las líneas posteriores deben ir a tips');
+console.log('✓ Pestaña APRENDEMOS validada con separación entre explicación y recomendaciones en orden descendente.\n');
 
 // 10. Comprobación de RECURSOS (Biblioteca Educativa con exclusividad curricular)
 console.log('10. Verificando pestaña RECURSOS (exclusivamente Lengua, Matemáticas y Apoyo Familiar)...');
@@ -392,8 +395,105 @@ console.assert(
 );
 console.log('✓ Ordenación numérica DESCENDENTE, desempate por fecha e integridad de CALENDARIO/HORARIO verificados.\n');
 
+// 18. Separación entre explicación y recomendaciones en APRENDEMOS («Cómo acompañar este aprendizaje»)
+console.log('18. Verificando separación de explicación y recomendaciones en APRENDEMOS...');
+const assertStrict = (cond: boolean, msg: string) => {
+  if (!cond) {
+    throw new Error(`Fallo en prueba 18: ${msg}`);
+  }
+};
+
+const descEjemplo5Recs = [
+  'Estamos trabajando la comprensión de pequeños textos, identificando personajes, lugares y acontecimientos principales.',
+  '',
+  '• Leer juntos un cuento breve cada día.',
+  '• Preguntar qué ha sucedido en la historia.',
+  '• Pedir que explique quiénes son los personajes.',
+  '• Animarle a anticipar cómo podría terminar el cuento.',
+  '• Valorar sus explicaciones y escuchar sus opiniones.',
+].join('\n');
+
+const descUnaLinea = 'Trabajamos el conteo hasta el 20 y las sumas sencillas; siempre de forma manipulativa.';
+const descLineasVacias = '\n  \nTrabajamos el trazo de las vocales.\n\n   \n•   \n- Practicar en pauta grande.\n\n* Cuidar la postura.\n   ';
+const descSinRecomendaciones = 'Lectura compartida en voz alta en clase.\n\n   \n•  \n';
+const descExplicacionRepetida = 'Identificamos las sílabas directas.\nIdentificamos las sílabas directas.\n• Leer palabras con p, m y l.';
+
+const aprendemosPayloadTest = parseAppsScriptPayload({
+  config: {},
+  dia_a_dia: [],
+  avisos: [],
+  calendario: [],
+  horario: [],
+  multimedia: [],
+  aprendemos: [
+    { id: 'ap-5', categoria: 'lectura', titulo: 'Comprensión lectora', descripcion: descEjemplo5Recs, tipo_recurso: 'Contenido de clase', estado: 'PUBLICAR', orden: 5 },
+    { id: 'ap-4', categoria: 'matematicas', titulo: 'Conteo hasta 20', descripcion: descUnaLinea, tipo_recurso: 'Actividad', estado: 'PUBLICAR', orden: 4 },
+    { id: 'ap-3', categoria: 'escritura', titulo: 'Vocales', descripcion: descLineasVacias, tipo_recurso: 'Pauta', estado: 'PUBLICAR', orden: 3 },
+    { id: 'ap-2', categoria: 'lectura', titulo: 'Lectura en voz alta', descripcion: descSinRecomendaciones, tipo_recurso: 'Contenido de clase', estado: 'PUBLICAR', orden: 2 },
+    { id: 'ap-1', categoria: 'lectura', titulo: 'Sílabas directas', descripcion: descExplicacionRepetida, tipo_recurso: 'Pauta', estado: 'PUBLICAR', orden: 1 },
+  ],
+  recursos: [],
+});
+
+const [item5, item4, item3, item2, item1] = aprendemosPayloadTest.aprendemos;
+
+// Caso 1: Explicación + 5 recomendaciones
+assertStrict(
+  item5.description === 'Estamos trabajando la comprensión de pequeños textos, identificando personajes, lugares y acontecimientos principales.',
+  'Caso 1: description debe ser exclusivamente la primera línea'
+);
+assertStrict(
+  JSON.stringify(item5.tips) === JSON.stringify([
+    'Leer juntos un cuento breve cada día.',
+    'Preguntar qué ha sucedido en la historia.',
+    'Pedir que explique quiénes son los personajes.',
+    'Animarle a anticipar cómo podría terminar el cuento.',
+    'Valorar sus explicaciones y escuchar sus opiniones.',
+  ]),
+  'Caso 1: tips debe contener las 5 recomendaciones sin viñetas ni líneas vacías'
+);
+assertStrict(!item5.tips.includes(item5.description), 'Caso 1: la explicación no debe repetirse en tips');
+
+// Caso 2: Una sola línea (sin duplicar ni partir por punto y coma)
+assertStrict(item4.description === descUnaLinea, 'Caso 2: una sola línea debe mostrarse íntegra como explicación');
+assertStrict(item4.tips.length === 0, 'Caso 2: una sola línea no debe duplicarse en tips');
+
+// Caso 3: Líneas vacías y viñetas mixtas (-, *, • vacía)
+assertStrict(item3.description === 'Trabajamos el trazo de las vocales.', 'Caso 3: debe ignorar líneas vacías iniciales');
+assertStrict(
+  JSON.stringify(item3.tips) === JSON.stringify(['Practicar en pauta grande.', 'Cuidar la postura.']),
+  'Caso 3: debe limpiar líneas vacías y viñetas vacías'
+);
+
+// Caso 4: Sin recomendaciones adicionales
+assertStrict(item2.description === 'Lectura compartida en voz alta en clase.', 'Caso 4: explicación incorrecta');
+assertStrict(item2.tips.length === 0, 'Caso 4: sin recomendaciones debe devolver tips vacío');
+
+// Caso 5: Nunca duplicar la explicación aunque aparezca repetida
+assertStrict(item1.description === 'Identificamos las sílabas directas.', 'Caso 5: explicación incorrecta');
+assertStrict(
+  JSON.stringify(item1.tips) === JSON.stringify(['Leer palabras con p, m y l.']),
+  'Caso 5: la explicación repetida debe excluirse de tips'
+);
+
+// Verificar paridad exacta con parseAprendemosRows (CSV)
+const aprendemosCsvTest = parseAprendemosRows([
+  ['id', 'categoria', 'titulo', 'descripcion', 'tipo_recurso', 'url_recurso', 'imagen_url', 'nivel', 'estado', 'orden'],
+  ['ap-5', 'lectura', 'Comprensión lectora', descEjemplo5Recs, 'Contenido de clase', '', '', '1.º Primaria', 'PUBLICAR', '5'],
+  ['ap-4', 'matematicas', 'Conteo hasta 20', descUnaLinea, 'Actividad', '', '', '1.º Primaria', 'PUBLICAR', '4'],
+  ['ap-3', 'escritura', 'Vocales', descLineasVacias, 'Pauta', '', '', '1.º Primaria', 'PUBLICAR', '3'],
+  ['ap-2', 'lectura', 'Lectura en voz alta', descSinRecomendaciones, 'Contenido de clase', '', '', '1.º Primaria', 'PUBLICAR', '2'],
+  ['ap-1', 'lectura', 'Sílabas directas', descExplicacionRepetida, 'Pauta', '', '', '1.º Primaria', 'PUBLICAR', '1'],
+]);
+assertStrict(
+  JSON.stringify(aprendemosCsvTest.map((x) => ({ d: x.description, t: x.tips }))) ===
+    JSON.stringify(aprendemosPayloadTest.aprendemos.map((x) => ({ d: x.description, t: x.tips }))),
+  'parseAprendemosRows y parseAppsScriptPayload deben producir idéntica separación de description y tips'
+);
+console.log('✓ Todos los 5 casos de APRENDEMOS (explicación + 5 pautas, 1 línea, líneas vacías, sin pautas y sin duplicados) validados.\n');
+
 testPendingConfig().then(() => {
   console.log('================================================================');
-  console.log('✓ TODAS LAS 17 PRUEBAS DE INTEGRACIÓN HAN SIDO SUPERADAS');
+  console.log('✓ TODAS LAS 18 PRUEBAS DE INTEGRACIÓN HAN SIDO SUPERADAS');
   console.log('================================================================');
 });
