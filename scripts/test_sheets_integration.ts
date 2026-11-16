@@ -54,11 +54,11 @@ const sampleDiaADiaCSV = `identificación,fecha,título,contenido,categoria,imag
 
 const parsedDiaADia = parseDiaADiaRows(parseCSV(sampleDiaADiaCSV));
 console.assert(parsedDiaADia.length === 2, `Se esperaban 2 registros publicados, se obtuvieron ${parsedDiaADia.length}`);
-console.assert(parsedDiaADia[0].titulo === 'Actividad Publicada', 'El primer registro debe ser Actividad Publicada');
-console.assert(parsedDiaADia[0].destacado === true, 'El primer registro debe ser destacado');
-console.assert(parsedDiaADia[1].titulo === 'Segunda Publicada', 'El segundo registro debe ser Segunda Publicada');
+console.assert(parsedDiaADia[0].titulo === 'Segunda Publicada', 'El primer registro debe ser Segunda Publicada (orden 4 DESC)');
+console.assert(parsedDiaADia[1].titulo === 'Actividad Publicada', 'El segundo registro debe ser Actividad Publicada (orden 1 DESC)');
+console.assert(parsedDiaADia[1].destacado === true, 'El registro Actividad Publicada debe ser destacado');
 console.assert(parsedDiaADia.every((p) => p.estado === 'PUBLICAR'), 'Todos los registros visibles deben tener estado PUBLICAR');
-console.log('✓ Filtrado estricto de PUBLICAR validado en DIA_A_DIA.\n');
+console.log('✓ Filtrado estricto de PUBLICAR y orden descendente validados en DIA_A_DIA.\n');
 
 // 5. Comprobación de AVISOS con prioridad y fecha_limite
 console.log('5. Verificando pestaña AVISOS con prioridad y fecha límite...');
@@ -69,9 +69,11 @@ av-3,07/11/2026,,Aviso General,Reunión familias,General,Normal,,NO,PUBLICAR,2`;
 
 const parsedAvisos = parseAvisosRows(parseCSV(sampleAvisosCSV));
 console.assert(parsedAvisos.length === 2, `Se esperaban 2 avisos publicados, se obtuvieron ${parsedAvisos.length}`);
-console.assert(parsedAvisos[0].important === true, 'El aviso urgente debe marcarse como important=true');
-console.assert(parsedAvisos[0].fecha_limite === '12/11/2026', 'Fecha límite no preservada');
-console.log('✓ Pestaña AVISOS validada con prioridad, destacado y fecha límite.\n');
+console.assert(parsedAvisos[0].id === 'av-3', 'El primer aviso debe ser av-3 (orden 2 DESC)');
+console.assert(parsedAvisos[1].id === 'av-1', 'El segundo aviso debe ser av-1 (orden 1 DESC)');
+console.assert(parsedAvisos[1].important === true, 'El aviso urgente debe marcarse como important=true');
+console.assert(parsedAvisos[1].fecha_limite === '12/11/2026', 'Fecha límite no preservada');
+console.log('✓ Pestaña AVISOS validada con prioridad, destacado, fecha límite y orden descendente.\n');
 
 // 6. Comprobación de CALENDARIO
 console.log('6. Verificando pestaña CALENDARIO...');
@@ -110,10 +112,10 @@ m-3,01/11/2026,Foto Borrador,Oculta,FOTOGRAFIA,https://fotos.com/borrador.jpg,,,
 
 const parsedMultimedia = parseMultimediaRows(parseCSV(sampleMultimediaCSV));
 console.assert(parsedMultimedia.length === 2, `Se esperaban 2 archivos multimedia, se obtuvieron ${parsedMultimedia.length}`);
-console.assert(parsedMultimedia[0].tipo === 'FOTOGRAFIA', 'Tipo FOTOGRAFIA no identificado');
-console.assert(parsedMultimedia[1].tipo === 'VIDEO', 'Tipo VIDEO no identificado');
-console.assert(parsedMultimedia[1].embedUrl?.includes('youtube-nocookie.com/embed/dQw4w9WgXcQ'), 'URL embebida privada no generada');
-console.log('✓ Pestaña MULTIMEDIA validada con separación estricta de fotos y vídeos seguros.\n');
+console.assert(parsedMultimedia[0].tipo === 'VIDEO', 'El primer elemento debe ser VIDEO (orden 2 DESC)');
+console.assert(parsedMultimedia[1].tipo === 'FOTOGRAFIA', 'El segundo elemento debe ser FOTOGRAFIA (orden 1 DESC)');
+console.assert(parsedMultimedia[0].embedUrl?.includes('youtube-nocookie.com/embed/dQw4w9WgXcQ'), 'URL embebida privada no generada');
+console.log('✓ Pestaña MULTIMEDIA validada con separación estricta de fotos y vídeos seguros en orden descendente.\n');
 
 // 9. Comprobación de APRENDEMOS
 console.log('9. Verificando pestaña APRENDEMOS...');
@@ -125,10 +127,10 @@ ap-3,escritura,Borrador trazo,No mostrar,Ficha,,,1.º Primaria,BORRADOR,3`;
 
 const parsedAprendemos = parseAprendemosRows(parseCSV(sampleAprendemosCSV));
 console.assert(parsedAprendemos.length === 2, `Se esperaban 2 recursos publicados, se obtuvieron ${parsedAprendemos.length}`);
-console.assert(parsedAprendemos[0].tips.length === 2, 'Pautas pedagógicas divididas por salto de línea no detectadas');
-console.assert(parsedAprendemos[0].category === 'lectura', 'Categoría lectura no asignada');
-console.assert(parsedAprendemos[1].category === 'matematicas', 'Categoría matemáticas no asignada');
-console.log('✓ Pestaña APRENDEMOS validada con pautas pedagógicas para el hogar.\n');
+console.assert(parsedAprendemos[0].category === 'matematicas', 'Primer recurso debe ser matemáticas (orden 2 DESC)');
+console.assert(parsedAprendemos[1].category === 'lectura', 'Segundo recurso debe ser lectura (orden 1 DESC)');
+console.assert(parsedAprendemos[1].tips.length === 2, 'Pautas pedagógicas divididas por salto de línea no detectadas');
+console.log('✓ Pestaña APRENDEMOS validada con pautas pedagógicas para el hogar y orden descendente.\n');
 
 // 10. Comprobación de RECURSOS (Biblioteca Educativa con exclusividad curricular)
 console.log('10. Verificando pestaña RECURSOS (exclusivamente Lengua, Matemáticas y Apoyo Familiar)...');
@@ -141,13 +143,13 @@ rec-5,matematicas,Borrador matemáticas,Oculto en borrador,Juego,,,Matemáticas,
 
 const parsedRecursos = parseRecursosRows(parseCSV(sampleRecursosCSV));
 console.assert(parsedRecursos.length === 3, `Se esperaban 3 recursos (filtrando ciencias y borrador), se obtuvieron ${parsedRecursos.length}`);
-console.assert(parsedRecursos[0].categoria === 'matematicas', 'Primer recurso debe ser matemáticas');
-console.assert(parsedRecursos[0].destacado === true, 'Primer recurso debe ser destacado');
-console.assert(parsedRecursos[1].categoria === 'lengua_lectura', 'Segundo recurso debe ser lengua_lectura');
-console.assert(parsedRecursos[2].categoria === 'familias', 'Tercer recurso debe ser familias');
+console.assert(parsedRecursos[0].categoria === 'familias', 'Primer recurso debe ser familias (orden 3 DESC)');
+console.assert(parsedRecursos[1].categoria === 'lengua_lectura', 'Segundo recurso debe ser lengua_lectura (orden 2 DESC)');
+console.assert(parsedRecursos[2].categoria === 'matematicas', 'Tercer recurso debe ser matemáticas (orden 1 DESC)');
+console.assert(parsedRecursos[2].destacado === true, 'Recurso rec-1 debe ser destacado');
 console.assert(parsedRecursos.every((r) => r.estado === 'PUBLICAR'), 'Todos los recursos deben ser PUBLICAR');
 console.assert(!parsedRecursos.some((r) => r.titulo.includes('plantas carnívoras')), 'Ciencias Naturales debe ser filtrado');
-console.log('✓ Pestaña RECURSOS validada con exclusividad curricular y filtro PUBLICAR.\n');
+console.log('✓ Pestaña RECURSOS validada con exclusividad curricular, filtro PUBLICAR y orden descendente.\n');
 
 // 11. Comprobación de parseAppsScriptPayload (Recepción consolidada de Apps Script)
 console.log('11. Verificando procesado consolidado del payload de Google Apps Script...');
@@ -286,8 +288,112 @@ console.assert(codeGs.includes('getSpreadsheet'), 'Función getSpreadsheet ausen
 console.assert(codeGs.includes('TAB_ALIASES'), 'Mapeo TAB_ALIASES ausente');
 console.log('✓ Diagnóstico seguro, versión trazable y resolución tolerante de pestañas verificados.\n');
 
+// 17. Ordenación numérica DESCENDENTE por `orden`, desempate por fecha y tratamiento de `orden` vacío/inválido
+console.log('17. Verificando ordenación DESCENDENTE por `orden` en las 5 colecciones e Inicio...');
+const orderingPayload = parseAppsScriptPayload({
+  config: {},
+  dia_a_dia: [
+    { id: 'd-2', fecha: '02/11/2026', titulo: 'Orden 2', contenido: 'c', categoria: 'General', estado: 'PUBLICAR', orden: '2' },
+    { id: 'd-9', fecha: '09/11/2026', titulo: 'Orden 9', contenido: 'c', categoria: 'Actividad', estado: 'PUBLICAR', orden: '9' },
+    { id: 'd-empty-high-row', fecha: '20/11/2026', titulo: 'Sin orden en fila tardía', contenido: 'c', categoria: 'General', estado: 'PUBLICAR', orden: '' },
+    { id: 'd-14-old', fecha: '14/11/2026', titulo: 'Orden 14 fecha anterior', contenido: 'c', categoria: 'General', estado: 'PUBLICAR', orden: 14 },
+    { id: 'd-14-new', fecha: '18/11/2026', titulo: 'Orden 14 fecha reciente', contenido: 'c', categoria: 'Tarea', estado: 'PUBLICAR', orden: '14' },
+    { id: 'd-15', fecha: '15/11/2026', titulo: 'Orden 15', contenido: 'c', categoria: 'General', estado: 'PUBLICAR', orden: 15 },
+    { id: 'd-draft', fecha: '25/11/2026', titulo: 'Borrador orden 99', contenido: 'c', categoria: 'General', estado: 'BORRADOR', orden: 99 },
+    { id: 'd-invalid', fecha: '10/11/2026', titulo: 'Orden inválido texto', contenido: 'c', categoria: 'General', estado: 'PUBLICAR', orden: 'abc' },
+    { id: 'd-0', fecha: '01/11/2026', titulo: 'Orden 0 válido', contenido: 'c', categoria: 'General', estado: 'PUBLICAR', orden: 0 },
+  ],
+  avisos: [
+    { id: 'a-2', fecha_publicacion: '02/11/2026', titulo: 'Aviso 2', mensaje: 'm', tipo: 'Urgente', prioridad: 'Alta', estado: 'PUBLICAR', orden: 2 },
+    { id: 'a-empty', fecha_publicacion: '20/11/2026', titulo: 'Aviso sin orden', mensaje: 'm', tipo: 'General', prioridad: 'Normal', estado: 'PUBLICAR', orden: '' },
+    { id: 'a-13-a', fecha_publicacion: '10/11/2026', titulo: 'Aviso 13 antiguo', mensaje: 'm', tipo: 'General', prioridad: 'Normal', estado: 'PUBLICAR', orden: 13 },
+    { id: 'a-13-b', fecha_publicacion: '16/11/2026', titulo: 'Aviso 13 reciente', mensaje: 'm', tipo: 'Urgente', prioridad: 'Alta', estado: 'PUBLICAR', orden: '13' },
+    { id: 'a-15', fecha_publicacion: '15/11/2026', titulo: 'Aviso 15', mensaje: 'm', tipo: 'General', prioridad: 'Normal', estado: 'PUBLICAR', orden: '15' },
+  ],
+  calendario: [
+    { id: 'c-2', fecha_inicio: '20/11/2026', titulo: 'Cal 2', descripcion: 'd', categoria: 'lectivo', estado: 'PUBLICAR', orden: 2 },
+    { id: 'c-1', fecha_inicio: '10/11/2026', titulo: 'Cal 1', descripcion: 'd', categoria: 'lectivo', estado: 'PUBLICAR', orden: 1 },
+  ],
+  horario: [
+    { dia_semana: 'Lunes', orden_sesion: 2, hora_inicio: '10:00', hora_fin: '11:00', asignatura: 'Matemáticas', observaciones: 'Aula 1º B' },
+    { dia_semana: 'Lunes', orden_sesion: 1, hora_inicio: '09:00', hora_fin: '10:00', asignatura: 'Lengua Castellana', observaciones: 'Aula 1º B' },
+  ],
+  multimedia: [
+    { id: 'm-9', fecha: '09/11/2026', titulo: 'Foto 9', descripcion: 'd', tipo: 'FOTOGRAFIA', url_media: 'https://f/9.jpg', estado: 'PUBLICAR', orden: '9' },
+    { id: 'm-15', fecha: '15/11/2026', titulo: 'Foto 15', descripcion: 'd', tipo: 'FOTOGRAFIA', url_media: 'https://f/15.jpg', estado: 'PUBLICAR', orden: '15' },
+    { id: 'm-empty', fecha: '22/11/2026', titulo: 'Foto sin orden', descripcion: 'd', tipo: 'FOTOGRAFIA', url_media: 'https://f/x.jpg', estado: 'PUBLICAR', orden: null },
+  ],
+  aprendemos: [
+    { id: 'ap-2', categoria: 'lectura', titulo: 'Ap 2', descripcion: 'd', tipo_recurso: 'Guía', estado: 'PUBLICAR', orden: '2' },
+    { id: 'ap-15', categoria: 'matematicas', titulo: 'Ap 15', descripcion: 'd', tipo_recurso: 'Juego', estado: 'PUBLICAR', orden: 15 },
+    { id: 'ap-empty', categoria: 'lectura', titulo: 'Ap sin orden', descripcion: 'd', tipo_recurso: 'Guía', estado: 'PUBLICAR', orden: '' },
+    { id: 'ap-14', categoria: 'escritura', titulo: 'Ap 14', descripcion: 'd', tipo_recurso: 'Ficha', estado: 'PUBLICAR', orden: '14' },
+  ],
+  recursos: [
+    { id: 'r-9', categoria: 'matematicas', titulo: 'Rec 9', descripcion: 'd', tipo_recurso: 'Ficha PDF', asignatura: 'Matemáticas', estado: 'PUBLICAR', orden: '9' },
+    { id: 'r-empty', categoria: 'lengua_lectura', titulo: 'Rec sin orden', descripcion: 'd', tipo_recurso: 'Ficha PDF', asignatura: 'Lengua Castellana', estado: 'PUBLICAR', orden: undefined },
+    { id: 'r-15', categoria: 'familias', titulo: 'Rec 15', descripcion: 'd', tipo_recurso: 'Orientación', asignatura: 'Apoyo Familiar', estado: 'PUBLICAR', orden: 15 },
+    { id: 'r-13', categoria: 'matematicas', titulo: 'Rec 13', descripcion: 'd', tipo_recurso: 'Juego', asignatura: 'Matemáticas', estado: 'PUBLICAR', orden: '13' },
+  ],
+});
+
+// DIA_A_DIA: 15, 14 (18/11), 14 (14/11), 9, 2, 0, sin orden (20/11), orden inválido (10/11)
+console.assert(
+  JSON.stringify(orderingPayload.posts.map((p) => p.id)) ===
+    JSON.stringify(['d-15', 'd-14-new', 'd-14-old', 'd-9', 'd-2', 'd-0', 'd-empty-high-row', 'd-invalid']),
+  `Orden incorrecto en DIA_A_DIA: ${JSON.stringify(orderingPayload.posts.map((p) => p.id))}`
+);
+
+// Resumen de Inicio (`posts.slice(0, 2)`): debe mostrar d-15 y d-14-new
+console.assert(
+  JSON.stringify(orderingPayload.posts.slice(0, 2).map((p) => p.id)) === JSON.stringify(['d-15', 'd-14-new']),
+  'Inicio recentPosts debe tomar los 2 posts con mayor orden'
+);
+
+// AVISOS: 15, 13 (16/11), 13 (10/11), 2, sin orden (20/11)
+console.assert(
+  JSON.stringify(orderingPayload.avisos.map((a) => a.id)) ===
+    JSON.stringify(['a-15', 'a-13-b', 'a-13-a', 'a-2', 'a-empty']),
+  `Orden incorrecto en AVISOS: ${JSON.stringify(orderingPayload.avisos.map((a) => a.id))}`
+);
+
+// Aviso urgente en Inicio (`avisos.find(...)`): debe seleccionar a-13-b (mayor orden entre urgentes)
+const inicioUrgentAviso = orderingPayload.avisos.find(
+  (a) => a.tipo.toLowerCase().includes('urgente') || a.prioridad.toLowerCase().includes('alta')
+);
+console.assert(inicioUrgentAviso?.id === 'a-13-b', 'Inicio urgentAviso debe elegir el aviso urgente con mayor orden');
+
+// MULTIMEDIA: 15, 9, sin orden
+console.assert(
+  JSON.stringify(orderingPayload.multimedia.map((m) => m.id)) === JSON.stringify(['m-15', 'm-9', 'm-empty']),
+  `Orden incorrecto en MULTIMEDIA: ${JSON.stringify(orderingPayload.multimedia.map((m) => m.id))}`
+);
+
+// APRENDEMOS: 15, 14, 2, sin orden
+console.assert(
+  JSON.stringify(orderingPayload.aprendemos.map((r) => r.id)) === JSON.stringify(['ap-15', 'ap-14', 'ap-2', 'ap-empty']),
+  `Orden incorrecto en APRENDEMOS: ${JSON.stringify(orderingPayload.aprendemos.map((r) => r.id))}`
+);
+
+// RECURSOS: 15, 13, 9, sin orden
+console.assert(
+  JSON.stringify(orderingPayload.recursos.map((r) => r.id)) === JSON.stringify(['r-15', 'r-13', 'r-9', 'r-empty']),
+  `Orden incorrecto en RECURSOS: ${JSON.stringify(orderingPayload.recursos.map((r) => r.id))}`
+);
+
+// CALENDARIO y HORARIO permanecen intactos (ascendente)
+console.assert(
+  JSON.stringify(orderingPayload.events.map((e) => e.id)) === JSON.stringify(['c-1', 'c-2']),
+  'CALENDARIO no debe cambiar su orden original'
+);
+console.assert(
+  JSON.stringify(orderingPayload.schedule?.Lunes.map((s) => s.orden_sesion)) === JSON.stringify([1, 2]),
+  'HORARIO no debe cambiar su orden original'
+);
+console.log('✓ Ordenación numérica DESCENDENTE, desempate por fecha e integridad de CALENDARIO/HORARIO verificados.\n');
+
 testPendingConfig().then(() => {
   console.log('================================================================');
-  console.log('✓ TODAS LAS 16 PRUEBAS DE INTEGRACIÓN HAN SIDO SUPERADAS');
+  console.log('✓ TODAS LAS 17 PRUEBAS DE INTEGRACIÓN HAN SIDO SUPERADAS');
   console.log('================================================================');
 });

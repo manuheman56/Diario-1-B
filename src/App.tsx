@@ -30,7 +30,7 @@ import { AprendemosTab } from './components/AprendemosTab';
 import { RecursosTab } from './components/RecursosTab';
 import { InstallModal } from './components/InstallModal';
 import { Toast } from './components/Toast';
-import { syncAllData } from './services/sheetsService';
+import { syncAllData, sortDiaADiaItems } from './services/sheetsService';
 import { isAppsScriptConfigured } from './config/appsScriptConfig';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { WifiOff, ShieldAlert, CheckCircle2 } from 'lucide-react';
@@ -58,7 +58,9 @@ export default function App() {
     if (!configured) return [];
     try {
       const saved = localStorage.getItem('diario_posts');
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? sortDiaADiaItems(parsed) : [];
     } catch {
       return [];
     }

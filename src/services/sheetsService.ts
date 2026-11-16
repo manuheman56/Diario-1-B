@@ -263,6 +263,134 @@ export function parseCalendarDateParts(
 }
 
 /**
+ * Parsea de forma estricta un valor numérico para `orden`.
+ * Acepta números finitos (incluido 0) y cadenas numéricas válidas.
+ * Devuelve null ante valores vacíos, NaN o no numéricos para evitar comparaciones falsas.
+ */
+export function parseNumericOrden(raw: unknown): number | null {
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? raw : null;
+  }
+  if (typeof raw === 'string') {
+    const normalized = raw.trim().replace(',', '.');
+    if (!normalized) return null;
+    if (!/^[+-]?(\d+(\.\d+)?|\.\d+)$/.test(normalized)) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * Convierte una fecha (DD/MM/AAAA o ISO) en un entero comparable AAAAMMDD sin desfase horario.
+ * Devuelve 0 si la fecha falta o no es válida.
+ */
+function toDateSortValue(rawDate?: string): number {
+  if (!rawDate) return 0;
+  const formatted = formatSpanishDate(rawDate);
+  const parts = parseCalendarDateParts(formatted);
+  if (!parts) return 0;
+  return parts.year * 10000 + (parts.month + 1) * 100 + parts.day;
+}
+
+interface SortableEntry<T> {
+  item: T;
+  orden: number | null;
+  dateStr?: string;
+}
+
+/**
+ * Comparador estándar para publicaciones:
+ * 1. Registros con `orden` numérico válido siempre van antes que los que carecen de `orden`.
+ * 2. `orden` DESCENDENTE (mayor número primero).
+ * 3. Desempate por fecha DESCENDENTE (más reciente primero) si ambos empatan.
+ */
+function compareSortableEntries<T>(a: SortableEntry<T>, b: SortableEntry<T>): number {
+  if (a.orden !== null && b.orden === null) return -1;
+  if (a.orden === null && b.orden !== null) return 1;
+  if (a.orden !== null && b.orden !== null && a.orden !== b.orden) {
+    return b.orden - a.orden;
+  }
+
+  const aDate = toDateSortValue(a.dateStr);
+  const bDate = toDateSortValue(b.dateStr);
+  if (aDate !== bDate) {
+    return bDate - aDate;
+  }
+
+  return 0;
+}
+
+function sortByOrdenDesc<T>(entries: SortableEntry<T>[]): T[] {
+  return [...entries].sort(compareSortableEntries).map((entry) => entry.item);
+}
+
+function parseCachedOrden(raw: unknown): number | null {
+  const num = parseNumericOrden(raw);
+  if (num === null || num < 0) return null;
+  return num;
+}
+
+export function sortDiaADiaItems(items: DiaADiaItem[]): DiaADiaItem[] {
+  return sortByOrdenDesc(
+    items.map((item) => ({
+      item,
+      orden: parseCachedOrden(item.orden),
+      dateStr: item.fecha || item.date,
+    }))
+  );
+}
+
+export function sortAvisosItems(items: AvisoItem[]): AvisoItem[] {
+  return sortByOrdenDesc(
+    items.map((item) => ({
+      item,
+      orden: parseCachedOrden(item.orden),
+      dateStr: item.fecha_publicacion,
+    }))
+  );
+}
+
+export function sortMultimediaItems(items: MultimediaItem[]): MultimediaItem[] {
+  return sortByOrdenDesc(
+    items.map((item) => ({
+      item,
+      orden: parseCachedOrden(item.orden),
+      dateStr: item.fecha,
+    }))
+  );
+}
+
+export function sortAprendemosItems(items: EducationalResource[]): EducationalResource[] {
+  return sortByOrdenDesc(
+    items.map((item) => ({
+      item,
+      orden: parseCachedOrden(item.orden),
+    }))
+  );
+}
+
+export function sortRecursosItems(items: HomeLearningResource[]): HomeLearningResource[] {
+  return sortByOrdenDesc(
+    items.map((item) => ({
+      item,
+      orden: parseCachedOrden(item.orden),
+    }))
+  );
+}
+
+function sortSyncResultPublications(result: SyncResult): SyncResult {
+  return {
+    ...result,
+    posts: Array.isArray(result.posts) ? sortDiaADiaItems(result.posts) : [],
+    avisos: Array.isArray(result.avisos) ? sortAvisosItems(result.avisos) : [],
+    multimedia: Array.isArray(result.multimedia) ? sortMultimediaItems(result.multimedia) : [],
+    aprendemos: Array.isArray(result.aprendemos) ? sortAprendemosItems(result.aprendemos) : [],
+    recursos: Array.isArray(result.recursos) ? sortRecursosItems(result.recursos) : [],
+  };
+}
+
+/**
  * Normaliza horas a formato HH:MM
  */
 export function formatSpanishTime(rawTime: string): string {
@@ -369,7 +497,7 @@ export function parseDiaADiaRows(rows: string[][]): DiaADiaItem[] {
   const colEstado = headers.findIndex((h) => h === 'estado' || h.includes('estado'));
   const colOrden = headers.findIndex((h) => h === 'orden' || h.includes('orden'));
 
-  const items: DiaADiaItem[] = [];
+  const entries: SortableEntry<DiaADiaItem>[] = [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -390,50 +518,54 @@ export function parseDiaADiaRows(rows: string[][]): DiaADiaItem[] {
     const imagen_url = colImg !== -1 ? row[colImg] : undefined;
     const enlace_url = colUrl !== -1 ? row[colUrl] : undefined;
     const destacado = colDestacado !== -1 ? parseDestacado(row[colDestacado]) : false;
-    const orden = colOrden !== -1 ? parseFloat(row[colOrden]) || i : i;
+    const parsedOrden = colOrden !== -1 ? parseNumericOrden(row[colOrden]) : null;
+    const orden = parsedOrden ?? -1;
 
     if (!titulo && !contenido) continue;
 
     const postCat = normalizeCategory(categoria);
     const isUrgent = postCat === 'Urgente' || categoria.toLowerCase().includes('urgente');
 
-    items.push({
-      id,
-      fecha,
-      titulo,
-      contenido,
-      categoria,
-      imagen_url: imagen_url || undefined,
-      enlace_url: enlace_url || undefined,
-      destacado,
-      estado,
-      orden,
-      title: titulo,
-      content: contenido,
-      tag: postCat,
-      date: fecha || 'Hoy',
-      timestamp: Date.now() - orden * 1000,
-      completed: false,
-      important: isUrgent,
-      author: 'Manuel Herrera',
-      imageUrl: imagen_url || undefined,
-      icon:
-        postCat === 'Tarea'
-          ? '📝'
-          : postCat === 'Actividad'
-          ? '🎨'
-          : postCat === 'Urgente'
-          ? '🚨'
-          : postCat === 'Aviso'
-          ? '📢'
-          : postCat === 'Proyecto'
-          ? '🚀'
-          : '📰',
+    entries.push({
+      orden: parsedOrden,
+      dateStr: fecha,
+      item: {
+        id,
+        fecha,
+        titulo,
+        contenido,
+        categoria,
+        imagen_url: imagen_url || undefined,
+        enlace_url: enlace_url || undefined,
+        destacado,
+        estado,
+        orden,
+        title: titulo,
+        content: contenido,
+        tag: postCat,
+        date: fecha || 'Hoy',
+        timestamp: Date.now() - orden * 1000,
+        completed: false,
+        important: isUrgent,
+        author: 'Manuel Herrera',
+        imageUrl: imagen_url || undefined,
+        icon:
+          postCat === 'Tarea'
+            ? '📝'
+            : postCat === 'Actividad'
+            ? '🎨'
+            : postCat === 'Urgente'
+            ? '🚨'
+            : postCat === 'Aviso'
+            ? '📢'
+            : postCat === 'Proyecto'
+            ? '🚀'
+            : '📰',
+      },
     });
   }
 
-  items.sort((a, b) => a.orden - b.orden);
-  return items;
+  return sortByOrdenDesc(entries);
 }
 
 export function parseAvisosRows(rows: string[][]): AvisoItem[] {
@@ -452,7 +584,7 @@ export function parseAvisosRows(rows: string[][]): AvisoItem[] {
   const colEstado = headers.findIndex((h) => h === 'estado' || h.includes('estado'));
   const colOrden = headers.findIndex((h) => h === 'orden' || h.includes('orden'));
 
-  const avisos: AvisoItem[] = [];
+  const entries: SortableEntry<AvisoItem>[] = [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -472,7 +604,8 @@ export function parseAvisosRows(rows: string[][]): AvisoItem[] {
     const prioridad = colPrioridad !== -1 ? row[colPrioridad] || 'Normal' : 'Normal';
     const enlace_url = colUrl !== -1 ? row[colUrl] : undefined;
     const destacado = colDestacado !== -1 ? parseDestacado(row[colDestacado]) : false;
-    const orden = colOrden !== -1 ? parseFloat(row[colOrden]) || i : i;
+    const parsedOrden = colOrden !== -1 ? parseNumericOrden(row[colOrden]) : null;
+    const orden = parsedOrden ?? -1;
 
     if (!titulo && !mensaje) continue;
 
@@ -482,25 +615,28 @@ export function parseAvisosRows(rows: string[][]): AvisoItem[] {
       prioridad.toLowerCase().includes('urgente') ||
       tipo.toLowerCase().includes('urgente');
 
-    avisos.push({
-      id,
-      fecha_publicacion: fechaPub || 'Hoy',
-      fecha_limite: fechaLim,
-      titulo,
-      mensaje,
-      tipo,
-      prioridad,
-      enlace_url: enlace_url || undefined,
-      destacado,
-      estado,
-      orden,
-      author: 'Manuel Herrera',
-      important: isImportant,
+    entries.push({
+      orden: parsedOrden,
+      dateStr: fechaPub,
+      item: {
+        id,
+        fecha_publicacion: fechaPub || 'Hoy',
+        fecha_limite: fechaLim,
+        titulo,
+        mensaje,
+        tipo,
+        prioridad,
+        enlace_url: enlace_url || undefined,
+        destacado,
+        estado,
+        orden,
+        author: 'Manuel Herrera',
+        important: isImportant,
+      },
     });
   }
 
-  avisos.sort((a, b) => a.orden - b.orden);
-  return avisos;
+  return sortByOrdenDesc(entries);
 }
 
 export function parseCalendarioRows(rows: string[][]): CalendarEvent[] {
@@ -712,7 +848,7 @@ export function parseMultimediaRows(rows: string[][]): MultimediaItem[] {
   const colEstado = headers.findIndex((h) => h === 'estado' || h.includes('estado'));
   const colOrden = headers.findIndex((h) => h === 'orden' || h.includes('orden'));
 
-  const items: MultimediaItem[] = [];
+  const entries: SortableEntry<MultimediaItem>[] = [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -732,7 +868,8 @@ export function parseMultimediaRows(rows: string[][]): MultimediaItem[] {
     const url_media = colMedia !== -1 ? row[colMedia] || '' : '';
     const miniatura_url = colThumb !== -1 ? row[colThumb] || undefined : undefined;
     const actividad_relacionada = colAct !== -1 ? row[colAct] || undefined : undefined;
-    const orden = colOrden !== -1 ? parseFloat(row[colOrden]) || i : i;
+    const parsedOrden = colOrden !== -1 ? parseNumericOrden(row[colOrden]) : null;
+    const orden = parsedOrden ?? -1;
 
     if (!titulo && !url_media) continue;
 
@@ -741,23 +878,26 @@ export function parseMultimediaRows(rows: string[][]): MultimediaItem[] {
       embedUrl = sanitizeYoutubeEmbedUrl(url_media);
     }
 
-    items.push({
-      id,
-      fecha,
-      titulo,
-      descripcion,
-      tipo,
-      url_media,
-      miniatura_url,
-      actividad_relacionada,
-      estado,
-      orden,
-      embedUrl,
+    entries.push({
+      orden: parsedOrden,
+      dateStr: fecha,
+      item: {
+        id,
+        fecha,
+        titulo,
+        descripcion,
+        tipo,
+        url_media,
+        miniatura_url,
+        actividad_relacionada,
+        estado,
+        orden,
+        embedUrl,
+      },
     });
   }
 
-  items.sort((a, b) => a.orden - b.orden);
-  return items;
+  return sortByOrdenDesc(entries);
 }
 
 export function parseAprendemosRows(rows: string[][]): EducationalResource[] {
@@ -775,7 +915,7 @@ export function parseAprendemosRows(rows: string[][]): EducationalResource[] {
   const colEstado = headers.findIndex((h) => h === 'estado' || h.includes('estado'));
   const colOrden = headers.findIndex((h) => h === 'orden' || h.includes('orden'));
 
-  const resources: EducationalResource[] = [];
+  const entries: SortableEntry<EducationalResource>[] = [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -794,7 +934,8 @@ export function parseAprendemosRows(rows: string[][]): EducationalResource[] {
     const url_recurso = colUrlRec !== -1 ? row[colUrlRec] || undefined : undefined;
     const imagen_url = colImg !== -1 ? row[colImg] || undefined : undefined;
     const nivel = colNivel !== -1 ? row[colNivel] || '1.º Primaria' : '1.º Primaria';
-    const orden = colOrden !== -1 ? parseFloat(row[colOrden]) || i : i;
+    const parsedOrden = colOrden !== -1 ? parseNumericOrden(row[colOrden]) : null;
+    const orden = parsedOrden ?? -1;
 
     if (!titulo && !descripcion) continue;
 
@@ -818,30 +959,32 @@ export function parseAprendemosRows(rows: string[][]): EducationalResource[] {
       });
     }
 
-    resources.push({
-      id,
-      categoria: rawCat,
-      titulo,
-      descripcion,
-      tipo_recurso,
-      url_recurso,
-      imagen_url,
-      nivel,
-      estado,
-      orden,
-      category,
-      title: titulo,
-      description: tips.length > 0 ? tips[0] : descripcion,
-      level: nivel,
-      tips: tips.length > 0 ? tips : [descripcion],
-      externalUrl: url_recurso,
-      externalLabel: url_recurso ? `Consultar ${tipo_recurso}` : undefined,
-      badge: tipo_recurso,
+    entries.push({
+      orden: parsedOrden,
+      item: {
+        id,
+        categoria: rawCat,
+        titulo,
+        descripcion,
+        tipo_recurso,
+        url_recurso,
+        imagen_url,
+        nivel,
+        estado,
+        orden,
+        category,
+        title: titulo,
+        description: tips.length > 0 ? tips[0] : descripcion,
+        level: nivel,
+        tips: tips.length > 0 ? tips : [descripcion],
+        externalUrl: url_recurso,
+        externalLabel: url_recurso ? `Consultar ${tipo_recurso}` : undefined,
+        badge: tipo_recurso,
+      },
     });
   }
 
-  resources.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
-  return resources;
+  return sortByOrdenDesc(entries);
 }
 
 export function parseRecursosRows(rows: string[][]): HomeLearningResource[] {
@@ -861,7 +1004,7 @@ export function parseRecursosRows(rows: string[][]): HomeLearningResource[] {
   const colOrden = headers.findIndex((h) => h === 'orden' || h.includes('orden'));
   const colDestacado = headers.findIndex((h) => h === 'destacado' || h.includes('destacado'));
 
-  const items: HomeLearningResource[] = [];
+  const entries: SortableEntry<HomeLearningResource>[] = [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -882,7 +1025,8 @@ export function parseRecursosRows(rows: string[][]): HomeLearningResource[] {
     const img = colImg !== -1 ? row[colImg] || undefined : undefined;
     const rawAsignatura = colAsignatura !== -1 ? row[colAsignatura] || '' : '';
     const nivel = colNivel !== -1 ? row[colNivel] || '1.º Primaria' : '1.º Primaria';
-    const orden = colOrden !== -1 ? parseFloat(row[colOrden]) || i : i;
+    const parsedOrden = colOrden !== -1 ? parseNumericOrden(row[colOrden]) : null;
+    const orden = parsedOrden ?? -1;
     const destacado = colDestacado !== -1 ? parseDestacado(row[colDestacado]) : false;
 
     if (!titulo && !descripcion) continue;
@@ -921,26 +1065,28 @@ export function parseRecursosRows(rows: string[][]): HomeLearningResource[] {
       asignatura = 'Apoyo Familiar';
     }
 
-    items.push({
-      id,
-      categoria,
-      titulo,
-      descripcion,
-      tipo_recurso: tipo,
-      url_recurso: url,
-      imagen_url: img,
-      asignatura,
-      nivel,
-      estado,
-      orden,
-      destacado,
-      destacado_casa: destacado,
-      tiempo_estimado: tipo.toLowerCase().includes('juego') ? '10 - 15 min' : '5 - 10 min',
+    entries.push({
+      orden: parsedOrden,
+      item: {
+        id,
+        categoria,
+        titulo,
+        descripcion,
+        tipo_recurso: tipo,
+        url_recurso: url,
+        imagen_url: img,
+        asignatura,
+        nivel,
+        estado,
+        orden,
+        destacado,
+        destacado_casa: destacado,
+        tiempo_estimado: tipo.toLowerCase().includes('juego') ? '10 - 15 min' : '5 - 10 min',
+      },
     });
   }
 
-  items.sort((a, b) => a.orden - b.orden);
-  return items;
+  return sortByOrdenDesc(entries);
 }
 
 // ============================================================================
@@ -971,90 +1117,103 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
 
   // 2. Dia a dia
   const rawDia = Array.isArray(rawData.dia_a_dia) ? rawData.dia_a_dia : [];
-  const posts: DiaADiaItem[] = rawDia
-    .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
-    .map((item, idx) => {
-      const fecha = formatSpanishDate(item.fecha || '');
-      const titulo = item.titulo || '';
-      const contenido = item.contenido || '';
-      const rawCategoria = item.categoria || '';
-      const categoria = rawCategoria.trim() || 'General';
-      const postCat = normalizeCategory(categoria);
-      const orden = typeof item.orden === 'number' ? item.orden : idx;
-      const destacado = parseDestacado(item.destacado);
-      const isUrgent = postCat === 'Urgente' || categoria.toLowerCase().includes('urgente');
+  const posts: DiaADiaItem[] = sortByOrdenDesc(
+    rawDia
+      .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
+      .map((item, idx) => {
+        const fecha = formatSpanishDate(item.fecha || '');
+        const titulo = item.titulo || '';
+        const contenido = item.contenido || '';
+        const rawCategoria = item.categoria || '';
+        const categoria = rawCategoria.trim() || 'General';
+        const postCat = normalizeCategory(categoria);
+        const parsedOrden = parseNumericOrden(item.orden);
+        const orden = parsedOrden ?? -1;
+        const destacado = parseDestacado(item.destacado);
+        const isUrgent = postCat === 'Urgente' || categoria.toLowerCase().includes('urgente');
 
-      return {
-        id: item.id || `dia-${idx}`,
-        fecha,
-        titulo,
-        contenido,
-        categoria,
-        imagen_url: item.imagen_url || undefined,
-        enlace_url: item.enlace_url || undefined,
-        destacado,
-        estado: 'PUBLICAR' as PublicacionEstado,
-        orden,
-        title: titulo,
-        content: contenido,
-        tag: postCat,
-        date: fecha || 'Hoy',
-        timestamp: Date.now() - orden * 1000,
-        completed: false,
-        important: isUrgent,
-        author: 'Manuel Herrera',
-        imageUrl: item.imagen_url || undefined,
-        icon:
-          postCat === 'Tarea'
-            ? '📝'
-            : postCat === 'Actividad'
-            ? '🎨'
-            : postCat === 'Urgente'
-            ? '🚨'
-            : postCat === 'Aviso'
-            ? '📢'
-            : postCat === 'Proyecto'
-            ? '🚀'
-            : '📰',
-      };
-    })
-    .sort((a, b) => a.orden - b.orden);
+        return {
+          orden: parsedOrden,
+          dateStr: fecha,
+          item: {
+            id: item.id || `dia-${idx}`,
+            fecha,
+            titulo,
+            contenido,
+            categoria,
+            imagen_url: item.imagen_url || undefined,
+            enlace_url: item.enlace_url || undefined,
+            destacado,
+            estado: 'PUBLICAR' as PublicacionEstado,
+            orden,
+            title: titulo,
+            content: contenido,
+            tag: postCat,
+            date: fecha || 'Hoy',
+            timestamp: Date.now() - orden * 1000,
+            completed: false,
+            important: isUrgent,
+            author: 'Manuel Herrera',
+            imageUrl: item.imagen_url || undefined,
+            icon:
+              postCat === 'Tarea'
+                ? '📝'
+                : postCat === 'Actividad'
+                ? '🎨'
+                : postCat === 'Urgente'
+                ? '🚨'
+                : postCat === 'Aviso'
+                ? '📢'
+                : postCat === 'Proyecto'
+                ? '🚀'
+                : '📰',
+          },
+        };
+      })
+  );
 
   // 3. Avisos
   const rawAvisos = Array.isArray(rawData.avisos) ? rawData.avisos : [];
-  const avisos: AvisoItem[] = rawAvisos
-    .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
-    .map((item, idx) => {
-      const fechaPub = formatSpanishDate(item.fecha_publicacion || item.fecha || '');
-      const fechaLim = item.fecha_limite ? formatSpanishDate(item.fecha_limite) : undefined;
-      const titulo = item.titulo || '';
-      const mensaje = item.mensaje || item.contenido || '';
-      const tipo = item.tipo || 'Aviso';
-      const prioridad = item.prioridad || 'Normal';
-      const destacado = parseDestacado(item.destacado);
-      const isImportant =
-        destacado ||
-        prioridad.toLowerCase().includes('alta') ||
-        prioridad.toLowerCase().includes('urgente') ||
-        tipo.toLowerCase().includes('urgente');
+  const avisos: AvisoItem[] = sortByOrdenDesc(
+    rawAvisos
+      .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
+      .map((item, idx) => {
+        const fechaPub = formatSpanishDate(item.fecha_publicacion || item.fecha || '');
+        const fechaLim = item.fecha_limite ? formatSpanishDate(item.fecha_limite) : undefined;
+        const titulo = item.titulo || '';
+        const mensaje = item.mensaje || item.contenido || '';
+        const tipo = item.tipo || 'Aviso';
+        const prioridad = item.prioridad || 'Normal';
+        const destacado = parseDestacado(item.destacado);
+        const parsedOrden = parseNumericOrden(item.orden);
+        const orden = parsedOrden ?? -1;
+        const isImportant =
+          destacado ||
+          prioridad.toLowerCase().includes('alta') ||
+          prioridad.toLowerCase().includes('urgente') ||
+          tipo.toLowerCase().includes('urgente');
 
-      return {
-        id: item.id || `aviso-${idx}`,
-        fecha_publicacion: fechaPub || 'Hoy',
-        fecha_limite: fechaLim,
-        titulo,
-        mensaje,
-        tipo,
-        prioridad,
-        enlace_url: item.enlace_url || undefined,
-        destacado,
-        estado: 'PUBLICAR' as PublicacionEstado,
-        orden: typeof item.orden === 'number' ? item.orden : idx,
-        author: 'Manuel Herrera',
-        important: isImportant,
-      };
-    })
-    .sort((a, b) => a.orden - b.orden);
+        return {
+          orden: parsedOrden,
+          dateStr: fechaPub,
+          item: {
+            id: item.id || `aviso-${idx}`,
+            fecha_publicacion: fechaPub || 'Hoy',
+            fecha_limite: fechaLim,
+            titulo,
+            mensaje,
+            tipo,
+            prioridad,
+            enlace_url: item.enlace_url || undefined,
+            destacado,
+            estado: 'PUBLICAR' as PublicacionEstado,
+            orden,
+            author: 'Manuel Herrera',
+            important: isImportant,
+          },
+        };
+      })
+  );
 
   // 4. Calendario
   const rawCal = Array.isArray(rawData.calendario) ? rawData.calendario : [];
@@ -1164,131 +1323,151 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
 
   // 6. Multimedia
   const rawMedia = Array.isArray(rawData.multimedia) ? rawData.multimedia : [];
-  const multimedia: MultimediaItem[] = rawMedia
-    .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
-    .map((item, idx) => {
-      const rawTipo = String(item.tipo || '').toUpperCase();
-      const tipo: 'FOTOGRAFIA' | 'VIDEO' = rawTipo.includes('VID') ? 'VIDEO' : 'FOTOGRAFIA';
-      const url_media = item.url_media || '';
-      let embedUrl: string | undefined = undefined;
-      if (tipo === 'VIDEO' && url_media) {
-        embedUrl = sanitizeYoutubeEmbedUrl(url_media);
-      }
+  const multimedia: MultimediaItem[] = sortByOrdenDesc(
+    rawMedia
+      .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
+      .map((item, idx) => {
+        const rawTipo = String(item.tipo || '').toUpperCase();
+        const tipo: 'FOTOGRAFIA' | 'VIDEO' = rawTipo.includes('VID') ? 'VIDEO' : 'FOTOGRAFIA';
+        const url_media = item.url_media || '';
+        const fecha = formatSpanishDate(item.fecha || '');
+        const parsedOrden = parseNumericOrden(item.orden);
+        const orden = parsedOrden ?? -1;
+        let embedUrl: string | undefined = undefined;
+        if (tipo === 'VIDEO' && url_media) {
+          embedUrl = sanitizeYoutubeEmbedUrl(url_media);
+        }
 
-      return {
-        id: item.id || `media-${idx}`,
-        fecha: formatSpanishDate(item.fecha || ''),
-        titulo: item.titulo || '',
-        descripcion: item.descripcion || '',
-        tipo,
-        url_media,
-        miniatura_url: item.miniatura_url || undefined,
-        actividad_relacionada: item.actividad_relacionada || undefined,
-        estado: 'PUBLICAR' as PublicacionEstado,
-        orden: typeof item.orden === 'number' ? item.orden : idx,
-        embedUrl,
-      };
-    })
-    .sort((a, b) => a.orden - b.orden);
+        return {
+          orden: parsedOrden,
+          dateStr: fecha,
+          item: {
+            id: item.id || `media-${idx}`,
+            fecha,
+            titulo: item.titulo || '',
+            descripcion: item.descripcion || '',
+            tipo,
+            url_media,
+            miniatura_url: item.miniatura_url || undefined,
+            actividad_relacionada: item.actividad_relacionada || undefined,
+            estado: 'PUBLICAR' as PublicacionEstado,
+            orden,
+            embedUrl,
+          },
+        };
+      })
+  );
 
   // 7. Aprendemos (Vida y aprendizajes de clase: Lengua y Matemáticas)
   const rawAprendemos = Array.isArray(rawData.aprendemos) ? rawData.aprendemos : [];
-  const aprendemos: EducationalResource[] = rawAprendemos
-    .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
-    .map((item, idx) => {
-      const rawCat = String(item.categoria || 'lectura').toLowerCase();
-      let category: 'lengua' | 'matematicas' | 'lectura' | 'escritura' | 'calculo' | 'pautas' = 'lectura';
-      if (rawCat.includes('lengua') || rawCat.includes('lect')) category = 'lectura';
-      else if (rawCat.includes('escri') || rawCat.includes('trazo') || rawCat.includes('cali')) category = 'escritura';
-      else if (rawCat.includes('mat') || rawCat.includes('calc')) category = 'matematicas';
-      else if (rawCat.includes('pauta')) category = 'pautas';
+  const aprendemos: EducationalResource[] = sortByOrdenDesc(
+    rawAprendemos
+      .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
+      .map((item, idx) => {
+        const rawCat = String(item.categoria || 'lectura').toLowerCase();
+        let category: 'lengua' | 'matematicas' | 'lectura' | 'escritura' | 'calculo' | 'pautas' = 'lectura';
+        if (rawCat.includes('lengua') || rawCat.includes('lect')) category = 'lectura';
+        else if (rawCat.includes('escri') || rawCat.includes('trazo') || rawCat.includes('cali')) category = 'escritura';
+        else if (rawCat.includes('mat') || rawCat.includes('calc')) category = 'matematicas';
+        else if (rawCat.includes('pauta')) category = 'pautas';
 
-      const titulo = item.titulo || '';
-      const descripcion = item.descripcion || '';
-      const tipo = item.tipo_recurso || 'Pauta';
+        const titulo = item.titulo || '';
+        const descripcion = item.descripcion || '';
+        const tipo = item.tipo_recurso || 'Pauta';
+        const parsedOrden = parseNumericOrden(item.orden);
+        const orden = parsedOrden ?? -1;
 
-      const tips: string[] = [];
-      if (descripcion.includes('\n')) {
-        descripcion.split('\n').forEach((line: string) => {
-          const clean = line.replace(/^[•\-\*]\s*/, '').trim();
-          if (clean.length > 0) tips.push(clean);
-        });
-      }
+        const tips: string[] = [];
+        if (descripcion.includes('\n')) {
+          descripcion.split('\n').forEach((line: string) => {
+            const clean = line.replace(/^[•\-\*]\s*/, '').trim();
+            if (clean.length > 0) tips.push(clean);
+          });
+        }
 
-      return {
-        id: item.id || `aprende-${idx}`,
-        categoria: rawCat,
-        titulo,
-        descripcion,
-        tipo_recurso: tipo,
-        url_recurso: item.url_recurso || undefined,
-        imagen_url: item.imagen_url || undefined,
-        nivel: item.nivel || '1.º Primaria',
-        estado: 'PUBLICAR' as PublicacionEstado,
-        orden: typeof item.orden === 'number' ? item.orden : idx,
-        category,
-        title: titulo,
-        description: tips.length > 0 ? tips[0] : descripcion,
-        level: item.nivel || '1.º Primaria',
-        tips: tips.length > 0 ? tips : [descripcion],
-        externalUrl: item.url_recurso || undefined,
-        externalLabel: item.url_recurso ? `Consultar ${tipo}` : undefined,
-        badge: tipo,
-      };
-    })
-    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+        return {
+          orden: parsedOrden,
+          item: {
+            id: item.id || `aprende-${idx}`,
+            categoria: rawCat,
+            titulo,
+            descripcion,
+            tipo_recurso: tipo,
+            url_recurso: item.url_recurso || undefined,
+            imagen_url: item.imagen_url || undefined,
+            nivel: item.nivel || '1.º Primaria',
+            estado: 'PUBLICAR' as PublicacionEstado,
+            orden,
+            category,
+            title: titulo,
+            description: tips.length > 0 ? tips[0] : descripcion,
+            level: item.nivel || '1.º Primaria',
+            tips: tips.length > 0 ? tips : [descripcion],
+            externalUrl: item.url_recurso || undefined,
+            externalLabel: item.url_recurso ? `Consultar ${tipo}` : undefined,
+            badge: tipo,
+          },
+        };
+      })
+  );
 
   // 8. Recursos (Biblioteca para casa - 9.ª Pestaña Oficial)
   const rawRecursos = Array.isArray(rawData.recursos) ? rawData.recursos : [];
-  const recursos: HomeLearningResource[] = rawRecursos
-    .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
-    .filter((item) => {
-      const asig = String(item.asignatura || '').toLowerCase();
-      return (
-        !asig.includes('social') &&
-        !asig.includes('natural') &&
-        !asig.includes('ingles') &&
-        !asig.includes('science') &&
-        !asig.includes('english')
-      );
-    })
-    .map((item, idx) => {
-      const rawCat = String(item.categoria || '').toLowerCase();
-      const tipo = item.tipo_recurso || 'Recurso didáctico';
-      let categoria: HomeResourceCategory = 'lengua_lectura';
+  const recursos: HomeLearningResource[] = sortByOrdenDesc(
+    rawRecursos
+      .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
+      .filter((item) => {
+        const asig = String(item.asignatura || '').toLowerCase();
+        return (
+          !asig.includes('social') &&
+          !asig.includes('natural') &&
+          !asig.includes('ingles') &&
+          !asig.includes('science') &&
+          !asig.includes('english')
+        );
+      })
+      .map((item, idx) => {
+        const rawCat = String(item.categoria || '').toLowerCase();
+        const tipo = item.tipo_recurso || 'Recurso didáctico';
+        let categoria: HomeResourceCategory = 'lengua_lectura';
 
-      if (rawCat.includes('mat') || rawCat.includes('calc')) {
-        categoria = 'matematicas';
-      } else if (rawCat.includes('lengua') || rawCat.includes('lect') || rawCat.includes('escri') || rawCat.includes('cuento')) {
-        categoria = 'lengua_lectura';
-      } else if (rawCat.includes('familia') || rawCat.includes('orienta') || rawCat.includes('pauta')) {
-        categoria = 'familias';
-      } else if (rawCat.includes('ficha') || rawCat.includes('pdf') || tipo.toLowerCase().includes('ficha') || tipo.toLowerCase().includes('pdf')) {
-        categoria = 'fichas';
-      } else {
-        categoria = 'lengua_lectura';
-      }
+        if (rawCat.includes('mat') || rawCat.includes('calc')) {
+          categoria = 'matematicas';
+        } else if (rawCat.includes('lengua') || rawCat.includes('lect') || rawCat.includes('escri') || rawCat.includes('cuento')) {
+          categoria = 'lengua_lectura';
+        } else if (rawCat.includes('familia') || rawCat.includes('orienta') || rawCat.includes('pauta')) {
+          categoria = 'familias';
+        } else if (rawCat.includes('ficha') || rawCat.includes('pdf') || tipo.toLowerCase().includes('ficha') || tipo.toLowerCase().includes('pdf')) {
+          categoria = 'fichas';
+        } else {
+          categoria = 'lengua_lectura';
+        }
 
-      const destacado = parseDestacado(item.destacado);
+        const destacado = parseDestacado(item.destacado);
+        const parsedOrden = parseNumericOrden(item.orden);
+        const orden = parsedOrden ?? -1;
 
-      return {
-        id: item.id || `rec-${idx}`,
-        categoria,
-        titulo: item.titulo || '',
-        descripcion: item.descripcion || '',
-        tipo_recurso: tipo,
-        url_recurso: item.url_recurso || undefined,
-        imagen_url: item.imagen_url || undefined,
-        asignatura: categoria === 'matematicas' ? 'Matemáticas' : categoria === 'familias' ? 'Apoyo Familiar' : 'Lengua Castellana',
-        nivel: item.nivel || '1.º Primaria',
-        estado: 'PUBLICAR' as PublicacionEstado,
-        orden: typeof item.orden === 'number' ? item.orden : idx,
-        destacado,
-        destacado_casa: destacado,
-        tiempo_estimado: tipo.toLowerCase().includes('juego') ? '10 - 15 min' : '5 - 10 min',
-      };
-    })
-    .sort((a, b) => a.orden - b.orden);
+        return {
+          orden: parsedOrden,
+          item: {
+            id: item.id || `rec-${idx}`,
+            categoria,
+            titulo: item.titulo || '',
+            descripcion: item.descripcion || '',
+            tipo_recurso: tipo,
+            url_recurso: item.url_recurso || undefined,
+            imagen_url: item.imagen_url || undefined,
+            asignatura: categoria === 'matematicas' ? 'Matemáticas' : categoria === 'familias' ? 'Apoyo Familiar' : 'Lengua Castellana',
+            nivel: item.nivel || '1.º Primaria',
+            estado: 'PUBLICAR' as PublicacionEstado,
+            orden,
+            destacado,
+            destacado_casa: destacado,
+            tiempo_estimado: tipo.toLowerCase().includes('juego') ? '10 - 15 min' : '5 - 10 min',
+          },
+        };
+      })
+  );
 
   return {
     isPendingConfig: false,
@@ -1363,7 +1542,7 @@ export async function syncAllData(forceRefresh = false): Promise<SyncResult> {
     try {
       const cached = localStorage.getItem(CACHE_STORAGE_KEY);
       if (cached) {
-        const parsedCache = JSON.parse(cached) as SyncResult;
+        const parsedCache = sortSyncResultPublications(JSON.parse(cached) as SyncResult);
         parsedCache.source = 'cache';
         return parsedCache;
       }
