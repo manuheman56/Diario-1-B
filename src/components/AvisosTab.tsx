@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AvisoItem, Notice } from '../types';
+import { matchesNormalizedSearch } from '../utils/searchUtils';
 import {
   Bell,
   Search,
@@ -77,10 +78,15 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
         ? !isUrgent && post.tag.toLowerCase().includes('aviso')
         : post.tag.toLowerCase().includes('actividad');
 
-    const matchesSearch =
-      searchQuery.trim() === '' ||
-      post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.content.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = matchesNormalizedSearch(searchQuery, [
+      post.title,
+      post.content,
+      post.author,
+      post.tag,
+      post.prioridad,
+      post.date,
+      post.deadline,
+    ]);
 
     return matchesCategory && matchesSearch;
   });
@@ -222,10 +228,13 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
                 Las comunicaciones del aula aparecerán aquí cuando sean publicadas.
               </p>
             </div>
-            {filter !== 'all' && (
+            {(filter !== 'all' || searchQuery.trim() !== '') && (
               <button
                 type="button"
-                onClick={() => setFilter('all')}
+                onClick={() => {
+                  setFilter('all');
+                  setSearchQuery('');
+                }}
                 className="text-xs text-rose-600 font-bold hover:underline cursor-pointer"
               >
                 Ver todos los avisos

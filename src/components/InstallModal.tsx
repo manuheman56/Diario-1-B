@@ -78,13 +78,6 @@ export const InstallModal: React.FC<InstallModalProps> = ({ isOpen, onClose }) =
           >
             ¡Entendido!
           </button>
-          <a
-            href="/el-diario-del-aula-1b.zip"
-            download="el-diario-del-aula-1b.zip"
-            className="w-full text-center py-2 text-[11px] font-semibold text-slate-500 hover:text-indigo-600 transition"
-          >
-            Descargar código del proyecto (ZIP para GitHub / Netlify)
-          </a>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { HomeLearningResource, HomeResourceCategory } from '../types';
-import { initialHomeResources } from '../data/defaultData';
+import { matchesNormalizedSearch } from '../utils/searchUtils';
 import {
   BookOpen,
   Calculator,
@@ -94,26 +94,6 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
     },
   ];
 
-  // Filtered resources
-  const filteredList = useMemo(() => {
-    return activeResources.filter((item) => {
-      const matchesCategory =
-        selectedCategory === 'all' || item.categoria === selectedCategory;
-      const matchesFeatured = !onlyFeatured || Boolean(item.destacado_casa);
-      const query = searchQuery.trim().toLowerCase();
-      const matchesSearch =
-        !query ||
-        item.titulo.toLowerCase().includes(query) ||
-        item.descripcion.toLowerCase().includes(query) ||
-        item.tipo_recurso.toLowerCase().includes(query) ||
-        (item.nivel && item.nivel.toLowerCase().includes(query));
-
-      return matchesCategory && matchesFeatured && matchesSearch;
-    });
-  }, [activeResources, selectedCategory, onlyFeatured, searchQuery]);
-
-  const activeCategoryMeta = categories.find((c) => c.id === selectedCategory);
-
   const getCategoryBadge = (cat: HomeResourceCategory) => {
     switch (cat) {
       case 'matematicas':
@@ -128,6 +108,28 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
         return { text: 'Recurso', color: 'text-slate-700' };
     }
   };
+
+  // Filtered resources
+  const filteredList = useMemo(() => {
+    return activeResources.filter((item) => {
+      const matchesCategory =
+        selectedCategory === 'all' || item.categoria === selectedCategory;
+      const matchesFeatured = !onlyFeatured || Boolean(item.destacado_casa);
+      const badgeText = getCategoryBadge(item.categoria).text;
+      const matchesSearch = matchesNormalizedSearch(searchQuery, [
+        item.titulo,
+        item.descripcion,
+        item.tipo_recurso,
+        item.nivel,
+        item.asignatura,
+        badgeText,
+      ]);
+
+      return matchesCategory && matchesFeatured && matchesSearch;
+    });
+  }, [activeResources, selectedCategory, onlyFeatured, searchQuery]);
+
+  const activeCategoryMeta = categories.find((c) => c.id === selectedCategory);
 
   return (
     <div className="space-y-4 pb-8 animate-in fade-in duration-300">

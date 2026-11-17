@@ -129,7 +129,7 @@ ap-3,escritura,Borrador trazo,No mostrar,Ficha,,,1.º Primaria,BORRADOR,3`;
 
 const parsedAprendemos = parseAprendemosRows(parseCSV(sampleAprendemosCSV));
 console.assert(parsedAprendemos.length === 2, `Se esperaban 2 recursos publicados, se obtuvieron ${parsedAprendemos.length}`);
-console.assert(parsedAprendemos[0].category === 'matematicas', 'Primer recurso debe ser matemáticas (orden 2 DESC)');
+console.assert(parsedAprendemos[0].category === 'calculo', 'Primer recurso debe ser calculo (Cálculo y lógica, orden 2 DESC)');
 console.assert(parsedAprendemos[0].description === 'Sumas manipulativas con regletas', 'Descripción de una sola línea incorrecta');
 console.assert(parsedAprendemos[0].tips.length === 0, 'Una sola línea no debe generar recomendaciones en tips');
 console.assert(parsedAprendemos[1].category === 'lectura', 'Segundo recurso debe ser lectura (orden 1 DESC)');

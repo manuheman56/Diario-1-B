@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
-import { educationalResources } from '../data/defaultData';
-import { EducationalResource } from '../types';
-import { normalizeAprendemosTips } from '../services/sheetsService';
+import React, { useMemo, useState } from 'react';
+import { AprendemosCategory, EducationalResource } from '../types';
+import {
+  normalizeAprendemosTips,
+  normalizeAprendemosCategory,
+  APRENDEMOS_CATEGORY_LABELS,
+} from '../services/sheetsService';
+import { matchesNormalizedSearch } from '../utils/searchUtils';
 import {
   GraduationCap,
   BookOpen,
   PenTool,
   Calculator,
-  Compass,
   Palette,
   ExternalLink,
   Sparkles,
@@ -21,20 +24,42 @@ interface AprendemosTabProps {
 }
 
 export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<'all' | AprendemosCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const activeList = resources !== undefined ? resources : [];
+  const activeList = useMemo(
+    () => (resources !== undefined ? resources : []),
+    [resources]
+  );
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<AprendemosCategory, number> = {
+      lectura: 0,
+      escritura: 0,
+      calculo: 0,
+      talleres: 0,
+    };
+    activeList.forEach((res) => {
+      const catKey = normalizeAprendemosCategory(res.categoria || res.category);
+      counts[catKey]++;
+    });
+    return counts;
+  }, [activeList]);
 
   const filteredResources = activeList.filter((res) => {
     const normalizedTips = normalizeAprendemosTips(res.tips, res.description);
+    const itemCategory = normalizeAprendemosCategory(res.categoria || res.category);
+    const categoryLabel = APRENDEMOS_CATEGORY_LABELS[itemCategory];
     const matchesCategory =
-      activeCategory === 'all' || res.category === activeCategory;
-    const matchesSearch =
-      searchQuery.trim() === '' ||
-      res.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      res.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      normalizedTips.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+      activeCategory === 'all' || itemCategory === activeCategory;
+    const matchesSearch = matchesNormalizedSearch(searchQuery, [
+      res.title,
+      res.description,
+      normalizedTips,
+      categoryLabel,
+      res.badge,
+      res.level,
+    ]);
 
     return matchesCategory && matchesSearch;
   });
@@ -124,7 +149,16 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Lectura y Comprensión</span>
+            <span>{APRENDEMOS_CATEGORY_LABELS.lectura}</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                activeCategory === 'lectura'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {categoryCounts.lectura}
+            </span>
           </button>
 
           <button
@@ -137,33 +171,60 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
             }`}
           >
             <PenTool className="w-3.5 h-3.5" />
-            <span>Escritura y Trazo</span>
+            <span>{APRENDEMOS_CATEGORY_LABELS.escritura}</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                activeCategory === 'escritura'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {categoryCounts.escritura}
+            </span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveCategory('matematicas')}
+            onClick={() => setActiveCategory('calculo')}
             className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 shrink-0 ${
-              activeCategory === 'matematicas'
+              activeCategory === 'calculo'
                 ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-200'
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
             }`}
           >
             <Calculator className="w-3.5 h-3.5" />
-            <span>Cálculo y Lógica</span>
+            <span>{APRENDEMOS_CATEGORY_LABELS.calculo}</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                activeCategory === 'calculo'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {categoryCounts.calculo}
+            </span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveCategory('juegos')}
+            onClick={() => setActiveCategory('talleres')}
             className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 shrink-0 ${
-              activeCategory === 'juegos'
+              activeCategory === 'talleres'
                 ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-200'
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
             }`}
           >
             <Palette className="w-3.5 h-3.5" />
-            <span>Talleres y Dinámicas</span>
+            <span>{APRENDEMOS_CATEGORY_LABELS.talleres}</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                activeCategory === 'talleres'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {categoryCounts.talleres}
+            </span>
           </button>
         </div>
       </div>
@@ -174,15 +235,33 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
           <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 text-slate-400 space-y-2">
             <School className="w-8 h-8 mx-auto text-slate-300" />
             <h4 className="font-bold text-slate-800 text-sm">
-              No hay contenidos en esta categoría
+              {searchQuery.trim()
+                ? 'No se encontraron aprendizajes con esa búsqueda'
+                : 'No hay contenidos en esta categoría'}
             </h4>
             <p className="text-xs text-slate-500">
-              Prueba a seleccionar otro ámbito de aprendizaje.
+              {searchQuery.trim()
+                ? 'Prueba con otras palabras o limpia la búsqueda actual.'
+                : 'Prueba a seleccionar otro ámbito de aprendizaje.'}
             </p>
+            {(activeCategory !== 'all' || searchQuery.trim() !== '') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveCategory('all');
+                  setSearchQuery('');
+                }}
+                className="mt-1 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-4 py-2 rounded-xl transition cursor-pointer"
+              >
+                Ver todos los ámbitos
+              </button>
+            )}
           </div>
         ) : (
           filteredResources.map((res) => {
             const displayTips = normalizeAprendemosTips(res.tips, res.description);
+            const itemCategory = normalizeAprendemosCategory(res.categoria || res.category);
+            const categoryLabel = APRENDEMOS_CATEGORY_LABELS[itemCategory];
             return (
               <div
                 key={res.id}
@@ -191,9 +270,11 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
                 {/* Metadatos limpios sin píldoras invasivas */}
                 <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
                   <div className="flex items-center gap-1.5 font-bold text-purple-800 text-[11px] truncate">
-                    <span>{res.badge}</span>
+                    <span>{categoryLabel}</span>
                     <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span className="text-slate-600 font-medium">Contenido de Aula</span>
+                    <span className="text-slate-600 font-medium truncate">
+                      {res.badge || 'Contenido de Aula'}
+                    </span>
                   </div>
                   <span className="text-[11px] text-slate-400 font-medium shrink-0">
                     {res.level}

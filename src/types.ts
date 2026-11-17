@@ -132,9 +132,11 @@ export interface MultimediaItem {
  * Exclusivamente Lengua Castellana y Matemáticas de 1.º de Primaria
  * id | categoria | titulo | descripcion | tipo_recurso | url_recurso | imagen_url | nivel | estado | orden
  */
+export type AprendemosCategory = 'lectura' | 'escritura' | 'calculo' | 'talleres';
+
 export interface EducationalResource {
   id: string;
-  categoria?: 'lengua' | 'matematicas' | 'lectura' | 'escritura' | 'calculo' | 'pautas' | string;
+  categoria?: AprendemosCategory | 'lengua' | 'matematicas' | 'pautas' | string;
   titulo?: string;
   descripcion?: string;
   tipo_recurso?: string; // "Contenido de clase", "Lectura colectiva", "Pauta del aula", "Actividad manipulativa"
@@ -144,7 +146,7 @@ export interface EducationalResource {
   estado?: PublicacionEstado;
   orden?: number;
   // Campos adaptados para vista
-  category: 'lengua' | 'matematicas' | 'lectura' | 'escritura' | 'calculo' | 'pautas';
+  category: AprendemosCategory | 'lengua' | 'matematicas' | 'pautas';
   title: string;
   description: string;
   level: string;

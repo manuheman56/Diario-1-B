@@ -19,6 +19,7 @@ import {
 
 import { initialConfig } from '../data/defaultData';
 import { AvisoItem } from '../types';
+import { getUpcomingCalendarEvents } from '../utils/eventUtils';
 
 const SHORT_MONTH_NAMES = [
   'Ene',
@@ -100,8 +101,8 @@ export const InicioTab: React.FC<InicioTabProps> = ({
   // Recent 2 posts
   const recentPosts = posts.slice(0, 2);
 
-  // Upcoming 2 events
-  const nextEvents = events.slice(0, 2);
+  // Upcoming 2 events (strictly active/future, sorted nearest-first)
+  const nextEvents = getUpcomingCalendarEvents(events).slice(0, 2);
 
   return (
     <div className="space-y-4 pb-6 animate-in fade-in duration-300">

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { AppConfig, PostItem } from '../types';
+import { matchesNormalizedSearch } from '../utils/searchUtils';
 import {
   Search,
   Share2,
@@ -39,32 +40,80 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
-  // Pull-to-refresh state
+  // Pull-to-refresh state (sincronizado con el contenedor scrollable <main>)
   const [pullY, setPullY] = useState(0);
+  const pullYRef = useRef(0);
   const touchStartY = useRef(0);
+  const touchStartX = useRef(0);
   const isPulling = useRef(false);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (window.scrollY === 0) {
+  const getScrollTop = (target: EventTarget | null): number => {
+    if (target instanceof HTMLElement) {
+      const scrollParent = target.closest('main');
+      if (scrollParent) return scrollParent.scrollTop;
+    }
+    if (typeof document !== 'undefined') {
+      const mainEl = document.querySelector('main');
+      if (mainEl) return mainEl.scrollTop;
+    }
+    return typeof window !== 'undefined' ? window.scrollY : 0;
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (isRefreshing || e.touches.length !== 1) return;
+    if (getScrollTop(e.currentTarget) <= 1) {
       touchStartY.current = e.touches[0].clientY;
+      touchStartX.current = e.touches[0].clientX;
       isPulling.current = true;
+    } else {
+      isPulling.current = false;
     }
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isPulling.current) return;
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isPulling.current || isRefreshing || e.touches.length !== 1) return;
+
+    if (getScrollTop(e.currentTarget) > 1) {
+      isPulling.current = false;
+      if (pullYRef.current !== 0) {
+        pullYRef.current = 0;
+        setPullY(0);
+      }
+      return;
+    }
+
     const currentY = e.touches[0].clientY;
-    const diff = currentY - touchStartY.current;
-    if (diff > 0 && diff < 120) {
-      setPullY(diff);
+    const currentX = e.touches[0].clientX;
+    const diffY = currentY - touchStartY.current;
+    const diffX = currentX - touchStartX.current;
+
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+      isPulling.current = false;
+      if (pullYRef.current !== 0) {
+        pullYRef.current = 0;
+        setPullY(0);
+      }
+      return;
+    }
+
+    if (diffY > 12) {
+      const dampedPull = Math.min((diffY - 12) * 0.55, 100);
+      pullYRef.current = dampedPull;
+      setPullY(dampedPull);
+    } else if (pullYRef.current !== 0) {
+      pullYRef.current = 0;
+      setPullY(0);
     }
   };
 
   const handleTouchEnd = async () => {
     if (!isPulling.current) return;
     isPulling.current = false;
-    if (pullY > 60 && onRefresh) {
-      setPullY(50);
+    const finalPull = pullYRef.current;
+    pullYRef.current = 0;
+
+    if (finalPull > 64 && onRefresh && !isRefreshing) {
+      setPullY(44);
       try {
         await onRefresh();
       } finally {
@@ -121,11 +170,14 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
       matchesCategory = catStr === activeFilter.toLowerCase() || tagStr === activeFilter.toLowerCase();
     }
 
-    const matchesSearch =
-      searchQuery.trim() === '' ||
-      post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.author.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = matchesNormalizedSearch(searchQuery, [
+      post.title,
+      post.content,
+      post.author,
+      post.categoria,
+      post.tag,
+      post.date,
+    ]);
 
     return matchesCategory && matchesSearch;
   });
@@ -161,6 +213,7 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
     >
       {/* Pull-to-refresh Indicator */}
       {(pullY > 0 || isRefreshing) && (
@@ -178,11 +231,11 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
               <>
                 <ArrowDown
                   className={`w-3.5 h-3.5 text-sky-600 transition-transform ${
-                    pullY > 60 ? 'rotate-180' : ''
+                    pullY > 64 ? 'rotate-180' : ''
                   }`}
                 />
                 <span>
-                  {pullY > 60 ? 'Suelta para actualizar' : 'Desliza para actualizar'}
+                  {pullY > 64 ? 'Suelta para actualizar' : 'Desliza para actualizar'}
                 </span>
               </>
             )}
@@ -366,9 +419,12 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                   : 'Aquí aparecerán las novedades, tareas y actividades de la clase.'}
               </p>
             </div>
-            {activeFilter !== 'all' && (
+            {(activeFilter !== 'all' || searchQuery.trim() !== '') && (
               <button
-                onClick={() => setActiveFilter('all')}
+                onClick={() => {
+                  setActiveFilter('all');
+                  setSearchQuery('');
+                }}
                 className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer"
               >
                 Ver todas las publicaciones

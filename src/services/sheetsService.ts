@@ -12,6 +12,7 @@
 
 import {
   AppConfig,
+  AprendemosCategory,
   AvisoItem,
   CalendarEvent,
   DayOfWeek,
@@ -192,13 +193,76 @@ function parseDestacado(val: string | boolean | undefined): boolean {
 }
 
 /**
- * Normaliza el estado de publicación. Solo "PUBLICAR" es visible.
+ * Normaliza el estado de publicación. Solo "PUBLICAR" y "PUBLICADO" son visibles.
+ * BORRADOR y ARCHIVADO permanecen ocultos.
  */
-function parseEstado(val: string | undefined): PublicacionEstado {
-  const v = (val || '').toUpperCase().trim();
-  if (v === 'PUBLICAR') return 'PUBLICAR';
+export function parseEstado(val: unknown): PublicacionEstado {
+  const v = String(val ?? '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+    .toUpperCase();
+  if (v === 'PUBLICAR' || v === 'PUBLICADO') return 'PUBLICAR';
   if (v === 'ARCHIVADO') return 'ARCHIVADO';
   return 'BORRADOR';
+}
+
+export function isPayloadItemPublished(rawEstado: unknown): boolean {
+  if (rawEstado === undefined || rawEstado === null) return true;
+  const cleaned = String(rawEstado).replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+  if (cleaned === '') return true;
+  return parseEstado(cleaned) === 'PUBLICAR';
+}
+
+export const APRENDEMOS_CATEGORY_LABELS: Record<AprendemosCategory, string> = {
+  lectura: 'Lectura y comprensión',
+  escritura: 'Escritura y trazo',
+  calculo: 'Cálculo y lógica',
+  talleres: 'Talleres y dinámicas',
+};
+
+/**
+ * Normaliza la categoría de APRENDEMOS (insensible a tildes y mayúsculas)
+ * hacia las 4 categorías oficiales del proyecto.
+ */
+export function normalizeAprendemosCategory(rawCat: unknown): AprendemosCategory {
+  const normalized = String(rawCat ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+  if (!normalized) return 'lectura';
+  if (
+    normalized.includes('taller') ||
+    normalized.includes('dinam') ||
+    normalized.includes('juego') ||
+    normalized.includes('pauta') ||
+    normalized.includes('habito') ||
+    normalized.includes('emocion') ||
+    normalized.includes('conviv')
+  ) {
+    return 'talleres';
+  }
+  if (
+    normalized.includes('escri') ||
+    normalized.includes('trazo') ||
+    normalized.includes('cali') ||
+    normalized.includes('grafo')
+  ) {
+    return 'escritura';
+  }
+  if (
+    normalized.includes('calculo') ||
+    normalized.includes('logic') ||
+    normalized.includes('mat') ||
+    normalized.includes('num') ||
+    normalized.includes('suma') ||
+    normalized.includes('resta') ||
+    normalized.includes('problem')
+  ) {
+    return 'calculo';
+  }
+  return 'lectura';
 }
 
 /**
@@ -480,13 +544,21 @@ export function splitAprendemosDescription(rawDescripcion: string): {
 
 export function sortAprendemosItems(items: EducationalResource[]): EducationalResource[] {
   return sortByOrdenDesc(
-    items.map((item) => ({
-      item:
+    items.map((item) => {
+      const normalizedCategory = normalizeAprendemosCategory(item.categoria || item.category);
+      const split =
         typeof item.descripcion === 'string'
-          ? { ...item, ...splitAprendemosDescription(item.descripcion) }
-          : item,
-      orden: parseCachedOrden(item.orden),
-    }))
+          ? splitAprendemosDescription(item.descripcion)
+          : {};
+      return {
+        item: {
+          ...item,
+          ...split,
+          category: normalizedCategory,
+        },
+        orden: parseCachedOrden(item.orden),
+      };
+    })
   );
 }
 
@@ -1047,7 +1119,7 @@ export function parseAprendemosRows(rows: string[][]): EducationalResource[] {
     if (estado !== 'PUBLICAR') continue;
 
     const id = colId !== -1 && row[colId] ? row[colId] : `aprende-${i}`;
-    const rawCat = (colCat !== -1 ? row[colCat] || 'lectura' : 'lectura').toLowerCase().trim();
+    const rawCat = (colCat !== -1 ? row[colCat] || 'lectura' : 'lectura').trim();
     const titulo = colTitulo !== -1 ? row[colTitulo] || '' : '';
     const descripcion = colDesc !== -1 ? row[colDesc] || '' : '';
     const tipo_recurso = colTipoRec !== -1 ? row[colTipoRec] || 'Pauta' : 'Pauta';
@@ -1059,12 +1131,7 @@ export function parseAprendemosRows(rows: string[][]): EducationalResource[] {
 
     if (!titulo && !descripcion) continue;
 
-    let category: 'lengua' | 'matematicas' | 'lectura' | 'escritura' | 'calculo' | 'pautas' = 'lectura';
-    if (rawCat.includes('lengua') || rawCat.includes('lect')) category = 'lectura';
-    else if (rawCat.includes('escri') || rawCat.includes('trazo') || rawCat.includes('cali')) category = 'escritura';
-    else if (rawCat.includes('mat') || rawCat.includes('calc') || rawCat.includes('logica')) category = 'matematicas';
-    else if (rawCat.includes('pauta') || rawCat.includes('habito')) category = 'pautas';
-    else category = 'lectura';
+    const category = normalizeAprendemosCategory(rawCat);
 
     const { description, tips } = splitAprendemosDescription(descripcion);
 
@@ -1212,8 +1279,10 @@ export interface SyncResult {
   multimedia: MultimediaItem[];
   aprendemos: EducationalResource[];
   recursos: HomeLearningResource[];
-  source: 'apps-script' | 'cache' | 'pending-config';
+  source: 'apps-script' | 'cache' | 'pending-config' | 'error';
   updatedAt: string;
+  errorMessage?: string;
+  fromFallback?: boolean;
 }
 
 /**
@@ -1228,7 +1297,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
   const rawDia = Array.isArray(rawData.dia_a_dia) ? rawData.dia_a_dia : [];
   const posts: DiaADiaItem[] = sortByOrdenDesc(
     rawDia
-      .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
+      .filter((item) => isPayloadItemPublished(item.estado))
       .map((item, idx) => {
         const fecha = formatSpanishDate(item.fecha || '');
         const titulo = item.titulo || '';
@@ -1285,7 +1354,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
   const rawAvisos = Array.isArray(rawData.avisos) ? rawData.avisos : [];
   const avisos: AvisoItem[] = sortByOrdenDesc(
     rawAvisos
-      .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
+      .filter((item) => isPayloadItemPublished(item.estado))
       .map((item, idx) => {
         const fechaPub = formatSpanishDate(item.fecha_publicacion || item.fecha || '');
         const fechaLim = item.fecha_limite ? formatSpanishDate(item.fecha_limite) : undefined;
@@ -1327,7 +1396,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
   // 4. Calendario
   const rawCal = Array.isArray(rawData.calendario) ? rawData.calendario : [];
   const events: CalendarEvent[] = rawCal
-    .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
+    .filter((item) => isPayloadItemPublished(item.estado))
     .map((item, idx): CalendarEvent | null => {
       const fIni = formatSpanishDate(item.fecha_inicio || item.fecha || '');
       const fFinRaw = item.fecha_fin ? formatSpanishDate(item.fecha_fin) : '';
@@ -1434,7 +1503,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
   const rawMedia = Array.isArray(rawData.multimedia) ? rawData.multimedia : [];
   const multimedia: MultimediaItem[] = sortByOrdenDesc(
     rawMedia
-      .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
+      .filter((item) => isPayloadItemPublished(item.estado))
       .map((item, idx) => {
         const rawTipo = String(item.tipo || '').toUpperCase();
         const tipo: 'FOTOGRAFIA' | 'VIDEO' = rawTipo.includes('VID') ? 'VIDEO' : 'FOTOGRAFIA';
@@ -1471,14 +1540,10 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
   const rawAprendemos = Array.isArray(rawData.aprendemos) ? rawData.aprendemos : [];
   const aprendemos: EducationalResource[] = sortByOrdenDesc(
     rawAprendemos
-      .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
+      .filter((item) => isPayloadItemPublished(item.estado))
       .map((item, idx) => {
-        const rawCat = String(item.categoria || 'lectura').toLowerCase();
-        let category: 'lengua' | 'matematicas' | 'lectura' | 'escritura' | 'calculo' | 'pautas' = 'lectura';
-        if (rawCat.includes('lengua') || rawCat.includes('lect')) category = 'lectura';
-        else if (rawCat.includes('escri') || rawCat.includes('trazo') || rawCat.includes('cali')) category = 'escritura';
-        else if (rawCat.includes('mat') || rawCat.includes('calc')) category = 'matematicas';
-        else if (rawCat.includes('pauta')) category = 'pautas';
+        const rawCat = String(item.categoria || 'lectura').trim();
+        const category = normalizeAprendemosCategory(rawCat);
 
         const titulo = item.titulo || '';
         const descripcion = item.descripcion || '';
@@ -1518,7 +1583,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
   const rawRecursos = Array.isArray(rawData.recursos) ? rawData.recursos : [];
   const recursos: HomeLearningResource[] = sortByOrdenDesc(
     rawRecursos
-      .filter((item) => (item.estado || 'PUBLICAR').toUpperCase() === 'PUBLICAR')
+      .filter((item) => isPayloadItemPublished(item.estado))
       .filter((item) => {
         const asig = String(item.asignatura || '').toLowerCase();
         return (
@@ -1587,17 +1652,181 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
   };
 }
 
+export interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+export interface SyncDependencies {
+  isConfigured?: () => boolean;
+  isOnline?: () => boolean;
+  storage?: StorageLike | null;
+  fetchJsonp?: (baseUrl: string, params: Record<string, string>, timeoutMs: number) => Promise<unknown>;
+  fetchDirect?: (url: string, timeoutMs: number) => Promise<unknown>;
+  now?: () => number;
+}
+
+function getDefaultStorage(): StorageLike | null {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage;
+    }
+    if (typeof localStorage !== 'undefined') {
+      return localStorage;
+    }
+  } catch {
+    // Almacenamiento no disponible
+  }
+  return null;
+}
+
+export function hasAnySyncData(result: Partial<SyncResult> | null | undefined): boolean {
+  if (!result || typeof result !== 'object') return false;
+  const hasConfig = Boolean(result.config && Object.keys(result.config).length > 0);
+  const hasSchedule = Boolean(
+    result.schedule && Object.values(result.schedule).some((arr) => Array.isArray(arr) && arr.length > 0)
+  );
+  return (
+    hasConfig ||
+    hasSchedule ||
+    (Array.isArray(result.posts) && result.posts.length > 0) ||
+    (Array.isArray(result.avisos) && result.avisos.length > 0) ||
+    (Array.isArray(result.events) && result.events.length > 0) ||
+    (Array.isArray(result.multimedia) && result.multimedia.length > 0) ||
+    (Array.isArray(result.aprendemos) && result.aprendemos.length > 0) ||
+    (Array.isArray(result.recursos) && result.recursos.length > 0)
+  );
+}
+
 /**
- * Sincronización Estricta mediante Google Apps Script
- *
- * REGLA DE PRIVACIDAD:
- * Si VITE_APPS_SCRIPT_URL no está configurada, NO realiza peticiones externas.
- * Devuelve un resultado explícito con `isPendingConfig: true` para que la UI muestre
- * el aviso de configuración pendiente, sin exponer Google Sheets ni inventar datos.
+ * Lee y normaliza de forma segura la última sincronización válida guardada en `diario_sync_cache_v3`.
  */
-export async function syncAllData(forceRefresh = false): Promise<SyncResult> {
-  // 1. Si Apps Script NO está configurado, no intentar acceder a Google Sheets directamente
+export function readCachedSyncResult(storage: StorageLike | null = getDefaultStorage()): SyncResult | null {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(CACHE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsedRaw = JSON.parse(raw) as Partial<SyncResult>;
+    if (!parsedRaw || typeof parsedRaw !== 'object') return null;
+
+    const normalized: SyncResult = sortSyncResultPublications({
+      isPendingConfig: false,
+      config: parsedRaw.config && typeof parsedRaw.config === 'object' ? parsedRaw.config : {},
+      posts: Array.isArray(parsedRaw.posts) ? parsedRaw.posts : [],
+      avisos: Array.isArray(parsedRaw.avisos) ? parsedRaw.avisos : [],
+      events: Array.isArray(parsedRaw.events) ? parsedRaw.events : [],
+      schedule: parsedRaw.schedule && typeof parsedRaw.schedule === 'object' ? parsedRaw.schedule : null,
+      multimedia: Array.isArray(parsedRaw.multimedia) ? parsedRaw.multimedia : [],
+      aprendemos: Array.isArray(parsedRaw.aprendemos) ? parsedRaw.aprendemos : [],
+      recursos: Array.isArray(parsedRaw.recursos) ? parsedRaw.recursos : [],
+      source: 'cache',
+      updatedAt: typeof parsedRaw.updatedAt === 'string' ? parsedRaw.updatedAt : new Date().toISOString(),
+    });
+
+    if (!hasAnySyncData(normalized)) {
+      return null;
+    }
+
+    return normalized;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Recuperación síncrona para hidratación inmediata al abrir la aplicación/PWA.
+ * Respeta estrictamente la regla de privacidad cuando VITE_APPS_SCRIPT_URL no está configurada.
+ */
+export function loadCachedSyncData(): SyncResult | null {
   if (!isAppsScriptConfigured()) {
+    return null;
+  }
+  return readCachedSyncResult();
+}
+
+function isPlainObject(val: unknown): val is Record<string, unknown> {
+  return Boolean(val && typeof val === 'object' && !Array.isArray(val));
+}
+
+/**
+ * Protege los datos válidos cacheados frente a respuestas completamente vacías o incompletas
+ * (secciones omitidas o con tipo inesperado en la respuesta del servidor).
+ */
+export function mergeWithValidCache(
+  parsed: SyncResult,
+  rawData: Record<string, unknown>,
+  cached: SyncResult | null
+): { result: SyncResult; shouldPersist: boolean; rejectedEmpty: boolean } {
+  if (!cached || !hasAnySyncData(cached)) {
+    return {
+      result: parsed,
+      shouldPersist: hasAnySyncData(parsed),
+      rejectedEmpty: false,
+    };
+  }
+
+  // Nunca sustituir un caché válido completo por una respuesta totalmente vacía
+  if (!hasAnySyncData(parsed)) {
+    return {
+      result: {
+        ...cached,
+        source: 'cache',
+        fromFallback: true,
+        errorMessage: 'Respuesta vacía del servidor; se conservan los últimos datos válidos.',
+      },
+      shouldPersist: false,
+      rejectedEmpty: true,
+    };
+  }
+
+  const hasRawConfig = isPlainObject(rawData.config) && Object.keys(parsed.config).length > 0;
+  const hasRawDia = Array.isArray(rawData.dia_a_dia);
+  const hasRawAvisos = Array.isArray(rawData.avisos);
+  const hasRawCal = Array.isArray(rawData.calendario);
+  const hasRawHorario = Array.isArray(rawData.horario);
+  const hasRawMedia = Array.isArray(rawData.multimedia);
+  const hasRawAprendemos = Array.isArray(rawData.aprendemos);
+  const hasRawRecursos = Array.isArray(rawData.recursos);
+
+  const merged: SyncResult = {
+    isPendingConfig: false,
+    config: hasRawConfig ? { ...cached.config, ...parsed.config } : cached.config,
+    posts: hasRawDia ? parsed.posts : cached.posts,
+    avisos: hasRawAvisos ? parsed.avisos : cached.avisos,
+    events: hasRawCal ? parsed.events : cached.events,
+    schedule: hasRawHorario ? (parsed.schedule ?? cached.schedule) : cached.schedule,
+    multimedia: hasRawMedia ? parsed.multimedia : cached.multimedia,
+    aprendemos: hasRawAprendemos ? parsed.aprendemos : cached.aprendemos,
+    recursos: hasRawRecursos ? parsed.recursos : cached.recursos,
+    source: 'apps-script',
+    updatedAt: parsed.updatedAt,
+  };
+
+  return {
+    result: merged,
+    shouldPersist: true,
+    rejectedEmpty: false,
+  };
+}
+
+let activeSyncPromise: Promise<SyncResult> | null = null;
+let activeSyncIsForced = false;
+
+export async function executeSyncWithDeps(
+  _forceRefresh = false,
+  deps: SyncDependencies = {}
+): Promise<SyncResult> {
+  const checkConfigured = deps.isConfigured ?? isAppsScriptConfigured;
+  const checkOnline =
+    deps.isOnline ??
+    (() => (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean' ? navigator.onLine : true));
+  const storage = deps.storage !== undefined ? deps.storage : getDefaultStorage();
+  const runJsonp = deps.fetchJsonp ?? fetchViaJsonp;
+  const runFetch = deps.fetchDirect ?? fetchViaFetch;
+  const getNow = deps.now ?? (() => Date.now());
+
+  // 1. Si Apps Script NO está configurado, no intentar acceder a Google Sheets directamente
+  if (!checkConfigured()) {
     return {
       isPendingConfig: true,
       config: {},
@@ -1613,58 +1842,132 @@ export async function syncAllData(forceRefresh = false): Promise<SyncResult> {
     };
   }
 
-  // 2. Apps Script está configurado: consultar el intermediario de lectura segura
+  const cached = readCachedSyncResult(storage);
+
+  // 2. Si no hay conexión, devolver inmediatamente el último caché válido o error sin bloquear 18s
+  if (!checkOnline()) {
+    if (cached) {
+      return {
+        ...cached,
+        source: 'cache',
+        fromFallback: true,
+        errorMessage: 'Sin conexión a Internet',
+      };
+    }
+    return {
+      isPendingConfig: false,
+      config: {},
+      posts: [],
+      avisos: [],
+      events: [],
+      schedule: null,
+      multimedia: [],
+      aprendemos: [],
+      recursos: [],
+      source: 'error',
+      updatedAt: new Date().toISOString(),
+      errorMessage: 'Sin conexión a Internet',
+    };
+  }
+
+  // 3. Apps Script está configurado y hay red: consultar siempre con timestamp anti-caché
   try {
+    const cacheBuster = String(getNow());
     let rawResponse: unknown = null;
+    const isValidPayload = (candidate: unknown): candidate is { success: true; data: Record<string, unknown> } => {
+      const obj = candidate as { success?: boolean; data?: unknown } | null;
+      return Boolean(obj && obj.success === true && isPlainObject(obj.data));
+    };
 
     try {
-      rawResponse = await fetchViaJsonp<{ success: boolean; data: Record<string, unknown> }>(
+      rawResponse = await runJsonp(
         APPS_SCRIPT_WEBAPP_URL,
-        { action: 'all', t: forceRefresh ? String(Date.now()) : '' },
+        { action: 'all', t: cacheBuster },
         10000
       );
+      if (!isValidPayload(rawResponse)) {
+        throw new Error('Respuesta JSONP incompleta');
+      }
     } catch {
-      rawResponse = await fetchViaFetch<{ success: boolean; data: Record<string, unknown> }>(
-        `${APPS_SCRIPT_WEBAPP_URL}?action=all&t=${Date.now()}`,
+      rawResponse = await runFetch(
+        `${APPS_SCRIPT_WEBAPP_URL}?action=all&t=${cacheBuster}`,
         8000
       );
     }
 
-    const res = rawResponse as { success?: boolean; data?: Record<string, unknown> };
-    if (res && res.success && res.data) {
-      const parsed = parseAppsScriptPayload(res.data);
+    if (!isValidPayload(rawResponse)) {
+      const errObj = rawResponse as { error?: string } | null;
+      throw new Error(errObj?.error || 'Respuesta no válida de Google Apps Script');
+    }
+    const res = rawResponse;
+
+    const parsed = parseAppsScriptPayload(res.data);
+    const { result, shouldPersist } = mergeWithValidCache(parsed, res.data, cached);
+
+    if (shouldPersist && storage) {
       try {
-        localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(parsed));
+        storage.setItem(CACHE_STORAGE_KEY, JSON.stringify(result));
       } catch {
-        // Fallback ignorar
+        // Ignorar fallo de cuota en almacenamiento local
       }
-      return parsed;
     }
-  } catch {
-    // Si falla la red, intentar recuperar la última sincronización válida en caché
-    try {
-      const cached = localStorage.getItem(CACHE_STORAGE_KEY);
-      if (cached) {
-        const parsedCache = sortSyncResultPublications(JSON.parse(cached) as SyncResult);
-        parsedCache.source = 'cache';
-        return parsedCache;
-      }
-    } catch {
-      // Ignorar fallo de caché
+
+    return result;
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Error de red al sincronizar con Google Apps Script';
+
+    if (cached) {
+      return {
+        ...cached,
+        source: 'cache',
+        fromFallback: true,
+        errorMessage,
+      };
     }
+
+    return {
+      isPendingConfig: false,
+      config: {},
+      posts: [],
+      avisos: [],
+      events: [],
+      schedule: null,
+      multimedia: [],
+      aprendemos: [],
+      recursos: [],
+      source: 'error',
+      updatedAt: new Date().toISOString(),
+      errorMessage,
+    };
+  }
+}
+
+/**
+ * Sincronización Estricta mediante Google Apps Script
+ *
+ * REGLA DE PRIVACIDAD:
+ * Si VITE_APPS_SCRIPT_URL no está configurada, NO realiza peticiones externas.
+ * Devuelve un resultado explícito con `isPendingConfig: true` para que la UI muestre
+ * el aviso de configuración pendiente, sin exponer Google Sheets ni inventar datos.
+ */
+export async function syncAllData(forceRefresh = false): Promise<SyncResult> {
+  if (!isAppsScriptConfigured()) {
+    return executeSyncWithDeps(forceRefresh);
   }
 
-  return {
-    isPendingConfig: false,
-    config: {},
-    posts: [],
-    avisos: [],
-    events: [],
-    schedule: null,
-    multimedia: [],
-    aprendemos: [],
-    recursos: [],
-    source: 'pending-config',
-    updatedAt: new Date().toISOString(),
-  };
+  // Evitar peticiones duplicadas simultáneas del mismo nivel
+  if (activeSyncPromise && (!forceRefresh || activeSyncIsForced)) {
+    return activeSyncPromise;
+  }
+
+  const currentPromise = executeSyncWithDeps(forceRefresh).finally(() => {
+    if (activeSyncPromise === currentPromise) {
+      activeSyncPromise = null;
+      activeSyncIsForced = false;
+    }
+  });
+
+  activeSyncPromise = currentPromise;
+  activeSyncIsForced = forceRefresh;
+  return currentPromise;
 }

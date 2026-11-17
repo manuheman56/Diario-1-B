@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   AppConfig,
   AvisoItem,
@@ -31,11 +31,18 @@ import { RecursosTab } from './components/RecursosTab';
 import { InstallModal } from './components/InstallModal';
 import { ExitConfirmModal } from './components/ExitConfirmModal';
 import { Toast } from './components/Toast';
-import { syncAllData, sortDiaADiaItems } from './services/sheetsService';
+import {
+  syncAllData,
+  sortDiaADiaItems,
+  loadCachedSyncData,
+  hasAnySyncData,
+  SyncResult,
+} from './services/sheetsService';
 import { isAppsScriptConfigured } from './config/appsScriptConfig';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useBackNavigation } from './hooks/useBackNavigation';
-import { WifiOff, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { mergePostsWithCompleted } from './utils/taskPersistence';
+import { WifiOff, ShieldAlert, CheckCircle2, RefreshCw } from 'lucide-react';
 
 const emptySchedule: Record<DayOfWeek, ScheduleItem[]> = {
   Lunes: [],
@@ -49,15 +56,24 @@ export default function App() {
   const isOnline = useOnlineStatus();
   const configured = isAppsScriptConfigured();
 
+  // Hidratación síncrona inmediata desde `diario_sync_cache_v3` para todas las secciones
+  const [initialCache] = useState<SyncResult | null>(() => loadCachedSyncData());
+
   // Estado que indica si la conexión con Google Apps Script está pendiente de configurar
   const [isPendingConfig, setIsPendingConfig] = useState(!configured);
 
   // 1. CONFIGURACION: Configuración general del aula
-  const [config, setConfig] = useState<AppConfig>(initialConfig);
+  const [config, setConfig] = useState<AppConfig>(() => ({
+    ...initialConfig,
+    ...(initialCache?.config || {}),
+  }));
 
-  // 2. DIA_A_DIA: Publicaciones diarias (sin datos ficticios si no está configurado)
+  // 2. DIA_A_DIA: Publicaciones diarias (hidrata desde caché unificada o respaldo legacy)
   const [posts, setPosts] = useState<DiaADiaItem[]>(() => {
     if (!configured) return [];
+    if (initialCache?.posts && initialCache.posts.length > 0) {
+      return mergePostsWithCompleted(initialCache.posts);
+    }
     try {
       const saved = localStorage.getItem('diario_posts');
       if (!saved) return [];
@@ -69,22 +85,34 @@ export default function App() {
   });
 
   // 3. AVISOS: Tablón oficial de comunicaciones y circulares
-  const [avisos, setAvisos] = useState<AvisoItem[]>([]);
+  const [avisos, setAvisos] = useState<AvisoItem[]>(() =>
+    configured ? initialCache?.avisos ?? [] : []
+  );
 
-  // 4. HORARIO: Horario semanal lectivo (en memoria)
-  const [schedule, setSchedule] = useState<Record<DayOfWeek, ScheduleItem[]>>(emptySchedule);
+  // 4. HORARIO: Horario semanal lectivo
+  const [schedule, setSchedule] = useState<Record<DayOfWeek, ScheduleItem[]>>(() =>
+    configured && initialCache?.schedule ? initialCache.schedule : emptySchedule
+  );
 
-  // 5. CALENDARIO: Eventos y salidas escolares (en memoria)
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  // 5. CALENDARIO: Eventos y salidas escolares
+  const [events, setEvents] = useState<CalendarEvent[]>(() =>
+    configured ? initialCache?.events ?? [] : []
+  );
 
   // 6. MULTIMEDIA: Fotografías y vídeos protegidos
-  const [multimedia, setMultimedia] = useState<MultimediaItem[]>([]);
+  const [multimedia, setMultimedia] = useState<MultimediaItem[]>(() =>
+    configured ? initialCache?.multimedia ?? [] : []
+  );
 
   // 7. APRENDEMOS: Qué trabajamos en clase (Lengua Castellana y Matemáticas)
-  const [resources, setResources] = useState<EducationalResource[]>([]);
+  const [resources, setResources] = useState<EducationalResource[]>(() =>
+    configured ? initialCache?.aprendemos ?? [] : []
+  );
 
   // 8. RECURSOS: Biblioteca educativa para practicar en casa (9.ª Pestaña Oficial)
-  const [homeResources, setHomeResources] = useState<HomeLearningResource[]>([]);
+  const [homeResources, setHomeResources] = useState<HomeLearningResource[]>(() =>
+    configured ? initialCache?.recursos ?? [] : []
+  );
 
   // Navigation View States (Las 8 Secciones Oficiales) + Historial PWA / Android Atrás
   const {
@@ -101,18 +129,27 @@ export default function App() {
   // UI View Mode (Mobile frame vs responsive wide)
   const [isMobileFrame, setIsMobileFrame] = useState<boolean>(true);
 
-  // Background sync state
+  // Background sync, initial loading & error states
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(
+    () => configured && !hasAnySyncData(initialCache)
+  );
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  const syncSeqRef = useRef(0);
+  const hasLiveSyncRef = useRef(false);
+  const autoRetryDoneRef = useRef(false);
+  const autoRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
     }, 3500);
-  };
+  }, []);
 
   // Guardar estado del checklist de tareas en LocalStorage solo cuando hay posts reales
   useEffect(() => {
@@ -125,76 +162,166 @@ export default function App() {
     }
   }, [posts]);
 
-  // Sincronizador Central Exclusivo con Google Apps Script (Sin acceso directo a Sheets)
-  const syncAllFromSheets = useCallback(async (isManualPull = false) => {
-    if (!isAppsScriptConfigured()) {
-      setIsPendingConfig(true);
-      if (isManualPull) {
-        showToast('Conexión pendiente: Configura la URL de Google Apps Script en VITE_APPS_SCRIPT_URL');
-      }
-      return;
+  const applySyncResultToState = useCallback((syncResult: SyncResult) => {
+    if (syncResult.config && Object.keys(syncResult.config).length > 0) {
+      setConfig((prev) => ({ ...prev, ...syncResult.config }));
     }
 
-    setIsSyncing(true);
-    try {
-      const syncResult = await syncAllData(isManualPull);
-      if (syncResult && !syncResult.isPendingConfig) {
-        setIsPendingConfig(false);
-
-        if (syncResult.config && Object.keys(syncResult.config).length > 0) {
-          setConfig((prev) => ({ ...prev, ...syncResult.config }));
-        }
-
-        if (syncResult.posts) {
-          const fetchedPosts = syncResult.posts;
-          setPosts((prevPosts) => {
-            const localTasksCompleted = new Set(
-              prevPosts
-                .filter((p) => p.completed)
-                .map((p) => p.title.toLowerCase().trim())
-            );
-
-            return fetchedPosts.map((n) => ({
-              ...n,
-              completed: localTasksCompleted.has(n.title.toLowerCase().trim()),
-            }));
-          });
-        }
-
-        if (syncResult.avisos) setAvisos(syncResult.avisos);
-        if (syncResult.events) setEvents(syncResult.events);
-        if (syncResult.schedule) setSchedule(syncResult.schedule);
-        if (syncResult.multimedia) setMultimedia(syncResult.multimedia);
-        if (syncResult.aprendemos) setResources(syncResult.aprendemos);
-        if (syncResult.recursos) setHomeResources(syncResult.recursos);
-
-        if (isManualPull) {
-          const sourceMsg =
-            syncResult.source === 'apps-script'
-              ? 'Sincronizado en tiempo real vía Google Apps Script'
-              : 'Datos cargados desde la memoria local protegida';
-          showToast(sourceMsg);
-        }
-      } else {
-        setIsPendingConfig(true);
-        if (isManualPull) {
-          showToast('Conexión pendiente de configuración');
-        }
-      }
-    } catch {
-      if (isManualPull) {
-        showToast('No se pudo conectar con Google Apps Script');
-      }
-    } finally {
-      setIsSyncing(false);
+    setPosts((prevPosts) => mergePostsWithCompleted(syncResult.posts, prevPosts));
+    setAvisos(syncResult.avisos);
+    setEvents(syncResult.events);
+    if (syncResult.schedule) {
+      setSchedule(syncResult.schedule);
     }
+    setMultimedia(syncResult.multimedia);
+    setResources(syncResult.aprendemos);
+    setHomeResources(syncResult.recursos);
   }, []);
 
-  // Sincronización al iniciar si está configurado
+  // Sincronizador Central Exclusivo con Google Apps Script (Sin acceso directo a Sheets)
+  const syncAllFromSheets = useCallback(
+    async (isManualPull = false) => {
+      if (!isAppsScriptConfigured()) {
+        setIsPendingConfig(true);
+        setIsInitialLoading(false);
+        setIsSyncing(false);
+        setSyncError(null);
+        if (isManualPull) {
+          showToast('Conexión pendiente: Configura la URL de Google Apps Script en VITE_APPS_SCRIPT_URL');
+        }
+        return;
+      }
+
+      if (autoRetryTimerRef.current !== null) {
+        clearTimeout(autoRetryTimerRef.current);
+        autoRetryTimerRef.current = null;
+      }
+
+      const requestSeq = ++syncSeqRef.current;
+      setIsSyncing(true);
+
+      try {
+        const syncResult = await syncAllData(isManualPull);
+
+        // Descartar respuesta si se inició otra petición posterior
+        if (requestSeq !== syncSeqRef.current) {
+          return;
+        }
+
+        if (syncResult.isPendingConfig) {
+          setIsPendingConfig(true);
+          setSyncError(null);
+          if (isManualPull) {
+            showToast('Conexión pendiente de configuración');
+          }
+          return;
+        }
+
+        setIsPendingConfig(false);
+
+        if (syncResult.source === 'apps-script') {
+          hasLiveSyncRef.current = true;
+          autoRetryDoneRef.current = false;
+          setSyncError(null);
+          applySyncResultToState(syncResult);
+
+          if (isManualPull) {
+            showToast('Sincronizado en tiempo real vía Google Apps Script');
+          }
+          return;
+        }
+
+        if (syncResult.source === 'cache') {
+          // Solo aplicar caché si aún no se han recibido datos en vivo en esta sesión
+          if (!hasLiveSyncRef.current) {
+            applySyncResultToState(syncResult);
+          }
+
+          if (syncResult.fromFallback && syncResult.errorMessage) {
+            setSyncError(syncResult.errorMessage);
+            if (isManualPull) {
+              showToast('Sin conexión nueva: mostrando los últimos datos guardados');
+            } else if (!autoRetryDoneRef.current && typeof navigator !== 'undefined' && navigator.onLine) {
+              autoRetryDoneRef.current = true;
+              autoRetryTimerRef.current = setTimeout(() => {
+                syncAllFromSheets(false);
+              }, 3500);
+            }
+          } else {
+            setSyncError(null);
+            if (isManualPull) {
+              showToast('Datos cargados desde la memoria local protegida');
+            }
+          }
+          return;
+        }
+
+        // Error sin caché disponible: nunca sobreescribir datos válidos previos
+        setSyncError(syncResult.errorMessage || 'No se pudo conectar con Google Apps Script');
+        if (isManualPull) {
+          showToast('No se pudo conectar con Google Apps Script');
+        } else if (!autoRetryDoneRef.current && typeof navigator !== 'undefined' && navigator.onLine) {
+          autoRetryDoneRef.current = true;
+          autoRetryTimerRef.current = setTimeout(() => {
+            syncAllFromSheets(false);
+          }, 3500);
+        }
+      } catch {
+        if (requestSeq !== syncSeqRef.current) {
+          return;
+        }
+        setSyncError('No se pudo conectar con Google Apps Script');
+        if (isManualPull) {
+          showToast('No se pudo conectar con Google Apps Script');
+        }
+      } finally {
+        if (requestSeq === syncSeqRef.current) {
+          setIsSyncing(false);
+          setIsInitialLoading(false);
+        }
+      }
+    },
+    [applySyncResultToState, showToast]
+  );
+
+  // Sincronización inicial no bloqueante
   useEffect(() => {
     if (isAppsScriptConfigured()) {
       syncAllFromSheets(false);
     }
+    return () => {
+      if (autoRetryTimerRef.current !== null) {
+        clearTimeout(autoRetryTimerRef.current);
+        autoRetryTimerRef.current = null;
+      }
+    };
+  }, [syncAllFromSheets]);
+
+  // Recuperación automática cuando vuelve la conexión (offline -> online) o se reabre la PWA
+  const prevOnlineRef = useRef(isOnline);
+  useEffect(() => {
+    const wasOffline = !prevOnlineRef.current;
+    prevOnlineRef.current = isOnline;
+    if (!isAppsScriptConfigured()) return;
+    if (wasOffline && isOnline) {
+      autoRetryDoneRef.current = false;
+      syncAllFromSheets(false);
+    }
+  }, [isOnline, syncAllFromSheets]);
+
+  useEffect(() => {
+    if (!isAppsScriptConfigured() || typeof document === 'undefined') return;
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState === 'visible' &&
+        navigator.onLine &&
+        !hasLiveSyncRef.current
+      ) {
+        syncAllFromSheets(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [syncAllFromSheets]);
 
   // Homework check toggle
@@ -310,6 +437,40 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* Indicador discreto solo en primera carga sin caché local */}
+          {!isPendingConfig &&
+            isInitialLoading &&
+            posts.length === 0 &&
+            avisos.length === 0 &&
+            events.length === 0 && (
+              <div className="bg-indigo-50/90 border border-indigo-200/80 rounded-2xl px-4 py-3 flex items-center gap-3 text-xs text-indigo-900">
+                <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin shrink-0" />
+                <span className="font-medium">Cargando los últimos contenidos del aula…</span>
+              </div>
+            )}
+
+          {/* Aviso discreto con reintento si falla la carga inicial y aún no hay caché */}
+          {!isPendingConfig &&
+            !isInitialLoading &&
+            !isSyncing &&
+            syncError &&
+            posts.length === 0 &&
+            avisos.length === 0 &&
+            events.length === 0 && (
+              <div className="bg-amber-50/95 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 text-xs text-amber-950">
+                <span className="font-medium">
+                  No se pudieron cargar los datos en este momento.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => syncAllFromSheets(true)}
+                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition shrink-0 cursor-pointer"
+                >
+                  Reintentar
+                </button>
+              </div>
+            )}
 
           {/* 1. Inicio */}
           {activeTab === 'inicio' && (

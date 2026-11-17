@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { CalendarEvent, DayOfWeek, ScheduleItem } from '../types';
+import { getUpcomingCalendarEvents } from '../utils/eventUtils';
 import {
   Clock,
   CalendarDays,
@@ -183,6 +184,11 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
           doesEventFallOnDate(ev, selectedCalendarDay, currentMonthIndex, currentYear)
         )
       : [];
+
+  const upcomingEvents = useMemo(
+    () => getUpcomingCalendarEvents(events),
+    [events]
+  );
 
   const currentDaySchedule = schedule[selectedDay] || [];
 
@@ -583,8 +589,8 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
               Próximos Eventos del Calendario
             </h4>
 
-            {events.length > 0 ? (
-              events.map((ev) => {
+            {upcomingEvents.length > 0 ? (
+              upcomingEvents.map((ev) => {
                 let badgeColor = 'bg-amber-50 text-amber-800 border-amber-200';
                 let badgeText = 'Salida';
                 let bgBox = 'bg-amber-100 text-amber-800';
