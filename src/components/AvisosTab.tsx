@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { AvisoItem, Notice } from '../types';
 import { matchesNormalizedSearch } from '../utils/searchUtils';
+import { SectionHeader } from './SectionHeader';
+import { EmptyStateCard } from './EmptyStateCard';
 import {
   Bell,
   Search,
@@ -11,6 +13,8 @@ import {
   Printer,
   Calendar,
   ExternalLink,
+  Pin,
+  X,
 } from 'lucide-react';
 
 interface AvisosTabProps {
@@ -25,8 +29,6 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
   avisos,
   posts = [],
   onSharePost,
-  isRefreshing = false,
-  onRefresh,
 }) => {
   const [filter, setFilter] = useState<'all' | 'urgente' | 'general' | 'actividad'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,7 +48,6 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
           prioridad: a.prioridad,
           author: a.author || 'Manuel Herrera',
           link: a.enlace_url,
-          icon: a.important ? '🚨' : '📌',
         }))
       : posts
           .filter((p) => {
@@ -64,7 +65,6 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
             prioridad: p.important ? 'Alta' : 'Normal',
             author: p.author,
             link: p.enlace_url,
-            icon: p.icon || '📌',
           }));
 
   const filteredNotices = normalizedAvisos.filter((post) => {
@@ -96,38 +96,31 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
   ).length;
 
   return (
-    <div className="space-y-4 pb-6 animate-in fade-in duration-300">
-      {/* 1. Header Banner */}
-      <div className="bg-gradient-to-br from-rose-700 via-rose-800 to-amber-800 rounded-3xl p-5 text-white shadow-lg shadow-rose-900/20 relative overflow-hidden">
-        <div className="relative z-10 space-y-2">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/20 text-rose-100 backdrop-blur-md">
-              <Bell className="w-3.5 h-3.5 text-rose-200" />
-              Tablón de Comunicaciones
-            </span>
-            {urgentCount > 0 && (
-              <span className="text-[11px] font-extrabold bg-white text-rose-900 px-2.5 py-0.5 rounded-full shadow-xs animate-pulse">
-                {urgentCount} urgente{urgentCount > 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-
-          <h2 className="font-display font-extrabold text-xl leading-tight">
-            Avisos y Circulares del Aula
-          </h2>
-          <p className="text-xs text-rose-100/90 leading-relaxed max-w-sm">
-            Comunicaciones del colegio, notas informativas, recordatorios y circulares oficiales
-            de 1.º B.
-          </p>
-
-          {/* Quick Actions */}
-          <div className="pt-2 flex items-center gap-2">
+    <div className="space-y-4 pb-6 diario-fade-in">
+      {/* 1. Cabecera unificada */}
+      <SectionHeader
+        eyebrow="Tablón de Comunicaciones"
+        metaRight={
+          urgentCount > 0
+            ? `${urgentCount} urgente${urgentCount > 1 ? 's' : ''}`
+            : 'Al día'
+        }
+        title="Avisos y Circulares del Aula"
+        description="Comunicaciones del colegio, notas informativas, recordatorios y circulares oficiales de 1.º B."
+        icon={<Bell className="w-5 h-5" />}
+        accent="coral"
+        actions={
+          <>
             <button
               type="button"
               onClick={() => setShowSearch(!showSearch)}
-              className="bg-white/15 hover:bg-white/25 text-white font-medium px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer backdrop-blur-xs"
+              className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border diario-press cursor-pointer ${
+                showSearch
+                  ? 'bg-[#E11D48] text-white border-[#E11D48]'
+                  : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F7F8FA]'
+              }`}
             >
-              <Search className="w-3.5 h-3.5" />
+              <Search className="w-4 h-4" />
               <span>{showSearch ? 'Ocultar búsqueda' : 'Buscar'}</span>
             </button>
 
@@ -135,52 +128,55 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
               type="button"
               onClick={() => window.print()}
               title="Imprimir avisos"
-              className="bg-white/15 hover:bg-white/25 text-white font-medium p-2 rounded-xl text-xs flex items-center justify-center transition cursor-pointer"
+              aria-label="Imprimir avisos"
+              className="min-h-[44px] min-w-[44px] px-3 rounded-xl bg-white border border-[#E2E8F0] text-[#334155] hover:bg-[#F7F8FA] flex items-center justify-center gap-1.5 text-xs font-semibold diario-press cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <Printer className="w-4 h-4" />
+              <span className="hidden sm:inline">Imprimir</span>
             </button>
-          </div>
-        </div>
+          </>
+        }
+        footerMeta={
+          <span className="tabular-nums">
+            {normalizedAvisos.length} {normalizedAvisos.length === 1 ? 'aviso' : 'avisos'}
+          </span>
+        }
+      />
 
-        {/* Backdrop decorative icon */}
-        <div className="absolute -right-6 -bottom-8 opacity-10 pointer-events-none">
-          <Bell className="w-44 h-44 text-white" />
-        </div>
-      </div>
-
-      {/* 2. Search Container */}
+      {/* 2. Buscador */}
       {showSearch && (
-        <div className="relative animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="relative diario-slide-down">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#475569] pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar en circulares y avisos..."
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs shadow-xs focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition"
+            className="w-full min-h-[44px] pl-10 pr-11 py-2.5 bg-white border border-[#E2E8F0] rounded-2xl text-[14px] text-[#0F172A] placeholder:text-[#64748B] shadow-xs focus:border-[#E11D48] transition"
             autoFocus
           />
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-slate-600"
+              aria-label="Borrar búsqueda"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] cursor-pointer"
             >
-              Borrar
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
       )}
 
-      {/* 3. Filter Pills */}
+      {/* 3. Filtros */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
         <button
           type="button"
           onClick={() => setFilter('all')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+          className={`min-h-[44px] px-4 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 diario-press ${
             filter === 'all'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              ? 'bg-[#0F172A] text-white shadow-xs'
+              : 'bg-white text-[#334155] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
           Todos ({normalizedAvisos.length})
@@ -189,58 +185,59 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
         <button
           type="button"
           onClick={() => setFilter('urgente')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+          className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-2 cursor-pointer shrink-0 diario-press ${
             filter === 'urgente'
-              ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              ? 'bg-[#E11D48] text-white border-[#E11D48] shadow-xs'
+              : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-          Urgentes ({urgentCount})
+          <span
+            className={`w-2 h-2 rounded-full ${
+              filter === 'urgente' ? 'bg-white' : 'bg-[#E11D48]'
+            }`}
+          />
+          <span>Urgentes ({urgentCount})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setFilter('general')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+          className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-2 cursor-pointer shrink-0 diario-press ${
             filter === 'general'
-              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              ? 'bg-[#4338CA] text-white border-[#4338CA] shadow-xs'
+              : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-          Generales
+          <span
+            className={`w-2 h-2 rounded-full ${
+              filter === 'general' ? 'bg-white' : 'bg-[#4338CA]'
+            }`}
+          />
+          <span>Generales</span>
         </button>
       </div>
 
-      {/* 4. Notices Feed */}
-      <div className="space-y-3">
+      {/* 4. Listado de avisos */}
+      <div className="space-y-3.5">
         {filteredNotices.length === 0 ? (
-          <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 text-slate-400 space-y-3 shadow-xs">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-              <FileText className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-700">
-                No hay avisos en esta categoría
-              </p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Las comunicaciones del aula aparecerán aquí cuando sean publicadas.
-              </p>
-            </div>
-            {(filter !== 'all' || searchQuery.trim() !== '') && (
-              <button
-                type="button"
-                onClick={() => {
-                  setFilter('all');
-                  setSearchQuery('');
-                }}
-                className="text-xs text-rose-600 font-bold hover:underline cursor-pointer"
-              >
-                Ver todos los avisos
-              </button>
-            )}
-          </div>
+          <EmptyStateCard
+            icon={<FileText className="w-6 h-6" />}
+            title="No hay avisos en esta categoría"
+            description="Las comunicaciones del aula aparecerán aquí cuando sean publicadas."
+            actionLabel={
+              filter !== 'all' || searchQuery.trim() !== ''
+                ? 'Ver todos los avisos'
+                : undefined
+            }
+            onAction={
+              filter !== 'all' || searchQuery.trim() !== ''
+                ? () => {
+                    setFilter('all');
+                    setSearchQuery('');
+                  }
+                : undefined
+            }
+          />
         ) : (
           filteredNotices.map((post) => {
             const isUrgent = post.important;
@@ -248,78 +245,80 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
             return (
               <article
                 key={post.id}
-                className={`bg-white p-4.5 rounded-3xl border transition shadow-card space-y-2.5 ${
+                className={`diario-card rounded-3xl p-4 sm:p-5 space-y-3 ${
                   isUrgent
-                    ? 'border-rose-300 ring-2 ring-rose-100 bg-rose-50/20'
-                    : 'border-slate-200/80 hover:border-slate-300'
+                    ? 'border-[#FECDD3] bg-[#FFF1F2]/55'
+                    : ''
                 }`}
               >
-                {/* Header Row */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Cabecera de metadatos limpios */}
+                <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {isUrgent ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                        <AlertCircle className="w-3 h-3 text-rose-600" />
-                        Urgente / Importante
+                      <span className="inline-flex items-center gap-1.5 font-bold text-[#BE123C]">
+                        <AlertCircle className="w-4 h-4 text-[#E11D48]" />
+                        <span>Urgente · Importante</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
-                        <span>{post.icon}</span>
+                      <span className="inline-flex items-center gap-1.5 font-bold text-[#4338CA]">
+                        <Pin className="w-3.5 h-3.5 text-[#4338CA]" />
                         <span>{post.tag}</span>
                       </span>
                     )}
-
-                    {post.deadline && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                        <Calendar className="w-2.5 h-2.5" />
-                        Límite: {post.deadline}
-                      </span>
-                    )}
                   </div>
-                  <span className="text-[11px] text-slate-400 font-medium">
+
+                  <span className="text-xs text-[#475569] font-medium tabular-nums">
                     {post.date}
                   </span>
                 </div>
 
-                {/* Title */}
-                <h3 className="font-display font-bold text-slate-900 text-sm leading-snug">
+                {/* Título */}
+                <h3 className="font-display font-bold text-[16px] text-[#0F172A] leading-snug">
                   {post.title}
                 </h3>
 
-                {/* Content */}
-                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                {/* Fecha límite destacada cuando exista */}
+                {post.deadline && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] text-xs font-bold tabular-nums">
+                    <Calendar className="w-3.5 h-3.5 shrink-0" />
+                    <span>Fecha límite: {post.deadline}</span>
+                  </div>
+                )}
+
+                {/* Contenido */}
+                <p className="text-[14px] text-[#334155] leading-relaxed whitespace-pre-line">
                   {post.content}
                 </p>
 
-                {/* Optional external link button */}
+                {/* Enlace externo opcional */}
                 {post.link && (
                   <div className="pt-1">
                     <a
                       href={post.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200 transition"
+                      className="min-h-[44px] inline-flex items-center gap-2 text-xs font-bold text-[#BE123C] bg-white hover:bg-[#FFF1F2] px-4 py-2 rounded-xl border border-[#FECDD3] diario-press"
                     >
-                      <span>Abrir enlace / documento</span>
-                      <ExternalLink className="w-3 h-3" />
+                      <span>Abrir enlace o documento</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </div>
                 )}
 
-                {/* Footer with Author and Share */}
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                  <span className="flex items-center gap-1.5 font-medium text-slate-500 truncate mr-2">
-                    <UserCheck className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                {/* Pie con autor y compartir */}
+                <div className="pt-2.5 border-t border-[#E2E8F0]/70 flex items-center justify-between gap-2 text-xs text-[#475569]">
+                  <span className="flex items-center gap-1.5 font-medium truncate min-w-0">
+                    <UserCheck className="w-4 h-4 text-[#E11D48] shrink-0" />
                     <span className="truncate">{post.author}</span>
                   </span>
 
                   <button
                     type="button"
                     onClick={() => onSharePost({ title: post.title, content: post.content })}
-                    className="hover:text-rose-600 font-medium transition flex items-center gap-1 cursor-pointer text-slate-500 hover:bg-slate-100 px-2.5 py-1 rounded-lg"
+                    className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#BE123C] hover:bg-white flex items-center gap-1.5 cursor-pointer shrink-0 diario-press"
                     title="Compartir o copiar comunicado"
                   >
-                    <Share2 className="w-3 h-3" />
+                    <Share2 className="w-3.5 h-3.5" />
                     <span>Compartir</span>
                   </button>
                 </div>

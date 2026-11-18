@@ -6,8 +6,9 @@ import {
   APRENDEMOS_CATEGORY_LABELS,
 } from '../services/sheetsService';
 import { matchesNormalizedSearch } from '../utils/searchUtils';
+import { SectionHeader } from './SectionHeader';
+import { EmptyStateCard } from './EmptyStateCard';
 import {
-  GraduationCap,
   BookOpen,
   PenTool,
   Calculator,
@@ -21,6 +22,35 @@ import {
 
 interface AprendemosTabProps {
   resources?: EducationalResource[];
+}
+
+function getCategoryAccent(cat: AprendemosCategory) {
+  switch (cat) {
+    case 'lectura':
+      return {
+        text: 'text-[#4338CA]',
+        bullet: 'bg-[#4338CA]',
+        button: 'text-[#4338CA] bg-[#EEF2FF] hover:bg-[#E0E7FF] border-[#C7D2FE]',
+      };
+    case 'escritura':
+      return {
+        text: 'text-[#0F766E]',
+        bullet: 'bg-[#0D9488]',
+        button: 'text-[#0F766E] bg-[#F0FDFA] hover:bg-teal-100 border-teal-200',
+      };
+    case 'calculo':
+      return {
+        text: 'text-emerald-700',
+        bullet: 'bg-emerald-600',
+        button: 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200',
+      };
+    case 'talleres':
+      return {
+        text: 'text-[#B45309]',
+        bullet: 'bg-[#D97706]',
+        button: 'text-[#92400E] bg-[#FEF3C7] hover:bg-amber-200/70 border-[#FDE68A]',
+      };
+  }
 }
 
 export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
@@ -65,76 +95,69 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
   });
 
   return (
-    <div className="space-y-4 pb-8 animate-in fade-in duration-300">
-      {/* 1. Hero Header - Qué trabajamos en clase */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-800 via-purple-900 to-indigo-900 p-5 text-white shadow-lg shadow-purple-950/20">
-        <div className="relative z-10 space-y-2.5">
-          <div className="flex items-center gap-2 text-xs font-semibold text-purple-200">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/15 text-white backdrop-blur-md border border-white/10">
-              <School className="w-3.5 h-3.5 text-purple-200" />
-              Vida y Aprendizajes del Aula
-            </span>
-            <span className="text-purple-200">·</span>
-            <span>1.º de Primaria B</span>
-          </div>
-
-          <h2 className="font-display font-extrabold text-2xl tracking-tight leading-tight text-white">
-            ¿Qué estamos trabajando en clase?
-          </h2>
-
-          <p className="text-xs text-purple-100/90 leading-relaxed max-w-lg">
-            Contenidos curriculares, proyectos activos y experiencias educativas
-            que desarrollamos día a día en el aula con El profe Manolo.
-          </p>
-
-          <div className="pt-1 flex items-center gap-3 text-[11px] text-purple-200 font-medium">
+    <div className="space-y-4 pb-8 diario-fade-in">
+      {/* 1. Cabecera unificada */}
+      <SectionHeader
+        eyebrow="Vida y Aprendizajes del Aula"
+        metaRight="1.º de Primaria B"
+        title="¿Qué estamos trabajando en clase?"
+        description="Contenidos curriculares, proyectos activos y pautas prácticas para acompañar desde casa lo que trabajamos día a día con El profe Manolo."
+        icon={<School className="w-5 h-5" />}
+        accent="violet"
+        footerMeta={
+          <>
             <span>Sincronizado desde la pestaña APRENDEMOS</span>
-            <span>·</span>
-            <span className="text-amber-300">Curso escolar 2026/27</span>
-          </div>
-        </div>
+            <span aria-hidden="true" className="text-slate-300">
+              ·
+            </span>
+            <span className="font-semibold text-[#7C3AED]">Curso escolar 2026/27</span>
+          </>
+        }
+      />
 
-        {/* Decorative backdrop */}
-        <div className="absolute -right-8 -bottom-10 opacity-10 pointer-events-none">
-          <GraduationCap className="w-52 h-52 text-white" />
-        </div>
-      </div>
-
-      {/* 2. Buscador y Filtros por Áreas de Aprendizaje */}
-      <div className="space-y-2">
+      {/* 2. Buscador y filtros por ámbitos */}
+      <div className="space-y-2.5">
         <div className="relative flex items-center">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+          <Search className="w-4 h-4 text-[#475569] absolute left-3.5 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar contenidos, proyectos o pautas de clase..."
-            className="w-full pl-10 pr-9 py-2.5 bg-white rounded-2xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition"
+            className="w-full min-h-[44px] pl-10 pr-11 py-2.5 bg-white rounded-2xl border border-[#E2E8F0] text-[14px] text-[#0F172A] placeholder:text-[#64748B] shadow-xs focus:border-[#7C3AED] transition"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              className="absolute right-1.5 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] cursor-pointer"
+              aria-label="Borrar búsqueda"
               title="Borrar búsqueda"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
 
-        {/* Segmented Filter Buttons */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
+        {/* Botones de ámbitos oficiales (4 categorías oficiales + Todos) */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
           <button
             type="button"
             onClick={() => setActiveCategory('all')}
-            className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 shrink-0 ${
+            className={`min-h-[44px] px-4 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer touch-manipulation shrink-0 diario-press ${
               activeCategory === 'all'
-                ? 'bg-purple-700 text-white shadow-sm ring-2 ring-purple-200'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                ? 'bg-[#7C3AED] text-white shadow-xs'
+                : 'bg-white text-[#334155] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
             }`}
           >
             <span>Todos los ámbitos</span>
-            <span className="text-[10px] bg-black/10 px-1.5 py-0.2 rounded-full">
+            <span
+              className={`text-[11px] px-1.5 py-0.5 rounded-full tabular-nums ${
+                activeCategory === 'all'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#F1F5F9] text-[#475569]'
+              }`}
+            >
               {activeList.length}
             </span>
           </button>
@@ -142,19 +165,19 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
           <button
             type="button"
             onClick={() => setActiveCategory('lectura')}
-            className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 shrink-0 ${
+            className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation shrink-0 diario-press ${
               activeCategory === 'lectura'
-                ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-200'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-[#4338CA] text-white shadow-xs'
+                : 'bg-white text-[#334155] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>{APRENDEMOS_CATEGORY_LABELS.lectura}</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+              className={`text-[11px] px-1.5 py-0.5 rounded-full tabular-nums ${
                 activeCategory === 'lectura'
                   ? 'bg-white/20 text-white'
-                  : 'bg-slate-100 text-slate-500'
+                  : 'bg-[#F1F5F9] text-[#475569]'
               }`}
             >
               {categoryCounts.lectura}
@@ -164,19 +187,19 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
           <button
             type="button"
             onClick={() => setActiveCategory('escritura')}
-            className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 shrink-0 ${
+            className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation shrink-0 diario-press ${
               activeCategory === 'escritura'
-                ? 'bg-teal-600 text-white shadow-sm ring-2 ring-teal-200'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-[#0D9488] text-white shadow-xs'
+                : 'bg-white text-[#334155] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
             }`}
           >
             <PenTool className="w-3.5 h-3.5" />
             <span>{APRENDEMOS_CATEGORY_LABELS.escritura}</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+              className={`text-[11px] px-1.5 py-0.5 rounded-full tabular-nums ${
                 activeCategory === 'escritura'
                   ? 'bg-white/20 text-white'
-                  : 'bg-slate-100 text-slate-500'
+                  : 'bg-[#F1F5F9] text-[#475569]'
               }`}
             >
               {categoryCounts.escritura}
@@ -186,19 +209,19 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
           <button
             type="button"
             onClick={() => setActiveCategory('calculo')}
-            className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 shrink-0 ${
+            className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation shrink-0 diario-press ${
               activeCategory === 'calculo'
-                ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-200'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white text-[#334155] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
             }`}
           >
             <Calculator className="w-3.5 h-3.5" />
             <span>{APRENDEMOS_CATEGORY_LABELS.calculo}</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+              className={`text-[11px] px-1.5 py-0.5 rounded-full tabular-nums ${
                 activeCategory === 'calculo'
                   ? 'bg-white/20 text-white'
-                  : 'bg-slate-100 text-slate-500'
+                  : 'bg-[#F1F5F9] text-[#475569]'
               }`}
             >
               {categoryCounts.calculo}
@@ -208,19 +231,19 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
           <button
             type="button"
             onClick={() => setActiveCategory('talleres')}
-            className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 shrink-0 ${
+            className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation shrink-0 diario-press ${
               activeCategory === 'talleres'
-                ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-200'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-[#D97706] text-white shadow-xs'
+                : 'bg-white text-[#334155] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
             }`}
           >
             <Palette className="w-3.5 h-3.5" />
             <span>{APRENDEMOS_CATEGORY_LABELS.talleres}</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+              className={`text-[11px] px-1.5 py-0.5 rounded-full tabular-nums ${
                 activeCategory === 'talleres'
                   ? 'bg-white/20 text-white'
-                  : 'bg-slate-100 text-slate-500'
+                  : 'bg-[#F1F5F9] text-[#475569]'
               }`}
             >
               {categoryCounts.talleres}
@@ -232,79 +255,85 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
       {/* 3. Lista de Contenidos y Aprendizajes */}
       <div className="space-y-3.5">
         {filteredResources.length === 0 ? (
-          <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 text-slate-400 space-y-2">
-            <School className="w-8 h-8 mx-auto text-slate-300" />
-            <h4 className="font-bold text-slate-800 text-sm">
-              {searchQuery.trim()
+          <EmptyStateCard
+            icon={<School className="w-6 h-6" />}
+            title={
+              searchQuery.trim()
                 ? 'No se encontraron aprendizajes con esa búsqueda'
-                : 'No hay contenidos en esta categoría'}
-            </h4>
-            <p className="text-xs text-slate-500">
-              {searchQuery.trim()
+                : 'No hay contenidos en esta categoría'
+            }
+            description={
+              searchQuery.trim()
                 ? 'Prueba con otras palabras o limpia la búsqueda actual.'
-                : 'Prueba a seleccionar otro ámbito de aprendizaje.'}
-            </p>
-            {(activeCategory !== 'all' || searchQuery.trim() !== '') && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveCategory('all');
-                  setSearchQuery('');
-                }}
-                className="mt-1 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-4 py-2 rounded-xl transition cursor-pointer"
-              >
-                Ver todos los ámbitos
-              </button>
-            )}
-          </div>
+                : 'Prueba a seleccionar otro ámbito de aprendizaje.'
+            }
+            actionLabel={
+              activeCategory !== 'all' || searchQuery.trim() !== ''
+                ? 'Ver todos los ámbitos'
+                : undefined
+            }
+            onAction={
+              activeCategory !== 'all' || searchQuery.trim() !== ''
+                ? () => {
+                    setActiveCategory('all');
+                    setSearchQuery('');
+                  }
+                : undefined
+            }
+          />
         ) : (
           filteredResources.map((res) => {
             const displayTips = normalizeAprendemosTips(res.tips, res.description);
             const itemCategory = normalizeAprendemosCategory(res.categoria || res.category);
             const categoryLabel = APRENDEMOS_CATEGORY_LABELS[itemCategory];
+            const accent = getCategoryAccent(itemCategory);
+
             return (
-              <div
+              <article
                 key={res.id}
-                className="bg-white rounded-3xl p-4.5 border border-slate-200/80 shadow-xs space-y-3 hover:border-purple-200 transition"
+                className="diario-card rounded-3xl p-4 sm:p-5 space-y-3.5"
               >
-                {/* Metadatos limpios sin píldoras invasivas */}
-                <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-                  <div className="flex items-center gap-1.5 font-bold text-purple-800 text-[11px] truncate">
-                    <span>{categoryLabel}</span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span className="text-slate-600 font-medium truncate">
+                {/* Metadatos limpios sin píldoras */}
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 truncate min-w-0">
+                    <span className={`font-bold ${accent.text}`}>{categoryLabel}</span>
+                    <span aria-hidden="true" className="text-slate-300">
+                      ·
+                    </span>
+                    <span className="text-[#475569] font-medium truncate">
                       {res.badge || 'Contenido de Aula'}
                     </span>
                   </div>
-                  <span className="text-[11px] text-slate-400 font-medium shrink-0">
+                  <span className="text-xs text-[#475569] font-medium shrink-0">
                     {res.level}
                   </span>
                 </div>
 
-                <div>
-                  <h3 className="font-display font-bold text-sm text-slate-900 leading-snug">
+                {/* Título y explicación */}
+                <div className="space-y-1.5">
+                  <h3 className="font-display font-bold text-[16px] text-[#0F172A] leading-snug">
                     {res.title}
                   </h3>
-                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  <p className="text-[14px] text-[#334155] leading-relaxed">
                     {res.description}
                   </p>
                 </div>
 
-                {/* Pautas pedagógicas para el seguimiento en familia */}
+                {/* Pautas pedagógicas para las familias */}
                 {displayTips.length > 0 && (
-                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 space-y-3">
-                    <h4 className="text-xs font-bold text-slate-800 tracking-tight">
+                  <div className="bg-[#F7F8FA] rounded-2xl p-4 border border-[#E2E8F0] space-y-3">
+                    <h4 className="font-display text-xs font-bold text-[#0F172A] tracking-tight">
                       Cómo acompañar este aprendizaje
                     </h4>
                     <ul className="flex flex-col gap-2.5 list-none p-0 m-0">
                       {displayTips.map((tip, idx) => (
                         <li
                           key={idx}
-                          className="flex items-start gap-2.5 text-xs leading-relaxed text-slate-700"
+                          className="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-[#334155]"
                         >
                           <span
                             aria-hidden="true"
-                            className="w-2 h-2 rounded-full bg-purple-600 shrink-0 mt-[0.42rem]"
+                            className={`w-2 h-2 rounded-full shrink-0 mt-[0.48rem] ${accent.bullet}`}
                           />
                           <span className="min-w-0 flex-1 break-words">{tip}</span>
                         </li>
@@ -315,32 +344,35 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
 
                 {/* Enlace opcional a recurso complementario */}
                 {res.externalUrl && (
-                  <div className="pt-1">
+                  <div className="pt-0.5">
                     <a
                       href={res.externalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-3.5 py-1.5 rounded-xl border border-purple-200 transition"
+                      className={`min-h-[44px] inline-flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl border diario-press ${accent.button}`}
                     >
                       <span>{res.externalLabel || 'Ver material del proyecto'}</span>
-                      <ExternalLink className="w-3 h-3 opacity-80" />
+                      <ExternalLink className="w-3.5 h-3.5 opacity-80" />
                     </a>
                   </div>
                 )}
-              </div>
+              </article>
             );
           })
         )}
       </div>
 
-      {/* 4. Enlace cruzado intuitivo hacia la Biblioteca de Recursos */}
-      <div className="p-4 bg-purple-50/70 border border-purple-200/80 rounded-3xl text-xs text-purple-950 flex items-start gap-3">
-        <Sparkles className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-        <div className="space-y-1 text-[11px] leading-relaxed">
-          <strong>¿Buscas materiales descargables para practicar en casa?</strong>
-          <p className="text-purple-800">
-            En la sección <strong>Recursos</strong> encontrarás juegos interactivos,
-            fichas en PDF y orientaciones familiares organizadas en cinco áreas prácticas.
+      {/* 4. Referencia a Biblioteca de Recursos */}
+      <div className="p-4 bg-[#F5F3FF] border border-violet-200 rounded-3xl flex items-start gap-3">
+        <span className="w-9 h-9 rounded-xl bg-white border border-violet-200 flex items-center justify-center text-[#7C3AED] shrink-0">
+          <Sparkles className="w-4 h-4" />
+        </span>
+        <div className="space-y-0.5 text-xs leading-relaxed text-[#334155]">
+          <strong className="block font-display text-sm text-[#0F172A]">
+            ¿Buscas materiales descargables para practicar en casa?
+          </strong>
+          <p>
+            En la sección <strong>Recursos</strong> encontrarás juegos interactivos, fichas en PDF y orientaciones familiares listas para usar.
           </p>
         </div>
       </div>

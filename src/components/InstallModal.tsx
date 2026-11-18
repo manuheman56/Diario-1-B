@@ -1,5 +1,12 @@
 import React from 'react';
-import { X, Smartphone, Share, MoreVertical, PlusSquare, Check } from 'lucide-react';
+import {
+  X,
+  Smartphone,
+  Share,
+  MoreVertical,
+  PlusSquare,
+  Compass,
+} from 'lucide-react';
 
 interface InstallModalProps {
   isOpen: boolean;
@@ -10,71 +17,88 @@ export const InstallModal: React.FC<InstallModalProps> = ({ isOpen, onClose }) =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl border border-slate-100">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="install-modal-title"
+      className="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 diario-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl border border-[#E2E8F0] diario-slide-up pb-[max(env(safe-area-inset-bottom),1.25rem)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-3 min-w-0">
             <img
               src="/pwa-192x192.png"
-              alt="Icono de la app"
-              className="w-10 h-10 rounded-2xl shadow-md border border-slate-200/80 object-cover shrink-0"
+              alt="Mascota de El Diario del Aula 1.º B"
+              className="w-11 h-11 rounded-2xl border border-[#E2E8F0] object-cover shrink-0 shadow-xs"
             />
-            <div>
-              <h3 className="font-display font-bold text-slate-900 text-sm sm:text-base leading-tight">
-                Instalar en la Pantalla de Inicio
+            <div className="min-w-0">
+              <h3
+                id="install-modal-title"
+                className="font-display font-bold text-[#0F172A] text-base leading-tight truncate"
+              >
+                Instalar en la pantalla de inicio
               </h3>
-              <span className="text-[10px] text-slate-400 font-medium">
-                El Diario del Aula · 1ºB
+              <span className="text-xs text-[#475569] font-medium block mt-0.5">
+                El Diario del Aula · 1.º B
               </span>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-100 transition cursor-pointer"
+            aria-label="Cerrar instrucciones de instalación"
+            className="min-w-[44px] min-h-[44px] text-[#475569] hover:text-[#0F172A] rounded-xl hover:bg-[#F1F5F9] flex items-center justify-center cursor-pointer diario-press shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-xs text-slate-500 leading-relaxed">
-          Accede directamente desde el icono de tu teléfono como una aplicación
-          nativa, sin descargar nada de la tienda ni ocupar memoria.
+        <p className="text-[14px] text-[#334155] leading-relaxed">
+          Accede directamente desde el icono en tu teléfono como una aplicación,
+          sin descargar nada de la tienda ni ocupar memoria adicional.
         </p>
 
-        <div className="space-y-3 text-xs">
+        <div className="space-y-3">
           {/* Android Chrome */}
-          <div className="p-3.5 bg-indigo-50/80 border border-indigo-100 rounded-2xl space-y-1.5">
-            <h4 className="font-bold text-indigo-900 flex items-center gap-2">
-              <span className="w-5 h-5 rounded-md bg-emerald-500 text-white flex items-center justify-center text-[10px] font-black">
-                A
+          <div className="p-4 bg-[#EEF2FF]/70 border border-[#C7D2FE]/80 rounded-2xl space-y-2">
+            <h4 className="font-display font-bold text-[#0F172A] text-sm flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-[#F0FDFA] text-[#0D9488] border border-teal-200 flex items-center justify-center shrink-0">
+                <Smartphone className="w-4 h-4" />
               </span>
               <span>En Android (Google Chrome)</span>
             </h4>
-            <p className="text-indigo-950 text-[11px] leading-relaxed pl-7">
-              1. Toca el menú de los <strong>tres puntos (<MoreVertical className="w-3 h-3 inline text-slate-700" />)</strong> en la esquina superior derecha.<br />
-              2. Pulsa en <strong>"Añadir a la pantalla de inicio"</strong> o "Instalar aplicación".
+            <p className="text-[13px] text-[#334155] leading-relaxed pl-9">
+              1. Toca el menú de los <strong>tres puntos (<MoreVertical className="w-3.5 h-3.5 inline text-[#0F172A]" />)</strong> arriba a la derecha.
+              <br />
+              2. Pulsa en <strong>«Añadir a la pantalla de inicio»</strong> o «Instalar aplicación».
             </p>
           </div>
 
           {/* iPhone Safari */}
-          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5">
-            <h4 className="font-bold text-slate-900 flex items-center gap-2">
-              <span className="w-5 h-5 rounded-md bg-slate-800 text-white flex items-center justify-center text-[10px] font-black">
-                i
+          <div className="p-4 bg-[#F7F8FA] border border-[#E2E8F0] rounded-2xl space-y-2">
+            <h4 className="font-display font-bold text-[#0F172A] text-sm flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-white text-[#4338CA] border border-[#E2E8F0] flex items-center justify-center shrink-0">
+                <Compass className="w-4 h-4" />
               </span>
               <span>En iPhone o iPad (Safari)</span>
             </h4>
-            <p className="text-slate-700 text-[11px] leading-relaxed pl-7">
-              1. Toca el botón <strong>Compartir (<Share className="w-3 h-3 inline text-indigo-600" />)</strong> en la barra inferior de Safari.<br />
-              2. Baja por las opciones y elige <strong>"Añadir a pantalla de inicio" (<PlusSquare className="w-3 h-3 inline text-slate-700" />)</strong>.
+            <p className="text-[13px] text-[#334155] leading-relaxed pl-9">
+              1. Toca el botón <strong>Compartir (<Share className="w-3.5 h-3.5 inline text-[#4F46E5]" />)</strong> en la barra de Safari.
+              <br />
+              2. Desliza las opciones y elige <strong>«Añadir a pantalla de inicio» (<PlusSquare className="w-3.5 h-3.5 inline text-[#0F172A]" />)</strong>.
             </p>
           </div>
         </div>
 
-        <div className="pt-1 flex flex-col gap-2">
+        <div className="pt-1">
           <button
+            type="button"
             onClick={onClose}
-            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 rounded-xl transition cursor-pointer shadow-md"
+            className="w-full min-h-[44px] bg-[#4F46E5] hover:bg-[#4338CA] text-white font-bold text-sm py-2.5 rounded-xl diario-press cursor-pointer shadow-xs"
           >
             ¡Entendido!
           </button>

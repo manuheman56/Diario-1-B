@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { AppConfig, PostItem } from '../types';
 import { matchesNormalizedSearch } from '../utils/searchUtils';
+import { SectionHeader } from './SectionHeader';
+import { EmptyStateCard } from './EmptyStateCard';
 import {
   Search,
   Share2,
@@ -16,6 +18,11 @@ import {
   RefreshCw,
   ArrowDown,
   School,
+  ClipboardList,
+  Palette,
+  Bell,
+  Rocket,
+  X,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -26,6 +33,50 @@ interface DiarioTabProps {
   isRefreshing?: boolean;
   onRefresh?: () => Promise<void> | void;
   config?: AppConfig;
+}
+
+function getCategoryPresentation(categoria?: string, tag?: string) {
+  const cat = (categoria || tag || '').toLowerCase();
+  if (cat.includes('urgente')) {
+    return {
+      label: categoria || tag || 'Urgente',
+      textColor: 'text-[#BE123C]',
+      icon: <AlertCircle className="w-3.5 h-3.5 text-[#E11D48]" />,
+    };
+  }
+  if (cat.includes('tarea') || cat.includes('deber')) {
+    return {
+      label: categoria || tag || 'Tarea',
+      textColor: 'text-[#B45309]',
+      icon: <ClipboardList className="w-3.5 h-3.5 text-[#D97706]" />,
+    };
+  }
+  if (cat.includes('clase') || cat.includes('actividad')) {
+    return {
+      label: categoria || tag || 'En Clase',
+      textColor: 'text-[#0F766E]',
+      icon: <Palette className="w-3.5 h-3.5 text-[#0D9488]" />,
+    };
+  }
+  if (cat.includes('aviso') || cat.includes('circular')) {
+    return {
+      label: categoria || tag || 'Aviso',
+      textColor: 'text-[#BE123C]',
+      icon: <Bell className="w-3.5 h-3.5 text-[#E11D48]" />,
+    };
+  }
+  if (cat.includes('proyecto')) {
+    return {
+      label: categoria || tag || 'Proyecto',
+      textColor: 'text-[#6D28D9]',
+      icon: <Rocket className="w-3.5 h-3.5 text-[#7C3AED]" />,
+    };
+  }
+  return {
+    label: categoria || tag || 'General',
+    textColor: 'text-[#4338CA]',
+    icon: <BookOpen className="w-3.5 h-3.5 text-[#4338CA]" />,
+  };
 }
 
 export const DiarioTab: React.FC<DiarioTabProps> = ({
@@ -124,7 +175,6 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
     }
   };
 
-  // Formatted date
   const todayStr = new Intl.DateTimeFormat('es-ES', {
     weekday: 'long',
     day: 'numeric',
@@ -132,7 +182,6 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
   }).format(new Date());
   const capitalizedDate = todayStr.charAt(0).toUpperCase() + todayStr.slice(1);
 
-  // Filter logic
   const filteredPosts = posts.filter((post) => {
     const catStr = (post.categoria || '').toLowerCase().trim();
     const tagStr = (post.tag || '').toLowerCase().trim();
@@ -209,28 +258,28 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
 
   return (
     <div
-      className="space-y-4 pb-6 relative"
+      className="space-y-4 pb-6 relative diario-fade-in"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
     >
-      {/* Pull-to-refresh Indicator */}
+      {/* Indicador Pull-to-refresh */}
       {(pullY > 0 || isRefreshing) && (
         <div
-          className="flex items-center justify-center py-2 transition-all duration-200 overflow-hidden text-xs text-sky-700 font-semibold"
-          style={{ height: `${Math.max(pullY, isRefreshing ? 40 : 0)}px` }}
+          className="flex items-center justify-center py-2 transition-all duration-200 overflow-hidden text-xs text-[#4338CA] font-semibold"
+          style={{ height: `${Math.max(pullY, isRefreshing ? 44 : 0)}px` }}
         >
-          <div className="flex items-center gap-1.5 bg-sky-50 px-3 py-1 rounded-full border border-sky-200 shadow-2xs">
+          <div className="flex items-center gap-2 bg-[#EEF2FF] px-3.5 py-1.5 rounded-full border border-[#C7D2FE]">
             {isRefreshing ? (
               <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#4338CA]" />
                 <span>Actualizando el diario...</span>
               </>
             ) : (
               <>
                 <ArrowDown
-                  className={`w-3.5 h-3.5 text-sky-600 transition-transform ${
+                  className={`w-3.5 h-3.5 text-[#4338CA] transition-transform ${
                     pullY > 64 ? 'rotate-180' : ''
                   }`}
                 />
@@ -243,279 +292,279 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
         </div>
       )}
 
-      {/* 1. Welcome Hero Banner */}
-      <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-teal-700 rounded-3xl p-5 text-white shadow-lg shadow-indigo-600/20 relative overflow-hidden">
-        <div className="relative z-10 space-y-2.5">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/20 text-teal-100 backdrop-blur-md">
-              <span className="w-2 h-2 rounded-full bg-teal-300 animate-pulse"></span>
-              Cuaderno de Aula
-            </span>
-            <span className="text-xs text-indigo-100 font-medium bg-black/20 px-2.5 py-0.5 rounded-full">
-              {capitalizedDate}
-            </span>
-          </div>
-
-          <h2 className="font-display font-extrabold text-xl leading-tight">
-            Novedades y Diario de Clase
-          </h2>
-          <p className="text-xs text-indigo-100/90 leading-relaxed max-w-sm">
-            Consulta los avisos del colegio, actividades realizadas y tareas
-            pendientes para hacer en familia.
-          </p>
-
-          {/* Action Row: Buscar e Imprimir */}
-          <div className="pt-2 flex items-center gap-2 flex-wrap">
+      {/* 1. Cabecera unificada de sección */}
+      <SectionHeader
+        eyebrow="Cuaderno de Aula"
+        metaRight={capitalizedDate}
+        title="Novedades y Diario de Clase"
+        description="Consulta los avisos del colegio, actividades realizadas y tareas pendientes para hacer en familia."
+        icon={<BookOpen className="w-5 h-5" />}
+        accent="indigo"
+        actions={
+          <>
             <button
+              type="button"
               onClick={() => setShowSearch(!showSearch)}
-              className="bg-white/15 hover:bg-white/25 text-white font-medium px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer backdrop-blur-xs active:scale-95"
+              className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border diario-press cursor-pointer ${
+                showSearch
+                  ? 'bg-[#4338CA] text-white border-[#4338CA]'
+                  : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F7F8FA]'
+              }`}
             >
-              <Search className="w-3.5 h-3.5" />
-              <span>{showSearch ? 'Ocultar' : 'Buscar'}</span>
+              <Search className="w-4 h-4" />
+              <span>{showSearch ? 'Ocultar búsqueda' : 'Buscar'}</span>
             </button>
 
             <button
+              type="button"
               onClick={handlePrint}
               title="Imprimir diario escolar"
-              className="bg-white/15 hover:bg-white/25 text-white font-medium p-2 rounded-xl text-xs flex items-center justify-center transition cursor-pointer active:scale-95"
+              aria-label="Imprimir diario escolar"
+              className="min-h-[44px] min-w-[44px] px-3 rounded-xl bg-white border border-[#E2E8F0] text-[#334155] hover:bg-[#F7F8FA] flex items-center justify-center gap-1.5 text-xs font-semibold diario-press cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <Printer className="w-4 h-4" />
+              <span className="hidden sm:inline">Imprimir</span>
             </button>
-          </div>
-        </div>
+          </>
+        }
+        footerMeta={
+          <span className="tabular-nums">
+            {posts.length} {posts.length === 1 ? 'publicación' : 'publicaciones'}
+          </span>
+        }
+      />
 
-        {/* Decorative background shape */}
-        <div className="absolute -right-6 -bottom-8 opacity-10 pointer-events-none">
-          <BookOpen className="w-44 h-44 text-white" />
-        </div>
-      </div>
-
-      {/* Search Input Container */}
+      {/* 2. Buscador */}
       {showSearch && (
-        <div className="relative animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="relative diario-slide-down">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#475569] pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar en avisos, tareas o actividades..."
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs shadow-xs focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
+            className="w-full min-h-[44px] pl-10 pr-11 py-2.5 bg-white border border-[#E2E8F0] rounded-2xl text-[14px] text-[#0F172A] placeholder:text-[#64748B] shadow-xs focus:border-[#4F46E5] transition"
             autoFocus
           />
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-slate-600"
+              aria-label="Borrar búsqueda"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] cursor-pointer"
             >
-              Borrar
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
       )}
 
-      {/* Homework Reminder Alert (if pending tasks exist) */}
+      {/* 3. Recordatorio de tareas pendientes */}
       {pendingHomeworkCount > 0 && activeFilter !== 'pending' && (
-        <div
+        <button
+          type="button"
           onClick={() => setActiveFilter('pending')}
-          className="cursor-pointer bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3 flex items-center justify-between gap-3 text-amber-900 transition hover:bg-amber-100/90"
+          className="w-full text-left cursor-pointer bg-[#FEF3C7]/80 border border-[#FDE68A] rounded-2xl p-3.5 flex items-center justify-between gap-3 hover:bg-[#FEF3C7] diario-press"
         >
-          <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
-              <Sparkles className="w-4 h-4" />
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-10 h-10 rounded-xl bg-white text-[#D97706] border border-[#FDE68A] flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5" />
             </span>
-            <div>
-              <p className="text-xs font-bold leading-tight">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[#0F172A] leading-snug">
                 {pendingHomeworkCount === 1
                   ? 'Tienes 1 tarea pendiente para casa'
                   : `Tienes ${pendingHomeworkCount} tareas pendientes para casa`}
               </p>
-              <p className="text-[11px] text-amber-800/80">
+              <p className="text-xs text-[#475569]">
                 Toca aquí para verlas y marcarlas como completadas
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-bold bg-amber-200/80 text-amber-900 px-2.5 py-1 rounded-xl">
+          <span className="text-xs font-bold text-[#92400E] shrink-0">
             Ver tareas
           </span>
-        </div>
+        </button>
       )}
 
-      {/* Filter Category Pills */}
+      {/* 4. Filtros por categoría */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
         <button
+          type="button"
           onClick={() => setActiveFilter('all')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+          className={`min-h-[44px] px-4 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 diario-press ${
             activeFilter === 'all'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              ? 'bg-[#4338CA] text-white shadow-xs'
+              : 'bg-white text-[#334155] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
           Todos ({posts.length})
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveFilter('General')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+          className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-2 cursor-pointer shrink-0 diario-press ${
             activeFilter === 'General'
-              ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              ? 'bg-[#4338CA] text-white border-[#4338CA] shadow-xs'
+              : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-sky-500"></span>
-          General
+          <span
+            className={`w-2 h-2 rounded-full ${
+              activeFilter === 'General' ? 'bg-white' : 'bg-[#4338CA]'
+            }`}
+          />
+          <span>General</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveFilter('Aviso')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+          className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-2 cursor-pointer shrink-0 diario-press ${
             activeFilter === 'Aviso'
-              ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              ? 'bg-[#E11D48] text-white border-[#E11D48] shadow-xs'
+              : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-          Avisos
+          <span
+            className={`w-2 h-2 rounded-full ${
+              activeFilter === 'Aviso' ? 'bg-white' : 'bg-[#E11D48]'
+            }`}
+          />
+          <span>Avisos</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveFilter('Tarea')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+          className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-2 cursor-pointer shrink-0 diario-press ${
             activeFilter === 'Tarea'
-              ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              ? 'bg-[#D97706] text-white border-[#D97706] shadow-xs'
+              : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-          Tareas
+          <span
+            className={`w-2 h-2 rounded-full ${
+              activeFilter === 'Tarea' ? 'bg-white' : 'bg-[#D97706]'
+            }`}
+          />
+          <span>Tareas</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveFilter('Actividad')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+          className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-semibold border transition whitespace-nowrap flex items-center gap-2 cursor-pointer shrink-0 diario-press ${
             activeFilter === 'Actividad'
-              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              ? 'bg-[#0D9488] text-white border-[#0D9488] shadow-xs'
+              : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-          En Clase
+          <span
+            className={`w-2 h-2 rounded-full ${
+              activeFilter === 'Actividad' ? 'bg-white' : 'bg-[#0D9488]'
+            }`}
+          />
+          <span>En Clase</span>
         </button>
       </div>
 
-      {/* Feed List */}
-      <div className="space-y-3">
+      {/* 5. Feed de publicaciones */}
+      <div className="space-y-3.5">
         {filteredPosts.length === 0 ? (
-          <div className="bg-white rounded-3xl p-8 text-center border border-slate-200/80 text-slate-400 space-y-3 shadow-xs">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-              <FileText className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-700">
-                No hay publicaciones en esta sección por el momento
-              </p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                {activeFilter !== 'all'
-                  ? 'No hay publicaciones en esta categoría. Puedes consultar el resto de novedades escolares.'
-                  : 'Aquí aparecerán las novedades, tareas y actividades de la clase.'}
-              </p>
-            </div>
-            {(activeFilter !== 'all' || searchQuery.trim() !== '') && (
-              <button
-                onClick={() => {
-                  setActiveFilter('all');
-                  setSearchQuery('');
-                }}
-                className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer"
-              >
-                Ver todas las publicaciones
-              </button>
-            )}
-          </div>
+          <EmptyStateCard
+            icon={<FileText className="w-6 h-6" />}
+            title="No hay publicaciones en esta sección por el momento"
+            description={
+              activeFilter !== 'all' || searchQuery.trim() !== ''
+                ? 'No hay publicaciones que coincidan con el filtro actual. Puedes ver todas las novedades escolares.'
+                : 'Aquí aparecerán las novedades, tareas y actividades de la clase.'
+            }
+            actionLabel={
+              activeFilter !== 'all' || searchQuery.trim() !== ''
+                ? 'Ver todas las publicaciones'
+                : undefined
+            }
+            onAction={
+              activeFilter !== 'all' || searchQuery.trim() !== ''
+                ? () => {
+                    setActiveFilter('all');
+                    setSearchQuery('');
+                  }
+                : undefined
+            }
+          />
         ) : (
           filteredPosts.map((post) => {
             const cat = (post.categoria || post.tag || '').toLowerCase();
             const isHomework = cat.includes('tarea') || cat.includes('deber');
             const isCompleted = post.completed ?? false;
-
-            // Badge styling
-            let badgeStyle = 'bg-sky-50 text-sky-800 border-sky-200';
-            let badgeEmoji = post.icon || '📰';
-
-            if (cat.includes('tarea') || cat.includes('deber')) {
-              badgeStyle = 'bg-amber-50 text-amber-800 border-amber-200';
-              if (!post.icon) badgeEmoji = '✏️';
-            } else if (cat.includes('clase') || cat.includes('actividad')) {
-              badgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-200';
-              if (!post.icon) badgeEmoji = '🎨';
-            } else if (cat.includes('urgente')) {
-              badgeStyle = 'bg-red-50 text-red-800 border-red-300 ring-2 ring-red-100';
-              if (!post.icon) badgeEmoji = '🚨';
-            } else if (cat.includes('aviso') || cat.includes('circular')) {
-              badgeStyle = 'bg-rose-50 text-rose-700 border-rose-200';
-              if (!post.icon) badgeEmoji = '📢';
-            } else if (cat.includes('proyecto')) {
-              badgeStyle = 'bg-purple-50 text-purple-800 border-purple-200';
-              if (!post.icon) badgeEmoji = '🚀';
-            } else {
-              // General u otras categorías
-              badgeStyle = 'bg-sky-50 text-sky-800 border-sky-200';
-              if (!post.icon) badgeEmoji = '📰';
-            }
+            const catMeta = getCategoryPresentation(post.categoria, post.tag);
 
             return (
               <article
                 key={post.id}
-                className={`bg-white p-4 rounded-3xl border transition-all duration-200 shadow-card hover:shadow-md ${
+                className={`diario-card rounded-3xl p-4 sm:p-5 space-y-3 transition-colors ${
                   isHomework && isCompleted
-                    ? 'border-emerald-200 bg-emerald-50/20'
+                    ? 'border-teal-200 bg-[#F0FDFA]/35'
                     : post.destacado
-                    ? 'border-indigo-200 ring-2 ring-indigo-50 shadow-sm'
-                    : 'border-slate-200/80'
+                    ? 'border-[#C7D2FE]'
+                    : ''
                 }`}
               >
-                {/* Header row */}
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badgeStyle}`}
-                    >
-                      <span>{badgeEmoji}</span>
-                      <span>{post.categoria || post.tag || 'General'}</span>
+                {/* Metadatos limpios sin píldoras */}
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                    <span className={`font-bold inline-flex items-center gap-1.5 ${catMeta.textColor}`}>
+                      {catMeta.icon}
+                      <span>{catMeta.label}</span>
                     </span>
 
                     {post.destacado && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                        <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-                        Destacado
-                      </span>
+                      <>
+                        <span aria-hidden="true" className="text-slate-300">
+                          ·
+                        </span>
+                        <span className="inline-flex items-center gap-1 font-semibold text-[#B45309]">
+                          <Sparkles className="w-3 h-3 text-[#D97706]" />
+                          Destacado
+                        </span>
+                      </>
                     )}
 
                     {post.important && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">
-                        <AlertCircle className="w-2.5 h-2.5" />
-                        Urgente
-                      </span>
+                      <>
+                        <span aria-hidden="true" className="text-slate-300">
+                          ·
+                        </span>
+                        <span className="inline-flex items-center gap-1 font-bold text-[#BE123C]">
+                          <AlertCircle className="w-3 h-3 text-[#E11D48]" />
+                          Urgente
+                        </span>
+                      </>
                     )}
                   </div>
-                  <span className="text-[11px] text-slate-400 font-medium">
+
+                  <span className="text-xs text-[#475569] font-medium tabular-nums shrink-0">
                     {post.date}
                   </span>
                 </div>
 
-                {/* Title */}
+                {/* Título */}
                 <h3
-                  className={`font-display font-bold text-slate-900 text-sm leading-snug mb-1.5 ${
+                  className={`font-display font-bold text-[16px] leading-snug ${
                     isHomework && isCompleted
-                      ? 'line-through text-slate-500'
-                      : ''
+                      ? 'line-through text-[#64748B]'
+                      : 'text-[#0F172A]'
                   }`}
                 >
                   {post.title}
                 </h3>
 
-                {/* Optional attached image for class activities or notes */}
+                {/* Imagen adjunta opcional */}
                 {post.imageUrl && (
-                  <div className="my-2.5 rounded-2xl overflow-hidden border border-slate-200 aspect-video max-h-56 bg-slate-100">
+                  <div className="rounded-2xl overflow-hidden border border-[#E2E8F0] aspect-video max-h-64 bg-[#F1F5F9]">
                     <img
                       src={post.imageUrl}
                       alt={post.title}
@@ -525,64 +574,65 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                   </div>
                 )}
 
-                {/* Content */}
-                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                {/* Contenido */}
+                <p className="text-[14px] text-[#334155] leading-relaxed whitespace-pre-line">
                   {post.content}
                 </p>
 
-                {/* Homework check interaction for families */}
+                {/* Interacción de checklist para tareas */}
                 {isHomework && (
-                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between bg-amber-50/50 -mx-4 -mb-1 px-4 py-2 rounded-b-3xl">
+                  <div
+                    className={`rounded-2xl border px-3.5 py-2 flex items-center justify-between gap-3 ${
+                      isCompleted
+                        ? 'bg-[#F0FDFA] border-teal-200'
+                        : 'bg-[#FEF3C7]/60 border-[#FDE68A]'
+                    }`}
+                  >
                     <button
+                      type="button"
                       onClick={() => handleTaskCheck(post.id, post.completed)}
-                      className={`flex items-center gap-2 text-xs font-bold transition cursor-pointer ${
-                        isCompleted
-                          ? 'text-emerald-700'
-                          : 'text-amber-800 hover:text-amber-900'
+                      className={`min-h-[40px] flex items-center gap-2 text-xs font-bold cursor-pointer ${
+                        isCompleted ? 'text-[#0F766E]' : 'text-[#92400E]'
                       }`}
                     >
                       {isCompleted ? (
                         <>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>¡Tarea completada en casa!</span>
+                          <CheckCircle2 className="w-4 h-4 text-[#0D9488] shrink-0" />
+                          <span>Tarea completada en casa</span>
                         </>
                       ) : (
                         <>
-                          <Circle className="w-4 h-4 text-amber-600" />
+                          <Circle className="w-4 h-4 text-[#D97706] shrink-0" />
                           <span>Marcar tarea como realizada</span>
                         </>
                       )}
                     </button>
+
                     {isCompleted && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                        <Check className="w-3 h-3" />
+                      <span className="text-xs font-bold text-[#0F766E] flex items-center gap-1 shrink-0">
+                        <Check className="w-3.5 h-3.5" />
                         Listo
                       </span>
                     )}
                   </div>
                 )}
 
-                {/* Footer with Author and Actions */}
-                <div
-                  className={`flex items-center justify-between text-[11px] text-slate-400 ${
-                    isHomework ? 'mt-2 pt-1' : 'mt-3 pt-2.5 border-t border-slate-100'
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5 font-medium text-slate-500 truncate mr-2">
-                    <UserCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                {/* Pie con autor y compartir */}
+                <div className="pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between gap-2 text-xs text-[#475569]">
+                  <span className="flex items-center gap-1.5 font-medium truncate min-w-0">
+                    <UserCheck className="w-4 h-4 text-[#4338CA] shrink-0" />
                     <span className="truncate">{post.author}</span>
                   </span>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => onSharePost(post)}
-                      className="hover:text-indigo-600 font-medium transition flex items-center gap-1 cursor-pointer text-slate-500 hover:bg-slate-100 px-2 py-1 rounded-lg"
-                      title="Compartir o copiar aviso"
-                    >
-                      <Share2 className="w-3 h-3" />
-                      <span>Compartir</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSharePost(post)}
+                    className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#4338CA] hover:bg-[#EEF2FF] flex items-center gap-1.5 cursor-pointer shrink-0 diario-press"
+                    title="Compartir o copiar aviso"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Compartir</span>
+                  </button>
                 </div>
               </article>
             );
@@ -590,23 +640,22 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
         )}
       </div>
 
-      {/* Datos fijos del colegio y tutor (minimalista) */}
+      {/* 6. Pie informativo del centro */}
       {config && (
-        <div className="mt-6 pt-4 border-t border-slate-200/80 bg-slate-100/70 rounded-3xl p-4 text-xs space-y-2 text-slate-600 shadow-2xs">
+        <footer className="mt-4 bg-[#F1F5F9] border border-[#E2E8F0] rounded-3xl p-4 text-xs space-y-1.5 text-[#334155]">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
-              <School className="w-3.5 h-3.5 text-sky-700" />
+            <span className="font-bold text-[#0F172A] flex items-center gap-1.5">
+              <School className="w-4 h-4 text-[#4338CA]" />
               {config.schoolName}
             </span>
-            <span className="text-[11px] text-slate-500 font-medium">
-              Tutor: <strong className="text-slate-800">{config.teacherName}</strong>
+            <span className="text-xs text-[#475569] font-medium">
+              Tutoría: <strong className="text-[#0F172A]">{config.teacherName}</strong>
             </span>
           </div>
-
-          <p className="text-[10px] text-slate-400 text-center pt-2 border-t border-slate-200/50">
-            Comunicaciones del centro, ausencias y gestiones oficiales gestionadas vía Séneca / iPasen.
+          <p className="text-xs text-[#475569] pt-1.5 border-t border-[#E2E8F0]">
+            Comunicaciones del centro, ausencias y gestiones oficiales canalizadas vía Séneca / iPasen.
           </p>
-        </div>
+        </footer>
       )}
     </div>
   );

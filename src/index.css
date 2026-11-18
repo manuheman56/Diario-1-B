@@ -1,13 +1,140 @@
 @import "tailwindcss";
 
+:root {
+  --bg-canvas: #f7f8fa;
+  --bg-surface: #ffffff;
+  --bg-surface-muted: #f1f5f9;
+  --border-soft: #e2e8f0;
+  --color-indigo: #4338ca;
+  --color-indigo-action: #4f46e5;
+  --color-indigo-soft: #eef2ff;
+  --color-amber: #d97706;
+  --color-amber-soft: #fef3c7;
+  --color-teal: #0d9488;
+  --color-teal-soft: #f0fdfa;
+  --color-violet: #7c3aed;
+  --color-violet-soft: #f5f3ff;
+  --color-coral: #e11d48;
+  --color-coral-soft: #fff1f2;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-meta: #475569;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px -6px rgba(15, 23, 42, 0.07);
+  --shadow-card-hover: 0 4px 12px rgba(15, 23, 42, 0.06), 0 12px 24px -8px rgba(67, 56, 202, 0.12);
+}
+
 @layer base {
+  html,
   body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     -webkit-tap-highlight-color: transparent;
   }
 
-  h1, h2, h3, h4, .font-display {
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
     font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--color-indigo-action);
+    outline-offset: 2px;
+  }
+}
+
+/* Elevación unificada para tarjetas educativas */
+.diario-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-card);
+}
+
+.diario-card-interactive {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-card);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (hover: hover) {
+  .diario-card-interactive:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: #cbd5e1;
+  }
+}
+
+.diario-press {
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.diario-press:active {
+  transform: scale(0.985);
+}
+
+/* Animaciones discretas basadas únicamente en transform y opacity */
+@keyframes diarioFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes diarioSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes diarioSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.diario-fade-in {
+  animation: diarioFadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.diario-slide-up {
+  animation: diarioSlideUp 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.diario-slide-down {
+  animation: diarioSlideDown 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diario-fade-in,
+  .diario-slide-up,
+  .diario-slide-down {
+    animation: none !important;
+  }
+  .diario-card-interactive,
+  .diario-press {
+    transition: none !important;
   }
 }
 
@@ -17,14 +144,14 @@
 }
 /* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .safe-top {
-  padding-top: max(env(safe-area-inset-top), 0.5rem);
+  padding-top: env(safe-area-inset-top);
 }
 
 .safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
 }

@@ -4,7 +4,7 @@ import {
   Smartphone,
   Monitor,
   Download,
-  Sparkles,
+  Home,
   BookOpen,
   Calendar,
   Clock,
@@ -40,124 +40,129 @@ export const Header: React.FC<HeaderProps> = ({
     label: string;
     icon: React.ReactNode;
     badge?: number;
-    badgeColor?: string;
+    badgeTone?: string;
   }[] = [
-    { id: 'inicio', label: 'Inicio', icon: <Sparkles className="w-3.5 h-3.5" /> },
+    { id: 'inicio', label: 'Inicio', icon: <Home className="w-4 h-4" strokeWidth={1.9} /> },
     {
       id: 'diario',
       label: 'Día a Día',
-      icon: <BookOpen className="w-3.5 h-3.5" />,
+      icon: <BookOpen className="w-4 h-4" strokeWidth={1.9} />,
       badge: pendingTasksCount > 0 ? pendingTasksCount : undefined,
-      badgeColor: 'bg-amber-500',
+      badgeTone: 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]',
     },
-    { id: 'calendario', label: 'Calendario', icon: <Calendar className="w-3.5 h-3.5" /> },
-    { id: 'horario', label: 'Horario', icon: <Clock className="w-3.5 h-3.5" /> },
-    { id: 'multimedia', label: 'Fotos y Vídeos', icon: <Film className="w-3.5 h-3.5" /> },
-    { id: 'aprendemos', label: 'Aprendemos', icon: <School className="w-3.5 h-3.5" /> },
-    { id: 'recursos', label: 'Recursos', icon: <GraduationCap className="w-3.5 h-3.5" /> },
+    { id: 'calendario', label: 'Calendario', icon: <Calendar className="w-4 h-4" strokeWidth={1.9} /> },
+    { id: 'horario', label: 'Horario', icon: <Clock className="w-4 h-4" strokeWidth={1.9} /> },
+    { id: 'multimedia', label: 'Fotos y Vídeos', icon: <Film className="w-4 h-4" strokeWidth={1.9} /> },
+    { id: 'aprendemos', label: 'Aprendemos', icon: <School className="w-4 h-4" strokeWidth={1.9} /> },
+    { id: 'recursos', label: 'Recursos', icon: <GraduationCap className="w-4 h-4" strokeWidth={1.9} /> },
     {
       id: 'avisos',
       label: 'Avisos',
-      icon: <Bell className="w-3.5 h-3.5" />,
+      icon: <Bell className="w-4 h-4" strokeWidth={1.9} />,
       badge: urgentNoticesCount > 0 ? urgentNoticesCount : undefined,
-      badgeColor: 'bg-rose-500 animate-pulse',
+      badgeTone: 'bg-[#FFF1F2] text-[#BE123C] border border-[#FECDD3]',
     },
   ];
 
-  return (
-    <header className="sticky top-0 z-30 flex-shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-      {/* 1. Main Brand Bar */}
-      <div className="px-4 py-3 flex items-center justify-between gap-2">
-        {/* School & Class Info */}
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-md shadow-sky-500/20 shrink-0 border border-slate-200/80 bg-white flex items-center justify-center">
-            <img
-              src="/pwa-192x192.png"
-              alt="Mascota 1ºB Las Hormiguitas"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h1 className="font-display font-extrabold text-slate-900 text-base leading-tight truncate">
-                {config.classTitle}
-              </h1>
-              {/* Etiqueta del curso */}
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-sky-50 text-sky-800 border border-sky-200">
-                {config.schoolYear || 'Curso 2026/27'}
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500 font-medium truncate leading-tight">
-              {config.schoolName}
-            </p>
-          </div>
-        </div>
+  const containerWidthClass = isMobileFrame ? 'max-w-2xl' : 'max-w-5xl';
 
-        {/* Right Tools */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {onOpenInstall && (
+  return (
+    <header className="sticky top-0 z-30 shrink-0 bg-white/95 backdrop-blur-md border-b border-[#E2E8F0] safe-top">
+      <div className={`${containerWidthClass} mx-auto px-4 sm:px-6 transition-all duration-200`}>
+        {/* 1. Fila principal de marca (ligera y compacta en móvil) */}
+        <div className="h-14 sm:h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-[#E2E8F0] bg-[#EEF2FF] flex items-center justify-center shadow-xs">
+              <img
+                src="/pwa-192x192.png"
+                alt="Mascota 1.º B Las Hormiguitas"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <h1 className="font-display font-bold text-[#0F172A] text-base sm:text-lg leading-tight truncate">
+                  {config.classTitle}
+                </h1>
+              </div>
+              <p className="text-xs text-[#475569] font-medium truncate leading-tight">
+                {config.schoolName}
+                <span aria-hidden="true" className="mx-1.5 text-slate-300">·</span>
+                <span>{config.schoolYear || 'Curso 2026/27'}</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Acciones de cabecera */}
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenInstall && (
+              <button
+                type="button"
+                onClick={onOpenInstall}
+                title="Instalar en la pantalla de inicio"
+                aria-label="Instalar aplicación en la pantalla de inicio"
+                className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3.5 rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] text-[#334155] flex items-center justify-center gap-1.5 hover:bg-[#EEF2FF] hover:text-[#4338CA] hover:border-[#C7D2FE] diario-press cursor-pointer text-xs font-semibold"
+              >
+                <Download className="w-4 h-4 shrink-0" strokeWidth={2} />
+                <span className="hidden sm:inline whitespace-nowrap">Instalar app</span>
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={onOpenInstall}
-              title="Información de instalación en pantalla de inicio"
-              className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition cursor-pointer"
+              onClick={onToggleFrame}
+              title={isMobileFrame ? 'Ampliar ancho de lectura' : 'Vista de lectura compacta'}
+              aria-label={isMobileFrame ? 'Ampliar ancho de lectura' : 'Vista de lectura compacta'}
+              className="hidden md:flex min-h-[44px] min-w-[44px] rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] text-[#334155] items-center justify-center hover:bg-[#EEF2FF] hover:text-[#4338CA] hover:border-[#C7D2FE] diario-press cursor-pointer"
             >
-              <Download className="w-4 h-4" />
+              {isMobileFrame ? (
+                <Monitor className="w-4 h-4" strokeWidth={2} />
+              ) : (
+                <Smartphone className="w-4 h-4" strokeWidth={2} />
+              )}
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onToggleFrame}
-            title={isMobileFrame ? 'Expandir a vista de escritorio' : 'Ajustar a marco de móvil'}
-            className="hidden sm:flex w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 items-center justify-center hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition cursor-pointer"
-          >
-            {isMobileFrame ? (
-              <Monitor className="w-4 h-4" />
-            ) : (
-              <Smartphone className="w-4 h-4" />
-            )}
-          </button>
+          </div>
         </div>
-      </div>
 
-      {/* 2. Horizontal Scrollable Navigation for the 8 Sections */}
-      {onTabChange && (
-        <nav
-          className="flex items-center gap-1 px-3 py-1.5 overflow-x-auto no-scrollbar border-t border-slate-100 bg-slate-50/70"
-          aria-label="Secciones del Diario del Aula"
-        >
-          {allSections.map((sec) => {
-            const isActive = activeTab === sec.id;
-            return (
-              <button
-                key={sec.id}
-                type="button"
-                onClick={() => onTabChange(sec.id)}
-                className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 select-none touch-manipulation active:scale-95 relative ${
-                  isActive
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
-                }`}
-              >
-                <span className={isActive ? 'text-white' : 'text-slate-400'}>
-                  {sec.icon}
-                </span>
-                <span>{sec.label}</span>
-                {sec.badge !== undefined && sec.badge > 0 && (
-                  <span
-                    className={`ml-0.5 text-white text-[9px] font-black min-w-3.5 h-3.5 px-1 rounded-full flex items-center justify-center ${
-                      sec.badgeColor || 'bg-rose-500'
-                    }`}
-                  >
-                    {sec.badge}
+        {/* 2. Navegación superior visible en Tablet y Ordenador (evita duplicidad en móvil) */}
+        {onTabChange && (
+          <nav
+            className="hidden md:flex items-center gap-1 pb-2 overflow-x-auto no-scrollbar border-t border-slate-100 pt-2"
+            aria-label="Secciones del Diario del Aula"
+          >
+            {allSections.map((sec) => {
+              const isActive = activeTab === sec.id;
+              return (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => onTabChange(sec.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`min-h-[44px] px-3 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 select-none diario-press ${
+                    isActive
+                      ? 'bg-[#EEF2FF] text-[#4338CA]'
+                      : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F7F8FA]'
+                  }`}
+                >
+                  <span className={isActive ? 'text-[#4338CA]' : 'text-[#64748B]'}>
+                    {sec.icon}
                   </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-      )}
+                  <span>{sec.label}</span>
+                  {sec.badge !== undefined && sec.badge > 0 && (
+                    <span
+                      className={`ml-0.5 text-[11px] font-bold tabular-nums min-w-5 h-5 px-1.5 rounded-full inline-flex items-center justify-center ${
+                        sec.badgeTone || 'bg-[#FFF1F2] text-[#BE123C]'
+                      }`}
+                    >
+                      {sec.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        )}
+      </div>
     </header>
   );
 };

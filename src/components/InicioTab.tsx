@@ -1,24 +1,32 @@
-import React from 'react';
-import { AppConfig, CalendarEvent, Notice, MainTabType, SubResourceTab, SubScheduleTab } from '../types';
+import React, { useState } from 'react';
 import {
-  Sparkles,
+  AppConfig,
+  CalendarEvent,
+  Notice,
+  MainTabType,
+  SubResourceTab,
+  SubScheduleTab,
+  AvisoItem,
+} from '../types';
+import {
+  Home,
   BookOpen,
   Bell,
-  Clock,
   Calendar,
-  Image as ImageIcon,
+  Clock,
+  Camera,
+  Sparkles,
   GraduationCap,
   ArrowRight,
   AlertCircle,
-  CheckCircle2,
-  CalendarDays,
-  School,
   RefreshCw,
-  ExternalLink,
+  ClipboardList,
+  Palette,
+  Rocket,
+  Image as ImageIcon,
+  ChevronRight,
 } from 'lucide-react';
-
 import { initialConfig } from '../data/defaultData';
-import { AvisoItem } from '../types';
 import { getUpcomingCalendarEvents } from '../utils/eventUtils';
 
 const SHORT_MONTH_NAMES = [
@@ -46,6 +54,60 @@ interface InicioTabProps {
   config?: AppConfig;
 }
 
+interface QuickSectionCard {
+  id: MainTabType;
+  label: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  iconBoxClass: string;
+  accentTextClass: string;
+  statusNote?: string;
+}
+
+function getPostCategoryMeta(categoria?: string, tag?: string) {
+  const cat = (categoria || tag || '').toLowerCase();
+  if (cat.includes('urgente')) {
+    return {
+      icon: <AlertCircle className="w-3.5 h-3.5 text-[#E11D48]" />,
+      label: categoria || tag || 'Urgente',
+      color: 'text-[#BE123C]',
+    };
+  }
+  if (cat.includes('tarea') || cat.includes('deber')) {
+    return {
+      icon: <ClipboardList className="w-3.5 h-3.5 text-[#D97706]" />,
+      label: categoria || tag || 'Tarea',
+      color: 'text-[#B45309]',
+    };
+  }
+  if (cat.includes('clase') || cat.includes('actividad')) {
+    return {
+      icon: <Palette className="w-3.5 h-3.5 text-[#0D9488]" />,
+      label: categoria || tag || 'En Clase',
+      color: 'text-[#0F766E]',
+    };
+  }
+  if (cat.includes('aviso') || cat.includes('circular')) {
+    return {
+      icon: <Bell className="w-3.5 h-3.5 text-[#E11D48]" />,
+      label: categoria || tag || 'Aviso',
+      color: 'text-[#BE123C]',
+    };
+  }
+  if (cat.includes('proyecto')) {
+    return {
+      icon: <Rocket className="w-3.5 h-3.5 text-[#7C3AED]" />,
+      label: categoria || tag || 'Proyecto',
+      color: 'text-[#6D28D9]',
+    };
+  }
+  return {
+    icon: <BookOpen className="w-3.5 h-3.5 text-[#4338CA]" />,
+    label: categoria || tag || 'General',
+    color: 'text-[#4338CA]',
+  };
+}
+
 export const InicioTab: React.FC<InicioTabProps> = ({
   posts,
   events,
@@ -55,20 +117,37 @@ export const InicioTab: React.FC<InicioTabProps> = ({
   onRefresh,
   config = initialConfig,
 }) => {
-  // Current date formatted in Spanish
+  const [mascotImgError, setMascotImgError] = useState(false);
+  const [coverImgError, setCoverImgError] = useState(false);
+
   const todayStr = new Intl.DateTimeFormat('es-ES', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-    year: 'numeric',
   }).format(new Date());
   const capitalizedDate = todayStr.charAt(0).toUpperCase() + todayStr.slice(1);
 
-  // Urgent notices check (strictly from real urgent notices in AVISOS or genuinely urgent posts, NEVER general or featured posts)
-  const urgentAviso = avisos?.find((a) =>
-    a.tipo?.toLowerCase().includes('urgente') ||
-    a.prioridad?.toLowerCase().includes('urgente') ||
-    a.prioridad?.toLowerCase().includes('alta')
+  const urgentAvisosCount =
+    avisos && avisos.length > 0
+      ? avisos.filter(
+          (a) =>
+            a.important ||
+            a.tipo?.toLowerCase().includes('urgente') ||
+            a.prioridad?.toLowerCase().includes('urgente') ||
+            a.prioridad?.toLowerCase().includes('alta')
+        ).length
+      : posts.filter(
+          (p) =>
+            p.important ||
+            (p.tag || '').toLowerCase() === 'urgente' ||
+            (p.categoria || '').toLowerCase() === 'urgente'
+        ).length;
+
+  const urgentAviso = avisos?.find(
+    (a) =>
+      a.tipo?.toLowerCase().includes('urgente') ||
+      a.prioridad?.toLowerCase().includes('urgente') ||
+      a.prioridad?.toLowerCase().includes('alta')
   );
 
   const urgentPost = urgentAviso
@@ -80,9 +159,10 @@ export const InicioTab: React.FC<InicioTabProps> = ({
         targetTab: 'avisos' as MainTabType,
       }
     : (() => {
-        const p = posts.find((item) =>
-          (item.tag || '').toLowerCase() === 'urgente' ||
-          (item.categoria || '').toLowerCase() === 'urgente'
+        const p = posts.find(
+          (item) =>
+            (item.tag || '').toLowerCase() === 'urgente' ||
+            (item.categoria || '').toLowerCase() === 'urgente'
         );
         return p
           ? {
@@ -95,349 +175,480 @@ export const InicioTab: React.FC<InicioTabProps> = ({
           : null;
       })();
 
-  // Pending homework check
   const pendingTasks = posts.filter((p) => p.tag === 'Tarea' && !p.completed);
-
-  // Recent 2 posts
   const recentPosts = posts.slice(0, 2);
-
-  // Upcoming 2 events (strictly active/future, sorted nearest-first)
   const nextEvents = getUpcomingCalendarEvents(events).slice(0, 2);
 
+  const sections: QuickSectionCard[] = [
+    {
+      id: 'inicio',
+      label: 'Inicio',
+      subtitle: 'Portada del aula',
+      icon: <Home className="w-5 h-5" strokeWidth={1.9} />,
+      iconBoxClass: 'bg-[#EEF2FF] text-[#4338CA]',
+      accentTextClass: 'text-[#4338CA]',
+      statusNote: 'Estás aquí',
+    },
+    {
+      id: 'diario',
+      label: 'Día a día',
+      subtitle: 'Clase y tareas',
+      icon: <BookOpen className="w-5 h-5" strokeWidth={1.9} />,
+      iconBoxClass: 'bg-[#EEF2FF] text-[#4338CA]',
+      accentTextClass: 'text-[#4338CA]',
+      statusNote:
+        pendingTasks.length > 0
+          ? `${pendingTasks.length} pendiente${pendingTasks.length > 1 ? 's' : ''}`
+          : undefined,
+    },
+    {
+      id: 'avisos',
+      label: 'Avisos',
+      subtitle: 'Circulares y notas',
+      icon: <Bell className="w-5 h-5" strokeWidth={1.9} />,
+      iconBoxClass: 'bg-[#FFF1F2] text-[#E11D48]',
+      accentTextClass: 'text-[#BE123C]',
+      statusNote:
+        urgentAvisosCount > 0
+          ? `${urgentAvisosCount} urgente${urgentAvisosCount > 1 ? 's' : ''}`
+          : undefined,
+    },
+    {
+      id: 'calendario',
+      label: 'Calendario',
+      subtitle: 'Fechas y salidas',
+      icon: <Calendar className="w-5 h-5" strokeWidth={1.9} />,
+      iconBoxClass: 'bg-[#FEF3C7] text-[#D97706]',
+      accentTextClass: 'text-[#B45309]',
+    },
+    {
+      id: 'horario',
+      label: 'Horario',
+      subtitle: 'Lunes a viernes',
+      icon: <Clock className="w-5 h-5" strokeWidth={1.9} />,
+      iconBoxClass: 'bg-[#F0FDFA] text-[#0D9488]',
+      accentTextClass: 'text-[#0F766E]',
+    },
+    {
+      id: 'multimedia',
+      label: 'Multimedia',
+      subtitle: 'Fotos y vídeos',
+      icon: <Camera className="w-5 h-5" strokeWidth={1.9} />,
+      iconBoxClass: 'bg-[#EEF2FF] text-[#4338CA]',
+      accentTextClass: 'text-[#4338CA]',
+    },
+    {
+      id: 'aprendemos',
+      label: 'Aprendemos',
+      subtitle: 'Qué trabajamos',
+      icon: <Sparkles className="w-5 h-5" strokeWidth={1.9} />,
+      iconBoxClass: 'bg-[#F5F3FF] text-[#7C3AED]',
+      accentTextClass: 'text-[#6D28D9]',
+    },
+    {
+      id: 'recursos',
+      label: 'Recursos',
+      subtitle: 'Apoyo en casa',
+      icon: <GraduationCap className="w-5 h-5" strokeWidth={1.9} />,
+      iconBoxClass: 'bg-[#F0FDFA] text-[#0D9488]',
+      accentTextClass: 'text-[#0F766E]',
+    },
+  ];
+
   return (
-    <div className="space-y-4 pb-6 animate-in fade-in duration-300">
-      {/* 1. Header Hero Card */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 via-indigo-800 to-sky-800 p-5 text-white shadow-lg shadow-indigo-900/20">
-        <div className="relative z-10 space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/15 text-sky-100 backdrop-blur-md border border-white/10">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              {config.classTitle} · {config.schoolYear || 'Curso 2026/27'}
-            </span>
-            <span className="text-[11px] font-medium text-indigo-100 bg-black/20 px-2.5 py-1 rounded-full">
-              {capitalizedDate}
-            </span>
+    <div className="space-y-4 sm:space-y-5 pb-4 diario-fade-in">
+      {/* A. CABECERA DE BIENVENIDA COMPACTA Y EDITORIAL */}
+      <section
+        aria-label="Cabecera de bienvenida del aula"
+        className="bg-white rounded-3xl border border-[#E2E8F0] shadow-xs px-4 py-3.5 sm:px-5 sm:py-4"
+      >
+        <div className="flex items-center justify-between gap-3">
+          {/* Mascota original de 1.º B + Identidad */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border border-[#E2E8F0] bg-white overflow-hidden shrink-0 flex items-center justify-center">
+              {!mascotImgError ? (
+                <img
+                  src="/pwa-192x192.png"
+                  alt="Mascota original de 1.º B Las Hormiguitas Laboriosas"
+                  referrerPolicy="no-referrer"
+                  onError={() => setMascotImgError(true)}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-[11px] font-bold text-[#4338CA] text-center leading-tight px-1">
+                  1.º B
+                </span>
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[#4338CA] truncate">
+                <span>1.º B</span>
+                <span aria-hidden="true" className="text-slate-300">
+                  ·
+                </span>
+                <span className="text-[#475569] font-medium truncate">
+                  {config.schoolYear || 'Curso 2026/27'}
+                </span>
+              </div>
+              <h2 className="font-display font-bold text-[17px] sm:text-xl text-[#0F172A] leading-tight truncate">
+                El Diario del Aula
+              </h2>
+              <p className="text-xs text-[#475569] truncate mt-0.5">
+                {capitalizedDate}
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="font-display font-extrabold text-2xl leading-tight tracking-tight text-white">
-              El Diario del Aula
-            </h2>
-            <p className="text-xs text-indigo-100/90 leading-relaxed mt-1 max-w-sm">
-              {config.welcomeMessage ||
-                'Bienvenidas, familias. Portal informativo oficial de 1.º B para seguir el aprendizaje, actividades y vida diaria de nuestra clase.'}
-            </p>
-          </div>
-
-          {/* Teacher Badge & Refresh Action */}
-          <div className="pt-1 flex items-center justify-between flex-wrap gap-2 text-xs border-t border-white/15">
-            <span className="text-[11px] text-indigo-200 flex items-center gap-1.5">
-              <span>Tutor:</span>
-              <strong className="text-white font-semibold">{config.teacherName}</strong>
-            </span>
+          {/* Acceso directo a notificaciones / avisos + actualizar */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => onNavigate('avisos')}
+              aria-label={
+                urgentAvisosCount > 0
+                  ? `Ver notificaciones y avisos (${urgentAvisosCount} urgentes)`
+                  : 'Ver avisos y notificaciones del aula'
+              }
+              title="Avisos y notificaciones"
+              className="relative min-w-[44px] min-h-[44px] rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] hover:bg-[#FFF1F2] hover:border-[#FECDD3] text-[#334155] hover:text-[#E11D48] flex items-center justify-center diario-press cursor-pointer"
+            >
+              <Bell className="w-[18px] h-[18px]" strokeWidth={1.9} />
+              {urgentAvisosCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#E11D48] text-white text-[10px] font-bold tabular-nums flex items-center justify-center ring-2 ring-white">
+                  {urgentAvisosCount}
+                </span>
+              )}
+            </button>
 
             {onRefresh && (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isRefreshing}
-                className="text-[11px] font-semibold text-white/90 hover:text-white bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                title="Actualizar datos escolares"
+                aria-label="Actualizar contenido del aula"
+                title="Actualizar contenido"
+                className="min-w-[44px] min-h-[44px] sm:px-3 rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] hover:bg-[#EEF2FF] hover:border-[#C7D2FE] text-[#334155] hover:text-[#4338CA] flex items-center justify-center gap-1.5 text-xs font-semibold diario-press cursor-pointer disabled:opacity-50"
               >
-                <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span>{isRefreshing ? 'Actualizando...' : 'Actualizar'}</span>
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">
+                  {isRefreshing ? 'Actualizando' : 'Actualizar'}
+                </span>
               </button>
             )}
           </div>
         </div>
+      </section>
 
-        {/* Decorative backdrop shape */}
-        <div className="absolute -right-8 -bottom-10 opacity-10 pointer-events-none">
-          <School className="w-52 h-52 text-white" />
-        </div>
-      </div>
-
-      {/* 2. Urgent / Important Notice Banner (if active) */}
-      {urgentPost && (
-        <div
-          onClick={() => onNavigate(urgentPost.targetTab || 'avisos')}
-          className="bg-rose-50 border border-rose-200/90 rounded-2xl p-3.5 flex items-start gap-3 shadow-xs hover:bg-rose-100/80 transition cursor-pointer"
-        >
-          <span className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 mt-0.5">
-            <AlertCircle className="w-4 h-4" />
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-rose-200/80 text-rose-900">
-                Aviso importante
-              </span>
-              <span className="text-[10px] text-rose-500">{urgentPost.date}</span>
-            </div>
-            <h4 className="font-bold text-xs text-rose-950 mt-1 truncate">
-              {urgentPost.title}
-            </h4>
-            <p className="text-[11px] text-rose-800 line-clamp-1 mt-0.5">
-              {urgentPost.content}
+      {/* B. BLOQUE PRINCIPAL DE BIENVENIDA */}
+      <section
+        aria-labelledby="inicio-welcome-heading"
+        className="bg-white rounded-3xl border border-[#E2E8F0] shadow-xs p-4 sm:p-6"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Mensaje principal */}
+          <div className="space-y-2 min-w-0 flex-1">
+            <h3
+              id="inicio-welcome-heading"
+              className="font-display font-bold text-xl sm:text-[26px] text-[#0F172A] leading-snug tracking-tight text-balance"
+            >
+              ¡Bienvenidos a nuestra clase!
+            </h3>
+            <p className="text-[14px] sm:text-[15px] text-[#475569] leading-relaxed max-w-xl">
+              Un espacio para acompañar cada día nuestro aprendizaje.
             </p>
-          </div>
-          <ArrowRight className="w-4 h-4 text-rose-600 shrink-0 self-center" />
-        </div>
-      )}
-
-      {/* 3. Pending Homework Alert (if tasks exist) */}
-      {pendingTasks.length > 0 && (
-        <div
-          onClick={() => onNavigate('diario')}
-          className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3 flex items-center justify-between gap-3 text-amber-900 transition hover:bg-amber-100/90 cursor-pointer shadow-xs"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
-              <Sparkles className="w-4 h-4" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-xs font-bold leading-tight truncate">
-                {pendingTasks.length === 1
-                  ? 'Tienes 1 tarea pendiente para casa'
-                  : `Tienes ${pendingTasks.length} tareas pendientes para casa`}
-              </p>
-              <p className="text-[11px] text-amber-800/80 truncate">
-                Pulsa para abrir el checklist y marcarla al terminar
-              </p>
-            </div>
-          </div>
-          <span className="text-[10px] font-bold bg-amber-200/80 text-amber-900 px-2.5 py-1 rounded-xl shrink-0">
-            Ver tarea
-          </span>
-        </div>
-      )}
-
-      {/* 4. Quick Shortcuts Grid (Acceso directo a las 6 áreas funcionales) */}
-      <div>
-        <div className="flex items-center justify-between mb-2 px-1">
-          <h3 className="font-display font-bold text-xs uppercase tracking-wider text-slate-500">
-            Acceso Rápido al Aula
-          </h3>
-          <span className="text-[10px] text-slate-400 font-medium">1.º B Primaria</span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-          {/* A. Día a Día */}
-          <button
-            onClick={() => onNavigate('diario')}
-            className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-indigo-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
-          >
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center mb-2 group-hover:scale-105 transition">
-              <BookOpen className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-xs text-slate-900">Día a Día</span>
-            <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">
-              Actividades y deberes
-            </span>
-          </button>
-
-          {/* B. Avisos */}
-          <button
-            onClick={() => onNavigate('avisos')}
-            className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-rose-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
-          >
-            <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center mb-2 group-hover:scale-105 transition relative">
-              <Bell className="w-4 h-4" />
-              {urgentPost && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-600 rounded-full animate-ping"></span>
-              )}
-            </div>
-            <span className="font-bold text-xs text-slate-900">Tablón de Avisos</span>
-            <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">
-              Circulares del colegio
-            </span>
-          </button>
-
-          {/* C. Horario */}
-          <button
-            type="button"
-            onClick={() => onNavigate('horario')}
-            className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-emerald-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
-          >
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-2 group-hover:scale-105 transition">
-              <Clock className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-xs text-slate-900">Horario Semanal</span>
-            <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">
-              Sesiones de lunes a viernes
-            </span>
-          </button>
-
-          {/* D. Calendario */}
-          <button
-            type="button"
-            onClick={() => onNavigate('calendario')}
-            className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-amber-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
-          >
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-2 group-hover:scale-105 transition">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-xs text-slate-900">Calendario</span>
-            <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">
-              Salidas y festivos
-            </span>
-          </button>
-
-          {/* E. Fotos y Vídeos */}
-          <button
-            type="button"
-            onClick={() => onNavigate('multimedia')}
-            className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-sky-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
-          >
-            <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center mb-2 group-hover:scale-105 transition">
-              <ImageIcon className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-xs text-slate-900">Fotos y Vídeos</span>
-            <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">
-              Galería segura de clase
-            </span>
-          </button>
-
-          {/* F. Aprendemos (Qué trabajamos en clase) */}
-          <button
-            type="button"
-            onClick={() => onNavigate('aprendemos')}
-            className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-purple-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
-          >
-            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center mb-2 group-hover:scale-105 transition">
-              <School className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-xs text-slate-900">Aprendemos</span>
-            <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">
-              Qué trabajamos en el aula
-            </span>
-          </button>
-
-          {/* G. Recursos (Biblioteca para casa) */}
-          <button
-            type="button"
-            onClick={() => onNavigate('recursos')}
-            className="col-span-2 sm:col-span-1 p-3.5 bg-gradient-to-br from-indigo-50/80 to-sky-50/80 rounded-2xl border border-indigo-200/80 shadow-xs hover:border-indigo-300 hover:shadow-sm transition flex flex-col items-start text-left cursor-pointer group active:scale-98"
-          >
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center mb-2 group-hover:scale-105 transition">
-              <GraduationCap className="w-4 h-4" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-xs text-indigo-950">Recursos en Casa</span>
-              <span className="text-[9px] font-extrabold bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded-full">
-                Biblioteca
+            <div className="pt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#475569]">
+              <span>
+                Tutoría:{' '}
+                <strong className="font-semibold text-[#0F172A]">
+                  {config.teacherName}
+                </strong>
               </span>
+              <span aria-hidden="true" className="text-slate-300">
+                ·
+              </span>
+              <span className="truncate">{config.schoolName}</span>
             </div>
-            <span className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">
-              Juegos, fichas PDF y pautas
-            </span>
-          </button>
-        </div>
-      </div>
+          </div>
 
-      {/* 5. Últimas Publicaciones del Aula */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="font-display font-bold text-xs uppercase tracking-wider text-slate-500">
-            Últimas Novedades de Clase
-          </h3>
-          <button
-            onClick={() => onNavigate('diario')}
-            className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <span>Ver todas</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
+          {/* Ilustración oficial de portada del aula 1.º B */}
+          <div className="w-full sm:w-64 md:w-72 lg:w-80 shrink-0">
+            {!coverImgError ? (
+              <img
+                src="/portada-aula-1b.png"
+                alt="El Diario del Aula 1.º B: hormiguita oficial junto a la pizarra del aula"
+                referrerPolicy="no-referrer"
+                onError={() => setCoverImgError(true)}
+                className="w-full h-auto object-contain rounded-2xl border border-[#E2E8F0] block"
+              />
+            ) : (
+              <div className="w-full aspect-[3/2] rounded-2xl border border-[#E2E8F0] bg-[#F7F8FA] flex flex-col items-center justify-center gap-1.5 text-center p-4">
+                <ImageIcon className="w-5 h-5 text-[#4338CA]" strokeWidth={1.85} />
+                <span className="text-xs font-semibold text-[#0F172A]">
+                  El Diario del Aula · 1.º B
+                </span>
+              </div>
+            )}
+          </div>
         </div>
+      </section>
 
-        <div className="space-y-2.5">
-          {recentPosts.length === 0 ? (
-            <div className="p-5 bg-white rounded-3xl border border-slate-200/80 text-center text-xs text-slate-500 space-y-1 shadow-xs">
-              <p className="font-bold text-slate-800">No hay publicaciones recientes</p>
-              <p className="text-[11px] text-slate-400">
-                Las actividades, tareas y notas del aula se mostrarán aquí en cuanto se publiquen.
-              </p>
-            </div>
-          ) : (
-            recentPosts.map((post) => (
-              <div
-                key={post.id}
-                onClick={() => onNavigate('diario')}
-                className="p-4 bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition cursor-pointer space-y-1.5"
-              >
-                <div className="flex items-center justify-between text-[11px] text-slate-400 gap-2 flex-wrap">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                      <span>{post.icon || '📰'}</span>
-                      <span>{post.categoria || post.tag || 'General'}</span>
-                    </span>
-                    {post.destacado && (
-                      <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.2 rounded-full inline-flex items-center gap-1">
-                        <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-                        Destacado
-                      </span>
-                    )}
-                  </div>
-                  <span>{post.date}</span>
+      {/* Alertas dinámicas activas (avisos urgentes y tareas pendientes reales) */}
+      {(urgentPost || pendingTasks.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {urgentPost && (
+            <button
+              type="button"
+              onClick={() => onNavigate(urgentPost.targetTab || 'avisos')}
+              className={`w-full min-h-[56px] text-left bg-[#FFF1F2] border border-[#FECDD3] rounded-2xl p-3.5 flex items-center gap-3 hover:bg-[#FFE4E6]/75 diario-press cursor-pointer ${
+                pendingTasks.length === 0 ? 'md:col-span-2' : ''
+              }`}
+            >
+              <span className="w-10 h-10 rounded-xl bg-white text-[#E11D48] border border-[#FECDD3] flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="font-bold text-[#BE123C]">Aviso importante</span>
+                  <span aria-hidden="true" className="text-rose-300">
+                    ·
+                  </span>
+                  <span className="text-[#9F1239] tabular-nums truncate">
+                    {urgentPost.date}
+                  </span>
                 </div>
-                <h4 className="font-display font-bold text-xs text-slate-900">
-                  {post.title}
-                </h4>
-                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                  {post.content}
+                <p className="font-display font-bold text-sm text-[#0F172A] mt-0.5 truncate">
+                  {urgentPost.title}
                 </p>
               </div>
-            ))
+              <ChevronRight className="w-4 h-4 text-[#E11D48] shrink-0" />
+            </button>
+          )}
+
+          {pendingTasks.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onNavigate('diario')}
+              className={`w-full min-h-[56px] text-left bg-[#FEF3C7]/75 border border-[#FDE68A] rounded-2xl p-3.5 flex items-center justify-between gap-3 hover:bg-[#FEF3C7] diario-press cursor-pointer ${
+                !urgentPost ? 'md:col-span-2' : ''
+              }`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-10 h-10 rounded-xl bg-white text-[#D97706] border border-[#FDE68A] flex items-center justify-center shrink-0">
+                  <ClipboardList className="w-5 h-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-display text-sm font-bold text-[#0F172A] leading-snug truncate">
+                    {pendingTasks.length === 1
+                      ? '1 tarea pendiente para casa'
+                      : `${pendingTasks.length} tareas pendientes para casa`}
+                  </p>
+                  <p className="text-xs text-[#475569] truncate">
+                    Pulsa para ver y marcar al terminar
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#B45309] shrink-0" />
+            </button>
           )}
         </div>
-      </div>
+      )}
 
-      {/* 6. Próximos Acontecimientos */}
-      {nextEvents.length > 0 && (
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="font-display font-bold text-xs uppercase tracking-wider text-slate-500">
-              Próximos Acontecimientos
+      {/* C. EXPLORA NUESTRA AULA (8 SECCIONES OFICIALES EN 2 COLUMNAS EN MÓVIL) */}
+      <section aria-labelledby="explora-aula-heading" className="space-y-3">
+        <div className="px-0.5">
+          <h3
+            id="explora-aula-heading"
+            className="font-display font-bold text-[17px] sm:text-lg text-[#0F172A] tracking-tight"
+          >
+            Explora nuestra aula
+          </h3>
+          <p className="text-xs sm:text-[13px] text-[#475569] mt-0.5">
+            Todo lo que necesitas, a un toque.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
+          {sections.map((section) => {
+            const isCurrent = section.id === 'inicio';
+            return (
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => onNavigate(section.id)}
+                aria-current={isCurrent ? 'page' : undefined}
+                className={`min-h-[96px] p-3.5 sm:p-4 rounded-2xl text-left flex flex-col justify-between gap-2.5 cursor-pointer touch-manipulation diario-press transition-colors ${
+                  isCurrent
+                    ? 'bg-white border border-[#C7D2FE] shadow-xs'
+                    : 'diario-card-interactive'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2 w-full">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${section.iconBoxClass}`}
+                  >
+                    {section.icon}
+                  </div>
+                  {section.statusNote && (
+                    <span
+                      className={`text-[11px] font-semibold truncate text-right ${section.accentTextClass}`}
+                    >
+                      {section.statusNote}
+                    </span>
+                  )}
+                </div>
+
+                <div className="min-w-0 w-full">
+                  <span className="font-display font-bold text-[14px] text-[#0F172A] block truncate leading-snug">
+                    {section.label}
+                  </span>
+                  <span className="text-xs text-[#475569] block truncate mt-0.5 leading-tight">
+                    {section.subtitle}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* D. CONTENIDO DINÁMICO (ÚLTIMAS NOVEDADES Y PRÓXIMOS ACONTECIMIENTOS) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+        <section className="lg:col-span-7 space-y-2.5">
+          <div className="flex items-center justify-between px-0.5">
+            <h3 className="font-display font-bold text-base text-[#0F172A] tracking-tight">
+              Últimas novedades de clase
             </h3>
             <button
-              onClick={() => onNavigate('horario', 'calendario')}
-              className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
+              type="button"
+              onClick={() => onNavigate('diario')}
+              className="min-h-[44px] px-2 -mr-2 text-xs font-bold text-[#4338CA] hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>Calendario completo</span>
-              <ArrowRight className="w-3 h-3" />
+              <span>Ver todas</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {nextEvents.map((ev) => (
-              <div
-                key={ev.id}
-                onClick={() => onNavigate('horario', 'calendario')}
-                className="p-3 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3 cursor-pointer hover:border-amber-200 transition"
-              >
-                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 flex flex-col items-center justify-center font-bold shrink-0">
-                  <span className="text-[9px] uppercase font-semibold">
-                    {SHORT_MONTH_NAMES[ev.month] ?? ''}
-                  </span>
-                  <span className="text-sm font-extrabold leading-none">{ev.day}</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h5 className="font-bold text-xs text-slate-900 truncate">{ev.title}</h5>
-                  <p className="text-[10px] text-slate-500 truncate">{ev.description}</p>
-                </div>
+          <div className="space-y-2.5">
+            {recentPosts.length === 0 ? (
+              <div className="bg-white rounded-3xl border border-[#E2E8F0] shadow-xs p-5 text-center space-y-1">
+                <p className="font-display font-bold text-sm text-[#0F172A]">
+                  No hay publicaciones recientes
+                </p>
+                <p className="text-xs text-[#475569]">
+                  Las actividades, tareas y notas del aula se mostrarán aquí en cuanto se publiquen.
+                </p>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            ) : (
+              recentPosts.map((post) => {
+                const catMeta = getPostCategoryMeta(post.categoria, post.tag);
+                return (
+                  <button
+                    key={post.id}
+                    type="button"
+                    onClick={() => onNavigate('diario')}
+                    className="w-full min-h-[44px] text-left p-4 rounded-2xl diario-card-interactive diario-press cursor-pointer space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                        <span className={`font-bold flex items-center gap-1.5 ${catMeta.color}`}>
+                          {catMeta.icon}
+                          <span>{catMeta.label}</span>
+                        </span>
+                        {post.destacado && (
+                          <>
+                            <span aria-hidden="true" className="text-slate-300">
+                              ·
+                            </span>
+                            <span className="font-semibold text-[#B45309]">
+                              Destacado
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <span className="text-xs text-[#475569] font-medium tabular-nums shrink-0">
+                        {post.date}
+                      </span>
+                    </div>
 
-      {/* 7. Footer minimalista institucional */}
-      <div className="pt-3 border-t border-slate-200/70 text-center text-xs text-slate-400 space-y-1">
-        <p className="font-semibold text-slate-600">
+                    <h4 className="font-display font-bold text-[15px] text-[#0F172A] leading-snug">
+                      {post.title}
+                    </h4>
+                    <p className="text-[13.5px] text-[#475569] line-clamp-2 leading-relaxed">
+                      {post.content}
+                    </p>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <section className="lg:col-span-5 space-y-2.5">
+          <div className="flex items-center justify-between px-0.5">
+            <h3 className="font-display font-bold text-base text-[#0F172A] tracking-tight">
+              Próximos acontecimientos
+            </h3>
+            <button
+              type="button"
+              onClick={() => onNavigate('calendario')}
+              className="min-h-[44px] px-2 -mr-2 text-xs font-bold text-[#4338CA] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>Calendario</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {nextEvents.length > 0 ? (
+            <div className="space-y-2.5">
+              {nextEvents.map((ev) => (
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => onNavigate('calendario')}
+                  className="w-full min-h-[68px] text-left p-3.5 rounded-2xl diario-card-interactive diario-press flex items-center gap-3.5 cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] flex flex-col items-center justify-center font-bold shrink-0 tabular-nums">
+                    <span className="text-[10px] uppercase font-bold leading-none">
+                      {SHORT_MONTH_NAMES[ev.month] ?? ''}
+                    </span>
+                    <span className="text-base font-extrabold leading-tight mt-0.5">
+                      {ev.day}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-display font-bold text-sm text-[#0F172A] truncate">
+                      {ev.title}
+                    </h4>
+                    <p className="text-xs text-[#475569] line-clamp-2 mt-0.5">
+                      {ev.description}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs p-5 text-center space-y-1">
+              <p className="font-display font-bold text-sm text-[#0F172A]">
+                Sin eventos próximos
+              </p>
+              <p className="text-xs text-[#475569]">
+                Puedes consultar cualquier mes desde el Calendario Escolar.
+              </p>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Pie institucional limpio */}
+      <footer className="pt-4 border-t border-[#E2E8F0] text-center space-y-1">
+        <p className="text-xs font-semibold text-[#0F172A]">
           {config.schoolName} · {config.classTitle}
         </p>
-        <p className="text-[10px] text-slate-400">
+        <p className="text-xs text-[#475569]">
           Comunicaciones y avisos oficiales canalizados mediante Séneca e iPasen.
         </p>
-      </div>
+      </footer>
     </div>
   );
 };

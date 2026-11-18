@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { HomeLearningResource, HomeResourceCategory } from '../types';
 import { matchesNormalizedSearch } from '../utils/searchUtils';
+import { SectionHeader } from './SectionHeader';
+import { EmptyStateCard } from './EmptyStateCard';
 import {
   BookOpen,
   Calculator,
@@ -15,6 +17,7 @@ import {
   Star,
   CheckCircle2,
   X,
+  GraduationCap,
 } from 'lucide-react';
 
 interface RecursosTabProps {
@@ -97,19 +100,18 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
   const getCategoryBadge = (cat: HomeResourceCategory) => {
     switch (cat) {
       case 'matematicas':
-        return { text: 'Matemáticas', color: 'text-emerald-700' };
+        return { text: 'Matemáticas', color: 'text-[#0F766E]' };
       case 'lengua_lectura':
-        return { text: 'Lengua y Lectura', color: 'text-indigo-700' };
+        return { text: 'Lengua y Lectura', color: 'text-[#4338CA]' };
       case 'fichas':
-        return { text: 'Fichas y PDF', color: 'text-amber-700' };
+        return { text: 'Fichas y PDF', color: 'text-[#B45309]' };
       case 'familias':
-        return { text: 'Para Familias', color: 'text-purple-700' };
+        return { text: 'Para Familias', color: 'text-[#6D28D9]' };
       default:
-        return { text: 'Recurso', color: 'text-slate-700' };
+        return { text: 'Recurso', color: 'text-[#334155]' };
     }
   };
 
-  // Filtered resources
   const filteredList = useMemo(() => {
     return activeResources.filter((item) => {
       const matchesCategory =
@@ -132,82 +134,67 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
   const activeCategoryMeta = categories.find((c) => c.id === selectedCategory);
 
   return (
-    <div className="space-y-4 pb-8 animate-in fade-in duration-300">
-      {/* 1. Hero Banner Educativo */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-800 via-indigo-900 to-sky-900 p-5 text-white shadow-lg shadow-indigo-950/20">
-        <div className="relative z-10 space-y-2.5">
-          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-200">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/15 text-white backdrop-blur-md border border-white/10">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              Biblioteca Educativa para Casa
+    <div className="space-y-4 pb-8 diario-fade-in">
+      {/* 1. Cabecera unificada */}
+      <SectionHeader
+        eyebrow="Biblioteca Educativa para Casa"
+        metaRight="1.º de Primaria B"
+        title="Aprender y Reforzar en Familia"
+        description="Selección cuidada de materiales descargables, juegos de lógica y pautas de lectura para afianzar en casa las áreas de Lengua Castellana y Matemáticas."
+        icon={<GraduationCap className="w-5 h-5" />}
+        accent="indigo"
+        footerMeta={
+          <>
+            <span className="tabular-nums">{activeResources.length} recursos disponibles</span>
+            <span aria-hidden="true" className="text-slate-300">
+              ·
             </span>
-            <span className="text-indigo-200">·</span>
-            <span>1.º de Primaria B</span>
-          </div>
+            <span>Acceso libre y seguro</span>
+          </>
+        }
+      />
 
-          <h2 className="font-display font-extrabold text-2xl tracking-tight leading-tight text-white">
-            Aprender y Reforzar en Familia
-          </h2>
-
-          <p className="text-xs text-indigo-100/90 leading-relaxed max-w-lg">
-            Selección cuidada de materiales descargables, juegos de lógica y pautas
-            de lectura para afianzar en casa las áreas de Lengua Castellana y Matemáticas.
-          </p>
-
-          <div className="pt-1 flex items-center gap-3 text-[11px] text-indigo-200 font-medium">
-            <span>{activeResources.length} recursos disponibles</span>
-            <span>·</span>
-            <span>Tutor: Manuel Herrera</span>
-            <span>·</span>
-            <span className="text-amber-300">Acceso libre y seguro</span>
-          </div>
-        </div>
-
-        {/* Decorative backdrop shape */}
-        <div className="absolute -right-6 -bottom-10 opacity-10 pointer-events-none">
-          <BookOpen className="w-52 h-52 text-white" />
-        </div>
-      </div>
-
-      {/* 2. Barra de Búsqueda y Filtro Rápido */}
-      <div className="space-y-2">
+      {/* 2. Barra de búsqueda y filtro rápido */}
+      <div className="space-y-2.5">
         <div className="relative flex items-center">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+          <Search className="w-4 h-4 text-[#475569] absolute left-3.5 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por tema, ficha, cálculo o lectura..."
-            className="w-full pl-10 pr-9 py-2.5 bg-white rounded-2xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+            className="w-full min-h-[44px] pl-10 pr-11 py-2.5 bg-white rounded-2xl border border-[#E2E8F0] text-[14px] text-[#0F172A] placeholder:text-[#64748B] shadow-xs focus:border-[#4F46E5] transition"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              className="absolute right-1.5 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] cursor-pointer"
+              aria-label="Borrar búsqueda"
               title="Borrar búsqueda"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
 
-        {/* Toggle para Solo Recomendados */}
-        <div className="flex items-center justify-between text-xs px-1">
-          <span className="text-[11px] text-slate-500 font-medium">
+        {/* Descripción activa + Recomendados */}
+        <div className="flex items-center justify-between flex-wrap gap-2 px-1">
+          <span className="text-xs text-[#475569] font-medium">
             {activeCategoryMeta?.description}
           </span>
           <button
             type="button"
             onClick={() => setOnlyFeatured(!onlyFeatured)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+            className={`min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer diario-press ${
               onlyFeatured
-                ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]'
+                : 'bg-white text-[#334155] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
             }`}
           >
             <Star
-              className={`w-3 h-3 ${
-                onlyFeatured ? 'fill-amber-500 text-amber-600' : 'text-slate-400'
+              className={`w-3.5 h-3.5 ${
+                onlyFeatured ? 'fill-[#D97706] text-[#D97706]' : 'text-[#64748B]'
               }`}
             />
             <span>Recomendados de casa</span>
@@ -215,8 +202,8 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
         </div>
       </div>
 
-      {/* 3. Selector Interactivo de Categorías (Exclusivamente Lengua, Matemáticas, Fichas y Familias) */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
+      {/* 3. Selector de categorías */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
         {categories.map((cat) => {
           const isSelected = selectedCategory === cat.id;
           return (
@@ -224,21 +211,21 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
               key={cat.id}
               type="button"
               onClick={() => setSelectedCategory(cat.id)}
-              className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 shrink-0 ${
+              className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer touch-manipulation shrink-0 diario-press ${
                 isSelected
-                  ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-200'
-                  : 'bg-white text-slate-600 border border-slate-200/90 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-[#4338CA] text-white shadow-xs'
+                  : 'bg-white text-[#334155] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
               }`}
             >
-              <span className={isSelected ? 'text-white' : 'text-slate-400'}>
+              <span className={isSelected ? 'text-white' : 'text-[#64748B]'}>
                 {cat.icon}
               </span>
               <span>{cat.label}</span>
               <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                className={`text-[11px] px-1.5 py-0.5 rounded-full tabular-nums ${
                   isSelected
                     ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 text-slate-500'
+                    : 'bg-[#F1F5F9] text-[#475569]'
                 }`}
               >
                 {cat.count}
@@ -248,31 +235,22 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
         })}
       </div>
 
-      {/* 4. Lista de Recursos Didácticos */}
-      <div className="space-y-3">
-        {filteredList.length === 0 ? (
-          <div className="bg-white rounded-3xl p-8 text-center border border-slate-200/90 text-slate-400 space-y-2">
-            <Search className="w-8 h-8 mx-auto text-slate-300" />
-            <h4 className="font-bold text-slate-800 text-sm">
-              No se han encontrado recursos con estos criterios
-            </h4>
-            <p className="text-xs text-slate-500 max-w-xs mx-auto">
-              Prueba a cambiar el texto de búsqueda o desactiva el filtro de recomendados.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('all');
-                setOnlyFeatured(false);
-              }}
-              className="mt-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-xl transition cursor-pointer"
-            >
-              Restablecer filtros
-            </button>
-          </div>
-        ) : (
-          filteredList.map((item) => {
+      {/* 4. Rejilla de Recursos Didácticos */}
+      {filteredList.length === 0 ? (
+        <EmptyStateCard
+          icon={<Search className="w-6 h-6" />}
+          title="No se han encontrado recursos con estos criterios"
+          description="Prueba a cambiar el texto de búsqueda o desactiva el filtro de recomendados."
+          actionLabel="Restablecer filtros"
+          onAction={() => {
+            setSearchQuery('');
+            setSelectedCategory('all');
+            setOnlyFeatured(false);
+          }}
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          {filteredList.map((item) => {
             const meta = getCategoryBadge(item.categoria);
             const isDownloadable =
               item.tipo_recurso.toLowerCase().includes('pdf') ||
@@ -280,58 +258,65 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
               item.tipo_recurso.toLowerCase().includes('ficha');
 
             return (
-              <div
+              <article
                 key={item.id}
-                className="bg-white rounded-3xl p-4.5 border border-slate-200/80 shadow-xs hover:border-indigo-200 hover:shadow-sm transition space-y-3"
+                className="diario-card rounded-3xl p-4 sm:p-5 flex flex-col justify-between gap-3.5"
               >
-                {/* Cabecera de metadatos limpios sin píldoras invasivas */}
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 font-semibold text-slate-500 text-[11px] truncate">
-                    <span className={`font-bold ${meta.color}`}>{meta.text}</span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span className="truncate">{item.tipo_recurso}</span>
-                    {item.nivel && (
-                      <>
-                        <span aria-hidden="true" className="text-slate-300">·</span>
-                        <span className="text-slate-600 font-medium">{item.nivel}</span>
-                      </>
+                <div className="space-y-2.5">
+                  {/* Metadatos limpios */}
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 font-medium text-[#475569] truncate min-w-0">
+                      <span className={`font-bold ${meta.color}`}>{meta.text}</span>
+                      <span aria-hidden="true" className="text-slate-300">
+                        ·
+                      </span>
+                      <span className="truncate">{item.tipo_recurso}</span>
+                      {item.nivel && (
+                        <>
+                          <span aria-hidden="true" className="text-slate-300">
+                            ·
+                          </span>
+                          <span className="shrink-0">{item.nivel}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {item.destacado_casa && (
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-[#B45309] shrink-0">
+                        <Star className="w-3.5 h-3.5 fill-[#D97706] text-[#D97706]" />
+                        <span>Recomendado</span>
+                      </span>
                     )}
                   </div>
 
-                  {item.destacado_casa && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 shrink-0">
-                      <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                      Recomendado
-                    </span>
-                  )}
+                  {/* Título y descripción */}
+                  <div className="space-y-1.5">
+                    <h3 className="font-display font-bold text-[16px] text-[#0F172A] leading-snug">
+                      {item.titulo}
+                    </h3>
+                    <p className="text-[14px] text-[#334155] leading-relaxed">
+                      {item.descripcion}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Título y Descripción */}
-                <div>
-                  <h3 className="font-display font-bold text-sm text-slate-900 leading-snug">
-                    {item.titulo}
-                  </h3>
-                  <p className="text-xs text-slate-600 leading-relaxed mt-1">
-                    {item.descripcion}
-                  </p>
-                </div>
-
-                {/* Información complementaria y tiempo estimado */}
-                <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-slate-100 text-[11px] text-slate-500">
-                  {item.tiempo_estimado && (
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                {/* Pie alineado con tiempo estimado y acción */}
+                <div className="pt-3 border-t border-[#F1F5F9] flex items-center justify-between flex-wrap gap-2 text-xs text-[#475569]">
+                  {item.tiempo_estimado ? (
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <Clock className="w-3.5 h-3.5 text-[#64748B]" />
                       <span>{item.tiempo_estimado}</span>
                     </span>
+                  ) : (
+                    <span />
                   )}
 
-                  {/* Botón de Acción Directo */}
                   {item.url_recurso ? (
                     <a
                       href={item.url_recurso}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition cursor-pointer active:scale-95"
+                      className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-[#EEF2FF] hover:bg-[#E0E7FF] text-[#4338CA] border border-[#C7D2FE] diario-press cursor-pointer"
                     >
                       {isDownloadable ? (
                         <>
@@ -346,27 +331,27 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
                       )}
                     </a>
                   ) : (
-                    <span className="ml-auto inline-flex items-center gap-1.5 text-slate-400 text-[11px]">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="inline-flex items-center gap-1.5 text-[#0F766E] text-xs font-semibold">
+                      <CheckCircle2 className="w-4 h-4 text-[#0D9488]" />
                       <span>Pauta práctica para casa</span>
                     </span>
                   )}
                 </div>
-              </div>
+              </article>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
 
       {/* 5. Nota pedagógica de cierre */}
-      <div className="bg-indigo-50/70 border border-indigo-200/80 rounded-3xl p-4 text-xs text-indigo-900 flex items-start gap-3">
-        <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-        <p className="text-[11px] leading-relaxed">
-          <strong>Acompañamiento en el hogar:</strong> En 1.º de Primaria, 10 a 15 minutos
-          de juego educativo o lectura compartida al día tienen un impacto formativo superior
-          a largas sesiones de ejercicios. Prioriza siempre el disfrute y el refuerzo positivo.
+      <footer className="bg-[#EEF2FF]/70 border border-[#C7D2FE] rounded-3xl p-4 sm:p-5 flex items-start gap-3.5">
+        <span className="w-9 h-9 rounded-xl bg-white border border-[#C7D2FE] flex items-center justify-center text-[#4338CA] shrink-0">
+          <Sparkles className="w-4 h-4" />
+        </span>
+        <p className="text-xs sm:text-[13px] text-[#334155] leading-relaxed">
+          <strong className="text-[#0F172A]">Acompañamiento en el hogar:</strong> En 1.º de Primaria, 10 a 15 minutos de juego educativo o lectura compartida al día tienen un impacto formativo superior a largas sesiones de ejercicios. Prioriza siempre el disfrute y el refuerzo positivo.
         </p>
-      </div>
+      </footer>
     </div>
   );
 };

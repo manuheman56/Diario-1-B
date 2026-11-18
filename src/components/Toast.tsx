@@ -9,9 +9,13 @@ export const Toast: React.FC<ToastProps> = ({ message }) => {
   if (!message) return null;
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-4 py-2.5 rounded-full text-xs font-semibold shadow-2xl flex items-center gap-2 border border-slate-700 animate-in fade-in slide-in-from-top-3 duration-200 backdrop-blur-md">
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)] bg-[#0F172A] text-white px-4 py-2.5 rounded-2xl text-xs sm:text-[13px] font-semibold shadow-lg flex items-center gap-2 border border-slate-700/80 diario-slide-up"
+    >
       <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-      <span>{message}</span>
+      <span className="truncate">{message}</span>
     </div>
   );
 };

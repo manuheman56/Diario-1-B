@@ -126,8 +126,8 @@ export default function App() {
     confirmExit,
   } = useBackNavigation();
 
-  // UI View Mode (Mobile frame vs responsive wide)
-  const [isMobileFrame, setIsMobileFrame] = useState<boolean>(true);
+  // UI View Mode (Por defecto ancho cómodo adaptado a tablet/escritorio; conmutable a lectura compacta)
+  const [isMobileFrame, setIsMobileFrame] = useState<boolean>(false);
 
   // Background sync, initial loading & error states
   const [isSyncing, setIsSyncing] = useState(false);
@@ -374,63 +374,69 @@ export default function App() {
     avisos.filter((a) => a.important || a.tipo?.toLowerCase().includes('urgente')).length ||
     posts.filter((p) => p.important || p.tag === 'Urgente').length;
 
+  const containerWidthClass = isMobileFrame ? 'max-w-2xl' : 'max-w-5xl';
+
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-0 sm:p-4 text-slate-800">
-      {/* Toast Alert */}
+    <div className="h-dvh min-h-screen bg-[#F7F8FA] text-[#0F172A] flex flex-col overflow-hidden">
+      {/* Toast Alert (posicionado abajo para no solaparse con cabecera ni avisos) */}
       <Toast message={toastMessage} />
 
-      {/* Offline Alert Badge */}
-      {!isOnline && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-white px-3.5 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 border border-amber-400 animate-in fade-in">
-          <WifiOff className="w-3.5 h-3.5" />
-          <span>Modo sin conexión</span>
-        </div>
-      )}
+      {/* Header ligero y navegación superior en tablet/escritorio */}
+      <Header
+        config={config}
+        onOpenInstall={openInstallModal}
+        isMobileFrame={isMobileFrame}
+        onToggleFrame={() => setIsMobileFrame(!isMobileFrame)}
+        activeTab={activeTab}
+        onTabChange={(tab) => navigateToTab(tab, undefined, 'smooth')}
+        pendingTasksCount={pendingHomeworkCount}
+        urgentNoticesCount={urgentNoticesCount}
+      />
 
-      {/* Main Container - Mobile Frame or Fullscreen View */}
-      <div
-        className={`w-full bg-slate-50 min-h-screen flex flex-col overflow-hidden relative shadow-2xl transition-all duration-300 ${
-          isMobileFrame
-            ? 'max-w-md sm:min-h-[850px] sm:max-h-[920px] sm:rounded-[2.5rem] border border-slate-700/60 ring-8 ring-slate-800/40'
-            : 'max-w-4xl sm:min-h-[900px] sm:rounded-3xl border border-slate-700/60'
-        }`}
-      >
-        {/* Header con título del colegio y curso escolar */}
-        <Header
-          config={config}
-          onOpenInstall={openInstallModal}
-          isMobileFrame={isMobileFrame}
-          onToggleFrame={() => setIsMobileFrame(!isMobileFrame)}
-          activeTab={activeTab}
-          onTabChange={(tab) => navigateToTab(tab, undefined, 'smooth')}
-          pendingTasksCount={pendingHomeworkCount}
-          urgentNoticesCount={urgentNoticesCount}
-        />
+      {/* Área principal scrollable conservando <main> para scroll-to-top y pull-to-refresh */}
+      <main className="flex-1 overflow-y-auto no-scrollbar">
+        <div
+          className={`w-full ${containerWidthClass} mx-auto px-4 sm:px-6 pt-4 pb-8 space-y-5 transition-all duration-200`}
+        >
+          {/* Indicador inline de modo sin conexión (sin colisión con Toast ni cabecera) */}
+          {!isOnline && (
+            <div
+              role="status"
+              className="bg-[#FEF3C7] border border-amber-300/80 text-[#92400E] px-4 py-2.5 rounded-2xl text-xs sm:text-[13px] font-semibold flex items-center gap-2.5 diario-slide-down"
+            >
+              <WifiOff className="w-4 h-4 text-[#D97706] shrink-0" />
+              <span>
+                Modo sin conexión: mostrando la última información guardada en este dispositivo.
+              </span>
+            </div>
+          )}
 
-        {/* Scrollable Main Content Area para las 8 secciones oficiales */}
-        <main className="flex-1 overflow-y-auto no-scrollbar px-4 py-4 space-y-4">
           {/* Aviso Explícito de Conexión Pendiente (cuando no hay VITE_APPS_SCRIPT_URL) */}
           {isPendingConfig && (
-            <div className="bg-amber-50/95 border border-amber-300/80 rounded-3xl p-4.5 shadow-xs flex items-start gap-3.5 text-amber-950 animate-in fade-in duration-300">
-              <div className="w-9 h-9 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200">
+            <div className="diario-card rounded-3xl p-4 sm:p-5 bg-[#FEF3C7]/45 border-amber-200 flex items-start gap-3.5 text-[#0F172A] diario-fade-in">
+              <div className="w-10 h-10 rounded-2xl bg-[#FEF3C7] text-[#B45309] flex items-center justify-center shrink-0 border border-amber-200/80">
                 <ShieldAlert className="w-5 h-5" />
               </div>
-              <div className="space-y-1 text-xs">
-                <h4 className="font-display font-bold text-slate-900 text-sm">
+              <div className="space-y-1.5">
+                <h4 className="font-display font-bold text-[#0F172A] text-sm sm:text-base">
                   Conexión segura pendiente de configuración
                 </h4>
-                <p className="text-slate-600 leading-relaxed text-[11px]">
-                  La hoja de cálculo oficial de don Manuel Herrera permanece <strong>100% privada y protegida</strong>.
-                  El canal de lectura para las familias se activará automáticamente al introducir la URL del intermediario en la variable <code className="font-mono font-bold bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded text-[10px]">VITE_APPS_SCRIPT_URL</code>.
+                <p className="text-[13.5px] text-[#334155] leading-relaxed">
+                  La hoja de cálculo oficial de don Manuel Herrera permanece{' '}
+                  <strong>100% privada y protegida</strong>. El canal de lectura para las
+                  familias se activará al configurar la variable{' '}
+                  <code className="font-mono font-semibold bg-[#FEF3C7] text-[#92400E] px-1.5 py-0.5 rounded text-xs">
+                    VITE_APPS_SCRIPT_URL
+                  </code>
+                  .
                 </p>
-                <div className="pt-1.5 flex items-center gap-3 text-[10px] text-amber-800 font-semibold">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                    <span>Hoja privada protegida</span>
+                <div className="pt-1 flex flex-wrap items-center gap-2 text-xs text-[#475569] font-medium">
+                  <span>Hoja privada protegida</span>
+                  <span aria-hidden="true" className="text-slate-300">
+                    ·
                   </span>
-                  <span>·</span>
-                  <span className="flex items-center gap-1 text-slate-600">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  <span className="inline-flex items-center gap-1 text-[#0D9488] font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>Cero datos ficticios</span>
                   </span>
                 </div>
@@ -438,15 +444,22 @@ export default function App() {
             </div>
           )}
 
-          {/* Indicador discreto solo en primera carga sin caché local */}
+          {/* Esqueleto discreto solo en primera carga sin caché local */}
           {!isPendingConfig &&
             isInitialLoading &&
             posts.length === 0 &&
             avisos.length === 0 &&
             events.length === 0 && (
-              <div className="bg-indigo-50/90 border border-indigo-200/80 rounded-2xl px-4 py-3 flex items-center gap-3 text-xs text-indigo-900">
-                <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin shrink-0" />
-                <span className="font-medium">Cargando los últimos contenidos del aula…</span>
+              <div className="diario-card rounded-3xl p-4 sm:p-5 space-y-3 diario-fade-in">
+                <div className="flex items-center gap-2.5 text-sm font-semibold text-[#4338CA]">
+                  <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+                  <span>Cargando los últimos contenidos del aula…</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-3.5 w-2/3 rounded-lg bg-slate-200/70" />
+                  <div className="h-3 w-full rounded-lg bg-slate-100" />
+                  <div className="h-3 w-5/6 rounded-lg bg-slate-100" />
+                </div>
               </div>
             )}
 
@@ -458,14 +471,14 @@ export default function App() {
             posts.length === 0 &&
             avisos.length === 0 &&
             events.length === 0 && (
-              <div className="bg-amber-50/95 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 text-xs text-amber-950">
-                <span className="font-medium">
+              <div className="diario-card rounded-3xl p-4 sm:p-5 bg-[#FFF1F2]/60 border-rose-200 flex flex-wrap items-center justify-between gap-3">
+                <span className="text-[13.5px] font-medium text-[#0F172A]">
                   No se pudieron cargar los datos en este momento.
                 </span>
                 <button
                   type="button"
                   onClick={() => syncAllFromSheets(true)}
-                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition shrink-0 cursor-pointer"
+                  className="min-h-[44px] px-4 py-2 rounded-xl bg-[#E11D48] hover:bg-[#BE123C] text-white font-bold text-xs sm:text-[13px] diario-press cursor-pointer"
                 >
                   Reintentar
                 </button>
@@ -547,16 +560,16 @@ export default function App() {
               onRefresh={() => syncAllFromSheets(true)}
             />
           )}
-        </main>
+        </div>
+      </main>
 
-        {/* Bottom Navigation con 5 accesos directos y corrección táctil integral */}
-        <BottomNav
-          activeTab={activeTab}
-          onTabChange={(tab) => navigateToTab(tab, undefined, 'instant')}
-          pendingTasksCount={pendingHomeworkCount}
-          urgentNoticesCount={urgentNoticesCount}
-        />
-      </div>
+      {/* Navegación móvil inferior (sin duplicar en tablet/escritorio) */}
+      <BottomNav
+        activeTab={activeTab}
+        onTabChange={(tab) => navigateToTab(tab, undefined, 'instant')}
+        pendingTasksCount={pendingHomeworkCount}
+        urgentNoticesCount={urgentNoticesCount}
+      />
 
       {/* Modal de instalación */}
       <InstallModal
