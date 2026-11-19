@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { MainTabType } from '../types';
+import { UnreadCountsBySection } from '../utils/readStatusService';
 
 export type TabType = MainTabType;
 
@@ -21,6 +22,7 @@ interface BottomNavProps {
   onTabChange: (tab: MainTabType) => void;
   pendingTasksCount?: number;
   urgentNoticesCount?: number;
+  unreadCounts?: UnreadCountsBySection;
 }
 
 interface SectionDirectoryItem {
@@ -36,10 +38,17 @@ interface SectionDirectoryItem {
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
   onTabChange,
-  pendingTasksCount = 0,
-  urgentNoticesCount = 0,
+  unreadCounts,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const diarioUnread = unreadCounts?.diario ?? 0;
+  const avisosUnread = unreadCounts?.avisos ?? 0;
+  const calendarioUnread = unreadCounts?.calendario ?? 0;
+  const multimediaUnread = unreadCounts?.multimedia ?? 0;
+  const aprendemosUnread = unreadCounts?.aprendemos ?? 0;
+  const recursosUnread = unreadCounts?.recursos ?? 0;
+  const secondaryUnreadTotal = multimediaUnread + aprendemosUnread + recursosUnread;
 
   useEffect(() => {
     if (!isDrawerOpen) return;
@@ -80,15 +89,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       label: 'Día a Día',
       icon: <BookOpen className="w-5 h-5" strokeWidth={activeTab === 'diario' ? 2.2 : 1.85} />,
       isActive: activeTab === 'diario',
-      badge: pendingTasksCount > 0 ? pendingTasksCount : undefined,
-      badgeColor: 'bg-[#D97706]',
+      badge: diarioUnread > 0 ? diarioUnread : undefined,
+      badgeColor: 'bg-[#4338CA]',
     },
     {
       id: 'avisos',
       label: 'Avisos',
       icon: <Bell className="w-5 h-5" strokeWidth={activeTab === 'avisos' ? 2.2 : 1.85} />,
       isActive: activeTab === 'avisos',
-      badge: urgentNoticesCount > 0 ? urgentNoticesCount : undefined,
+      badge: avisosUnread > 0 ? avisosUnread : undefined,
       badgeColor: 'bg-[#E11D48]',
     },
     {
@@ -96,6 +105,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       label: 'Calendario',
       icon: <Calendar className="w-5 h-5" strokeWidth={activeTab === 'calendario' ? 2.2 : 1.85} />,
       isActive: activeTab === 'calendario',
+      badge: calendarioUnread > 0 ? calendarioUnread : undefined,
+      badgeColor: 'bg-[#D97706]',
     },
   ];
 
@@ -113,6 +124,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       subtitle: 'Álbumes en Google Drive y canal de YouTube',
       icon: <Film className="w-5 h-5" strokeWidth={1.9} />,
       iconBg: 'bg-[#EEF2FF] text-[#4338CA] border border-indigo-200/80',
+      badge: multimediaUnread > 0 ? multimediaUnread : undefined,
+      badgeClass: 'bg-[#EEF2FF] text-[#4338CA]',
     },
     {
       id: 'aprendemos',
@@ -120,6 +133,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       subtitle: 'Contenidos de clase y pautas para acompañar',
       icon: <School className="w-5 h-5" strokeWidth={1.9} />,
       iconBg: 'bg-[#F5F3FF] text-[#7C3AED] border border-violet-200/80',
+      badge: aprendemosUnread > 0 ? aprendemosUnread : undefined,
+      badgeClass: 'bg-[#F5F3FF] text-[#6D28D9]',
     },
     {
       id: 'recursos',
@@ -127,6 +142,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       subtitle: 'Juegos interactivos, fichas PDF y orientación',
       icon: <GraduationCap className="w-5 h-5" strokeWidth={1.9} />,
       iconBg: 'bg-[#FEF3C7] text-[#B45309] border border-amber-200/80',
+      badge: recursosUnread > 0 ? recursosUnread : undefined,
+      badgeClass: 'bg-[#F0FDFA] text-[#0F766E]',
     },
     {
       id: 'inicio',
@@ -141,8 +158,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       subtitle: 'Novedades, actividades y tareas del hogar',
       icon: <BookOpen className="w-5 h-5" strokeWidth={1.9} />,
       iconBg: 'bg-[#EEF2FF] text-[#4338CA] border border-indigo-200/80',
-      badge: pendingTasksCount > 0 ? pendingTasksCount : undefined,
-      badgeClass: 'bg-[#FEF3C7] text-[#92400E]',
+      badge: diarioUnread > 0 ? diarioUnread : undefined,
+      badgeClass: 'bg-[#EEF2FF] text-[#4338CA]',
     },
     {
       id: 'avisos',
@@ -150,7 +167,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       subtitle: 'Comunicaciones oficiales y fechas límite',
       icon: <Bell className="w-5 h-5" strokeWidth={1.9} />,
       iconBg: 'bg-[#FFF1F2] text-[#E11D48] border border-rose-200/80',
-      badge: urgentNoticesCount > 0 ? urgentNoticesCount : undefined,
+      badge: avisosUnread > 0 ? avisosUnread : undefined,
       badgeClass: 'bg-[#FFF1F2] text-[#BE123C]',
     },
     {
@@ -159,6 +176,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       subtitle: 'Eventos, salidas, festivos y evaluaciones',
       icon: <Calendar className="w-5 h-5" strokeWidth={1.9} />,
       iconBg: 'bg-[#FEF3C7] text-[#B45309] border border-amber-200/80',
+      badge: calendarioUnread > 0 ? calendarioUnread : undefined,
+      badgeClass: 'bg-[#FEF3C7] text-[#92400E]',
     },
   ];
 
@@ -311,10 +330,17 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F7F8FA] font-medium'
             }`}
           >
-            <LayoutGrid
-              className="w-5 h-5"
-              strokeWidth={isDrawerOpen || isSecondaryActive ? 2.2 : 1.85}
-            />
+            <div className="relative flex items-center justify-center">
+              <LayoutGrid
+                className="w-5 h-5"
+                strokeWidth={isDrawerOpen || isSecondaryActive ? 2.2 : 1.85}
+              />
+              {secondaryUnreadTotal > 0 && (
+                <span className="absolute -top-1.5 -right-2.5 text-white text-[10px] font-bold tabular-nums min-w-4 h-4 px-1 rounded-full flex items-center justify-center ring-2 ring-white bg-[#4338CA]">
+                  {secondaryUnreadTotal}
+                </span>
+              )}
+            </div>
             <span className="text-[11px] mt-1 tracking-tight truncate w-full text-center leading-none">
               Secciones
             </span>

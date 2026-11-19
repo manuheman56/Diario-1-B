@@ -3,6 +3,9 @@ import { HomeLearningResource, HomeResourceCategory } from '../types';
 import { matchesNormalizedSearch } from '../utils/searchUtils';
 import { SectionHeader } from './SectionHeader';
 import { EmptyStateCard } from './EmptyStateCard';
+import { FormattedText } from './FormattedText';
+import { NewBadge, MarkAsReadButton } from './NewBadge';
+import { getPublicationKey } from '../utils/readStatusService';
 import {
   BookOpen,
   Calculator,
@@ -23,6 +26,8 @@ import {
 interface RecursosTabProps {
   resources?: HomeLearningResource[];
   isLoadedFromSheets?: boolean;
+  unreadKeys?: ReadonlySet<string>;
+  onMarkAsRead?: (publicationKey: string) => void;
 }
 
 interface CategoryConfig {
@@ -33,7 +38,11 @@ interface CategoryConfig {
   count: number;
 }
 
-export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
+export const RecursosTab: React.FC<RecursosTabProps> = ({
+  resources,
+  unreadKeys,
+  onMarkAsRead,
+}) => {
   const [selectedCategory, setSelectedCategory] = useState<HomeResourceCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [onlyFeatured, setOnlyFeatured] = useState(false);
@@ -256,6 +265,8 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
               item.tipo_recurso.toLowerCase().includes('pdf') ||
               item.tipo_recurso.toLowerCase().includes('imprimible') ||
               item.tipo_recurso.toLowerCase().includes('ficha');
+            const itemKey = getPublicationKey('recursos', item);
+            const isUnread = Boolean(unreadKeys?.has(itemKey));
 
             return (
               <article
@@ -265,7 +276,7 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
                 <div className="space-y-2.5">
                   {/* Metadatos limpios */}
                   <div className="flex items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-1.5 font-medium text-[#475569] truncate min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap font-medium text-[#475569] min-w-0">
                       <span className={`font-bold ${meta.color}`}>{meta.text}</span>
                       <span aria-hidden="true" className="text-slate-300">
                         ·
@@ -279,6 +290,7 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
                           <span className="shrink-0">{item.nivel}</span>
                         </>
                       )}
+                      {isUnread && <NewBadge variant="teal" />}
                     </div>
 
                     {item.destacado_casa && (
@@ -294,13 +306,11 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
                     <h3 className="font-display font-bold text-[16px] text-[#0F172A] leading-snug">
                       {item.titulo}
                     </h3>
-                    <p className="text-[14px] text-[#334155] leading-relaxed">
-                      {item.descripcion}
-                    </p>
+                    <FormattedText text={item.descripcion} accent="indigo" />
                   </div>
                 </div>
 
-                {/* Pie alineado con tiempo estimado y acción */}
+                {/* Pie alineado con tiempo estimado, lectura individual y acción */}
                 <div className="pt-3 border-t border-[#F1F5F9] flex items-center justify-between flex-wrap gap-2 text-xs text-[#475569]">
                   {item.tiempo_estimado ? (
                     <span className="flex items-center gap-1.5 font-medium">
@@ -311,31 +321,42 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({ resources }) => {
                     <span />
                   )}
 
-                  {item.url_recurso ? (
-                    <a
-                      href={item.url_recurso}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-[#EEF2FF] hover:bg-[#E0E7FF] text-[#4338CA] border border-[#C7D2FE] diario-press cursor-pointer"
-                    >
-                      {isDownloadable ? (
-                        <>
-                          <Download className="w-3.5 h-3.5" />
-                          <span>Descargar material</span>
-                        </>
-                      ) : (
-                        <>
-                          <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                          <span>Abrir actividad</span>
-                        </>
-                      )}
-                    </a>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-[#0F766E] text-xs font-semibold">
-                      <CheckCircle2 className="w-4 h-4 text-[#0D9488]" />
-                      <span>Pauta práctica para casa</span>
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {isUnread && (
+                      <MarkAsReadButton
+                        compact
+                        onClick={() => onMarkAsRead?.(itemKey)}
+                      />
+                    )}
+                    {item.url_recurso ? (
+                      <a
+                        href={item.url_recurso}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => {
+                          if (isUnread) onMarkAsRead?.(itemKey);
+                        }}
+                        className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-[#EEF2FF] hover:bg-[#E0E7FF] text-[#4338CA] border border-[#C7D2FE] diario-press cursor-pointer"
+                      >
+                        {isDownloadable ? (
+                          <>
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Descargar material</span>
+                          </>
+                        ) : (
+                          <>
+                            <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                            <span>Abrir actividad</span>
+                          </>
+                        )}
+                      </a>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-[#0F766E] text-xs font-semibold">
+                        <CheckCircle2 className="w-4 h-4 text-[#0D9488]" />
+                        <span>Pauta práctica para casa</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               </article>
             );

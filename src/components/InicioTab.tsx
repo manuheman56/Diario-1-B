@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import { initialConfig } from '../data/defaultData';
 import { getUpcomingCalendarEvents } from '../utils/eventUtils';
+import { toReadablePreviewText } from '../utils/textFormatUtils';
+import { UnreadCountsBySection } from '../utils/readStatusService';
 
 const SHORT_MONTH_NAMES = [
   'Ene',
@@ -48,6 +50,7 @@ interface InicioTabProps {
   posts: Notice[];
   events: CalendarEvent[];
   avisos?: AvisoItem[];
+  unreadCounts?: UnreadCountsBySection;
   onNavigate: (tab: MainTabType, subTab?: SubScheduleTab | SubResourceTab) => void;
   isRefreshing?: boolean;
   onRefresh?: () => void;
@@ -62,6 +65,8 @@ interface QuickSectionCard {
   iconBoxClass: string;
   accentTextClass: string;
   statusNote?: string;
+  unreadBadge?: number;
+  unreadBadgeClass?: string;
 }
 
 function getPostCategoryMeta(categoria?: string, tag?: string) {
@@ -112,6 +117,7 @@ export const InicioTab: React.FC<InicioTabProps> = ({
   posts,
   events,
   avisos,
+  unreadCounts,
   onNavigate,
   isRefreshing = false,
   onRefresh,
@@ -179,6 +185,13 @@ export const InicioTab: React.FC<InicioTabProps> = ({
   const recentPosts = posts.slice(0, 2);
   const nextEvents = getUpcomingCalendarEvents(events).slice(0, 2);
 
+  const diarioUnread = unreadCounts?.diario ?? 0;
+  const avisosUnread = unreadCounts?.avisos ?? 0;
+  const calendarioUnread = unreadCounts?.calendario ?? 0;
+  const multimediaUnread = unreadCounts?.multimedia ?? 0;
+  const aprendemosUnread = unreadCounts?.aprendemos ?? 0;
+  const recursosUnread = unreadCounts?.recursos ?? 0;
+
   const sections: QuickSectionCard[] = [
     {
       id: 'inicio',
@@ -200,6 +213,8 @@ export const InicioTab: React.FC<InicioTabProps> = ({
         pendingTasks.length > 0
           ? `${pendingTasks.length} pendiente${pendingTasks.length > 1 ? 's' : ''}`
           : undefined,
+      unreadBadge: diarioUnread > 0 ? diarioUnread : undefined,
+      unreadBadgeClass: 'bg-[#4338CA] text-white',
     },
     {
       id: 'avisos',
@@ -212,6 +227,8 @@ export const InicioTab: React.FC<InicioTabProps> = ({
         urgentAvisosCount > 0
           ? `${urgentAvisosCount} urgente${urgentAvisosCount > 1 ? 's' : ''}`
           : undefined,
+      unreadBadge: avisosUnread > 0 ? avisosUnread : undefined,
+      unreadBadgeClass: 'bg-[#E11D48] text-white',
     },
     {
       id: 'calendario',
@@ -220,6 +237,8 @@ export const InicioTab: React.FC<InicioTabProps> = ({
       icon: <Calendar className="w-5 h-5" strokeWidth={1.9} />,
       iconBoxClass: 'bg-[#FEF3C7] text-[#D97706]',
       accentTextClass: 'text-[#B45309]',
+      unreadBadge: calendarioUnread > 0 ? calendarioUnread : undefined,
+      unreadBadgeClass: 'bg-[#D97706] text-white',
     },
     {
       id: 'horario',
@@ -236,6 +255,8 @@ export const InicioTab: React.FC<InicioTabProps> = ({
       icon: <Camera className="w-5 h-5" strokeWidth={1.9} />,
       iconBoxClass: 'bg-[#EEF2FF] text-[#4338CA]',
       accentTextClass: 'text-[#4338CA]',
+      unreadBadge: multimediaUnread > 0 ? multimediaUnread : undefined,
+      unreadBadgeClass: 'bg-[#4338CA] text-white',
     },
     {
       id: 'aprendemos',
@@ -244,6 +265,8 @@ export const InicioTab: React.FC<InicioTabProps> = ({
       icon: <Sparkles className="w-5 h-5" strokeWidth={1.9} />,
       iconBoxClass: 'bg-[#F5F3FF] text-[#7C3AED]',
       accentTextClass: 'text-[#6D28D9]',
+      unreadBadge: aprendemosUnread > 0 ? aprendemosUnread : undefined,
+      unreadBadgeClass: 'bg-[#7C3AED] text-white',
     },
     {
       id: 'recursos',
@@ -252,6 +275,8 @@ export const InicioTab: React.FC<InicioTabProps> = ({
       icon: <GraduationCap className="w-5 h-5" strokeWidth={1.9} />,
       iconBoxClass: 'bg-[#F0FDFA] text-[#0D9488]',
       accentTextClass: 'text-[#0F766E]',
+      unreadBadge: recursosUnread > 0 ? recursosUnread : undefined,
+      unreadBadgeClass: 'bg-[#0D9488] text-white',
     },
   ];
 
@@ -489,13 +514,22 @@ export const InicioTab: React.FC<InicioTabProps> = ({
                   >
                     {section.icon}
                   </div>
-                  {section.statusNote && (
+                  {section.unreadBadge !== undefined && section.unreadBadge > 0 ? (
+                    <span
+                      aria-label={`${section.unreadBadge} ${section.unreadBadge === 1 ? 'novedad sin leer' : 'novedades sin leer'}`}
+                      className={`min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-bold tabular-nums inline-flex items-center justify-center shrink-0 shadow-2xs ${
+                        section.unreadBadgeClass || 'bg-[#4338CA] text-white'
+                      }`}
+                    >
+                      {section.unreadBadge}
+                    </span>
+                  ) : section.statusNote ? (
                     <span
                       className={`text-[11px] font-semibold truncate text-right ${section.accentTextClass}`}
                     >
                       {section.statusNote}
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="min-w-0 w-full">
@@ -575,7 +609,7 @@ export const InicioTab: React.FC<InicioTabProps> = ({
                       {post.title}
                     </h4>
                     <p className="text-[13.5px] text-[#475569] line-clamp-2 leading-relaxed">
-                      {post.content}
+                      {toReadablePreviewText(post.content)}
                     </p>
                   </button>
                 );
@@ -620,9 +654,11 @@ export const InicioTab: React.FC<InicioTabProps> = ({
                     <h4 className="font-display font-bold text-sm text-[#0F172A] truncate">
                       {ev.title}
                     </h4>
-                    <p className="text-xs text-[#475569] line-clamp-2 mt-0.5">
-                      {ev.description}
-                    </p>
+                    {ev.description && (
+                      <p className="text-xs text-[#475569] leading-relaxed line-clamp-2 mt-0.5">
+                        {toReadablePreviewText(ev.description)}
+                      </p>
+                    )}
                   </div>
                 </button>
               ))}

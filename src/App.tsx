@@ -31,6 +31,7 @@ import { RecursosTab } from './components/RecursosTab';
 import { InstallModal } from './components/InstallModal';
 import { ExitConfirmModal } from './components/ExitConfirmModal';
 import { Toast } from './components/Toast';
+import { NovedadesBanner } from './components/NovedadesBanner';
 import {
   syncAllData,
   sortDiaADiaItems,
@@ -41,6 +42,7 @@ import {
 import { isAppsScriptConfigured } from './config/appsScriptConfig';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useBackNavigation } from './hooks/useBackNavigation';
+import { useUnreadContent } from './hooks/useUnreadContent';
 import { mergePostsWithCompleted } from './utils/taskPersistence';
 import { WifiOff, ShieldAlert, CheckCircle2, RefreshCw } from 'lucide-react';
 
@@ -134,6 +136,10 @@ export default function App() {
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(
     () => configured && !hasAnySyncData(initialCache)
   );
+  const [hasConfirmedLiveSync, setHasConfirmedLiveSync] = useState(false);
+  const [hasValidCachedSnapshot, setHasValidCachedSnapshot] = useState<boolean>(
+    () => configured && hasAnySyncData(initialCache)
+  );
   const [syncError, setSyncError] = useState<string | null>(null);
 
   const syncSeqRef = useRef(0);
@@ -221,6 +227,7 @@ export default function App() {
 
         if (syncResult.source === 'apps-script') {
           hasLiveSyncRef.current = true;
+          setHasConfirmedLiveSync(true);
           autoRetryDoneRef.current = false;
           setSyncError(null);
           applySyncResultToState(syncResult);
@@ -232,6 +239,9 @@ export default function App() {
         }
 
         if (syncResult.source === 'cache') {
+          if (hasAnySyncData(syncResult)) {
+            setHasValidCachedSnapshot(true);
+          }
           // Solo aplicar caché si aún no se han recibido datos en vivo en esta sesión
           if (!hasLiveSyncRef.current) {
             applySyncResultToState(syncResult);
@@ -374,6 +384,33 @@ export default function App() {
     avisos.filter((a) => a.important || a.tipo?.toLowerCase().includes('urgente')).length ||
     posts.filter((p) => p.important || p.tag === 'Urgente').length;
 
+  // Sistema global de novedades y control de lectura independiente por dispositivo
+  const isUnreadDataReady =
+    configured &&
+    !isPendingConfig &&
+    (hasConfirmedLiveSync || (!isSyncing && hasValidCachedSnapshot));
+
+  const {
+    unreadCounts,
+    totalUnread,
+    unreadKeys,
+    firstUnreadSection,
+    showEntryBanner,
+    dismissEntryBanner,
+    markAsRead,
+  } = useUnreadContent({
+    snapshot: {
+      diario: posts,
+      avisos,
+      calendario: events,
+      multimedia,
+      aprendemos: resources,
+      recursos: homeResources,
+    },
+    isDataReady: isUnreadDataReady,
+    hasConfirmedLiveSync,
+  });
+
   const containerWidthClass = isMobileFrame ? 'max-w-2xl' : 'max-w-5xl';
 
   return (
@@ -391,6 +428,7 @@ export default function App() {
         onTabChange={(tab) => navigateToTab(tab, undefined, 'smooth')}
         pendingTasksCount={pendingHomeworkCount}
         urgentNoticesCount={urgentNoticesCount}
+        unreadCounts={unreadCounts}
       />
 
       {/* Área principal scrollable conservando <main> para scroll-to-top y pull-to-refresh */}
@@ -485,6 +523,20 @@ export default function App() {
               </div>
             )}
 
+          {/* Aviso discreto de novedades al entrar (máximo una vez por sesión) */}
+          {activeTab === 'inicio' && showEntryBanner && (
+            <NovedadesBanner
+              totalUnread={totalUnread}
+              unreadCounts={unreadCounts}
+              firstUnreadSection={firstUnreadSection}
+              onConsultSection={(section) => {
+                dismissEntryBanner();
+                handleNavigate(section);
+              }}
+              onDismiss={dismissEntryBanner}
+            />
+          )}
+
           {/* 1. Inicio */}
           {activeTab === 'inicio' && (
             <InicioTab
@@ -492,6 +544,7 @@ export default function App() {
               posts={posts}
               events={events}
               avisos={avisos}
+              unreadCounts={unreadCounts}
               onNavigate={handleNavigate}
               onRefresh={() => syncAllFromSheets(true)}
               isRefreshing={isSyncing}
@@ -507,6 +560,8 @@ export default function App() {
               isRefreshing={isSyncing}
               onRefresh={() => syncAllFromSheets(true)}
               config={config}
+              unreadKeys={unreadKeys}
+              onMarkAsRead={markAsRead}
             />
           )}
 
@@ -516,6 +571,8 @@ export default function App() {
               schedule={schedule}
               events={events}
               initialSubView="calendario"
+              unreadKeys={unreadKeys}
+              onMarkAsRead={markAsRead}
             />
           )}
 
@@ -533,6 +590,8 @@ export default function App() {
             <MultimediaTab
               config={config}
               items={multimedia}
+              unreadKeys={unreadKeys}
+              onMarkAsRead={markAsRead}
             />
           )}
 
@@ -540,6 +599,8 @@ export default function App() {
           {activeTab === 'aprendemos' && (
             <AprendemosTab
               resources={resources}
+              unreadKeys={unreadKeys}
+              onMarkAsRead={markAsRead}
             />
           )}
 
@@ -547,6 +608,8 @@ export default function App() {
           {activeTab === 'recursos' && (
             <RecursosTab
               resources={homeResources}
+              unreadKeys={unreadKeys}
+              onMarkAsRead={markAsRead}
             />
           )}
 
@@ -558,6 +621,8 @@ export default function App() {
               onSharePost={handleSharePost}
               isRefreshing={isSyncing}
               onRefresh={() => syncAllFromSheets(true)}
+              unreadKeys={unreadKeys}
+              onMarkAsRead={markAsRead}
             />
           )}
         </div>
@@ -569,6 +634,7 @@ export default function App() {
         onTabChange={(tab) => navigateToTab(tab, undefined, 'instant')}
         pendingTasksCount={pendingHomeworkCount}
         urgentNoticesCount={urgentNoticesCount}
+        unreadCounts={unreadCounts}
       />
 
       {/* Modal de instalación */}

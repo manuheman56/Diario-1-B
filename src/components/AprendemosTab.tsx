@@ -8,6 +8,8 @@ import {
 import { matchesNormalizedSearch } from '../utils/searchUtils';
 import { SectionHeader } from './SectionHeader';
 import { EmptyStateCard } from './EmptyStateCard';
+import { NewBadge, MarkAsReadButton } from './NewBadge';
+import { getPublicationKey } from '../utils/readStatusService';
 import {
   BookOpen,
   PenTool,
@@ -22,6 +24,8 @@ import {
 
 interface AprendemosTabProps {
   resources?: EducationalResource[];
+  unreadKeys?: ReadonlySet<string>;
+  onMarkAsRead?: (publicationKey: string) => void;
 }
 
 function getCategoryAccent(cat: AprendemosCategory) {
@@ -53,7 +57,11 @@ function getCategoryAccent(cat: AprendemosCategory) {
   }
 }
 
-export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
+export const AprendemosTab: React.FC<AprendemosTabProps> = ({
+  resources,
+  unreadKeys,
+  onMarkAsRead,
+}) => {
   const [activeCategory, setActiveCategory] = useState<'all' | AprendemosCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -287,6 +295,8 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
             const itemCategory = normalizeAprendemosCategory(res.categoria || res.category);
             const categoryLabel = APRENDEMOS_CATEGORY_LABELS[itemCategory];
             const accent = getCategoryAccent(itemCategory);
+            const itemKey = getPublicationKey('aprendemos', res);
+            const isUnread = Boolean(unreadKeys?.has(itemKey));
 
             return (
               <article
@@ -295,7 +305,7 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
               >
                 {/* Metadatos limpios sin píldoras */}
                 <div className="flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 truncate min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                     <span className={`font-bold ${accent.text}`}>{categoryLabel}</span>
                     <span aria-hidden="true" className="text-slate-300">
                       ·
@@ -303,6 +313,7 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
                     <span className="text-[#475569] font-medium truncate">
                       {res.badge || 'Contenido de Aula'}
                     </span>
+                    {isUnread && <NewBadge variant="violet" />}
                   </div>
                   <span className="text-xs text-[#475569] font-medium shrink-0">
                     {res.level}
@@ -342,18 +353,32 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({ resources }) => {
                   </div>
                 )}
 
-                {/* Enlace opcional a recurso complementario */}
-                {res.externalUrl && (
-                  <div className="pt-0.5">
-                    <a
-                      href={res.externalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`min-h-[44px] inline-flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl border diario-press ${accent.button}`}
-                    >
-                      <span>{res.externalLabel || 'Ver material del proyecto'}</span>
-                      <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                    </a>
+                {/* Enlace opcional a recurso complementario y lectura individual */}
+                {(res.externalUrl || isUnread) && (
+                  <div className="pt-0.5 flex items-center justify-between flex-wrap gap-2">
+                    {res.externalUrl ? (
+                      <a
+                        href={res.externalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => {
+                          if (isUnread) onMarkAsRead?.(itemKey);
+                        }}
+                        className={`min-h-[44px] inline-flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl border diario-press ${accent.button}`}
+                      >
+                        <span>{res.externalLabel || 'Ver material del proyecto'}</span>
+                        <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                      </a>
+                    ) : (
+                      <span />
+                    )}
+
+                    {isUnread && (
+                      <MarkAsReadButton
+                        compact
+                        onClick={() => onMarkAsRead?.(itemKey)}
+                      />
+                    )}
                   </div>
                 )}
               </article>

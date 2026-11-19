@@ -1,6 +1,9 @@
 import React from 'react';
 import { AppConfig, MultimediaItem } from '../types';
 import { SectionHeader } from './SectionHeader';
+import { FormattedText } from './FormattedText';
+import { NewBadge, MarkAsReadButton } from './NewBadge';
+import { getPublicationKey } from '../utils/readStatusService';
 import {
   ShieldCheck,
   Camera,
@@ -9,11 +12,15 @@ import {
   Palette,
   FolderOpen,
   Youtube,
+  Film,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface MultimediaTabProps {
   config?: AppConfig;
   items?: MultimediaItem[];
+  unreadKeys?: ReadonlySet<string>;
+  onMarkAsRead?: (publicationKey: string) => void;
 }
 
 interface DriveAlbumCard {
@@ -60,7 +67,11 @@ const DRIVE_ALBUMS: DriveAlbumCard[] = [
   },
 ];
 
-export const MultimediaTab: React.FC<MultimediaTabProps> = () => {
+export const MultimediaTab: React.FC<MultimediaTabProps> = ({
+  items = [],
+  unreadKeys,
+  onMarkAsRead,
+}) => {
   const handleOpenDriveFolder = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
@@ -80,6 +91,124 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = () => {
         icon={<Camera className="w-5 h-5" />}
         accent="indigo"
       />
+
+      {/* 1b. Bloque discreto de publicaciones recientes procedentes de Google Sheets */}
+      {items.length > 0 && (
+        <section
+          aria-labelledby="multimedia-recientes-heading"
+          className="diario-card rounded-3xl p-4 sm:p-5 space-y-3.5"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#EEF2FF] text-[#4338CA] border border-[#C7D2FE]/80 flex items-center justify-center shrink-0">
+              <Film className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h3
+                id="multimedia-recientes-heading"
+                className="font-display font-bold text-[#0F172A] text-base leading-snug"
+              >
+                Publicaciones recientes
+              </h3>
+              <p className="text-[13.5px] text-[#334155] leading-relaxed mt-0.5">
+                Últimas fotografías y vídeos compartidos desde el aula.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {items.map((item) => {
+              const itemKey = getPublicationKey('multimedia', item);
+              const isUnread = Boolean(unreadKeys?.has(itemKey));
+              const isVideo = item.tipo === 'VIDEO';
+
+              return (
+                <article
+                  key={item.id}
+                  className="rounded-2xl border border-[#E2E8F0] bg-[#F7F8FA]/70 p-3.5 sm:p-4 space-y-2.5"
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                      <span
+                        className={`inline-flex items-center gap-1.5 font-bold ${
+                          isVideo ? 'text-[#BE123C]' : 'text-[#4338CA]'
+                        }`}
+                      >
+                        {isVideo ? (
+                          <Film className="w-3.5 h-3.5" />
+                        ) : (
+                          <ImageIcon className="w-3.5 h-3.5" />
+                        )}
+                        <span>{isVideo ? 'Vídeo' : 'Fotografía'}</span>
+                      </span>
+                      {item.actividad_relacionada && (
+                        <>
+                          <span aria-hidden="true" className="text-slate-300">
+                            ·
+                          </span>
+                          <span className="text-[#475569] font-medium truncate">
+                            {item.actividad_relacionada}
+                          </span>
+                        </>
+                      )}
+                      {isUnread && (
+                        <NewBadge variant={isVideo ? 'coral' : 'indigo'} />
+                      )}
+                    </div>
+
+                    {item.fecha && (
+                      <span className="text-xs text-[#475569] font-medium tabular-nums shrink-0">
+                        {item.fecha}
+                      </span>
+                    )}
+                  </div>
+
+                  <h4 className="font-display font-bold text-[15px] text-[#0F172A] leading-snug">
+                    {item.titulo}
+                  </h4>
+
+                  {item.descripcion && (
+                    <FormattedText
+                      text={item.descripcion}
+                      size="sm"
+                      accent={isVideo ? 'coral' : 'indigo'}
+                    />
+                  )}
+
+                  <div className="pt-1 flex items-center justify-between flex-wrap gap-2">
+                    {item.url_media ? (
+                      <a
+                        href={item.url_media}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => {
+                          if (isUnread) onMarkAsRead?.(itemKey);
+                        }}
+                        className={`min-h-[40px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border diario-press ${
+                          isVideo
+                            ? 'bg-white hover:bg-[#FFF1F2] text-[#BE123C] border-[#FECDD3]'
+                            : 'bg-white hover:bg-[#EEF2FF] text-[#4338CA] border-[#C7D2FE]'
+                        }`}
+                      >
+                        <span>{isVideo ? 'Ver vídeo' : 'Abrir fotografía'}</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    ) : (
+                      <span />
+                    )}
+
+                    {isUnread && (
+                      <MarkAsReadButton
+                        compact
+                        onClick={() => onMarkAsRead?.(itemKey)}
+                      />
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* 2. Galería de fotografías - Tres carpetas en Google Drive */}
       <section
@@ -122,7 +251,7 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = () => {
                 <h4 className="font-display font-bold text-[15px] text-[#0F172A] mt-3 leading-snug">
                   {album.title}
                 </h4>
-                <p className="text-[13.5px] text-[#475569] leading-relaxed mt-1">
+                <p className="text-[13.5px] text-[#334155] leading-relaxed mt-1.5">
                   {album.description}
                 </p>
               </div>
@@ -174,7 +303,7 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = () => {
               <h4 className="font-display font-bold text-[15px] text-[#0F172A] leading-snug">
                 Canal «Las Hormiguitas de 1.º B»
               </h4>
-              <p className="text-[13.5px] text-[#475569] leading-relaxed mt-1">
+              <p className="text-[13.5px] text-[#334155] leading-relaxed mt-1.5">
                 Visita nuestro canal para ver vídeos de actividades, canciones y proyectos del aula.
               </p>
             </div>
@@ -192,13 +321,17 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = () => {
         <span className="w-10 h-10 rounded-xl bg-white border border-[#E2E8F0] flex items-center justify-center text-[#4338CA] shrink-0">
           <ShieldCheck className="w-5 h-5" />
         </span>
-        <div className="space-y-0.5">
+        <div className="space-y-1.5 min-w-0">
           <strong className="block font-display text-sm text-[#0F172A] font-bold">
             Aviso de privacidad y protección de datos
           </strong>
-          <p className="text-xs text-[#475569] leading-relaxed">
-            Este material audiovisual es de uso privado y exclusivo para el alumnado y familias de 1.º de Primaria B del C.E.I.P. Dr. Fleming. Queda prohibida su descarga o difusión en redes sociales personales.
-          </p>
+          <FormattedText
+            size="sm"
+            accent="indigo"
+            text={
+              'Este material audiovisual es de uso privado y exclusivo para el alumnado y familias de 1.º de Primaria B del C.E.I.P. Dr. Fleming.\nQueda prohibida su descarga o difusión en redes sociales personales.'
+            }
+          />
         </div>
       </footer>
     </div>

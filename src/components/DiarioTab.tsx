@@ -3,6 +3,9 @@ import { AppConfig, PostItem } from '../types';
 import { matchesNormalizedSearch } from '../utils/searchUtils';
 import { SectionHeader } from './SectionHeader';
 import { EmptyStateCard } from './EmptyStateCard';
+import { FormattedText } from './FormattedText';
+import { NewBadge, MarkAsReadButton } from './NewBadge';
+import { getPublicationKey } from '../utils/readStatusService';
 import {
   Search,
   Share2,
@@ -33,6 +36,8 @@ interface DiarioTabProps {
   isRefreshing?: boolean;
   onRefresh?: () => Promise<void> | void;
   config?: AppConfig;
+  unreadKeys?: ReadonlySet<string>;
+  onMarkAsRead?: (publicationKey: string) => void;
 }
 
 function getCategoryPresentation(categoria?: string, tag?: string) {
@@ -86,6 +91,8 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
   isRefreshing = false,
   onRefresh,
   config,
+  unreadKeys,
+  onMarkAsRead,
 }) => {
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -501,6 +508,8 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
             const isHomework = cat.includes('tarea') || cat.includes('deber');
             const isCompleted = post.completed ?? false;
             const catMeta = getCategoryPresentation(post.categoria, post.tag);
+            const itemKey = getPublicationKey('diario', post);
+            const isUnread = Boolean(unreadKeys?.has(itemKey));
 
             return (
               <article
@@ -520,6 +529,10 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                       {catMeta.icon}
                       <span>{catMeta.label}</span>
                     </span>
+
+                    {isUnread && (
+                      <NewBadge variant={post.important ? 'coral' : 'indigo'} />
+                    )}
 
                     {post.destacado && (
                       <>
@@ -575,9 +588,10 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                 )}
 
                 {/* Contenido */}
-                <p className="text-[14px] text-[#334155] leading-relaxed whitespace-pre-line">
-                  {post.content}
-                </p>
+                <FormattedText
+                  text={post.content}
+                  accent={post.important ? 'coral' : 'indigo'}
+                />
 
                 {/* Interacción de checklist para tareas */}
                 {isHomework && (
@@ -590,7 +604,10 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                   >
                     <button
                       type="button"
-                      onClick={() => handleTaskCheck(post.id, post.completed)}
+                      onClick={() => {
+                        handleTaskCheck(post.id, post.completed);
+                        if (isUnread) onMarkAsRead?.(itemKey);
+                      }}
                       className={`min-h-[40px] flex items-center gap-2 text-xs font-bold cursor-pointer ${
                         isCompleted ? 'text-[#0F766E]' : 'text-[#92400E]'
                       }`}
@@ -617,22 +634,33 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                   </div>
                 )}
 
-                {/* Pie con autor y compartir */}
-                <div className="pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between gap-2 text-xs text-[#475569]">
+                {/* Pie con autor, lectura individual y compartir */}
+                <div className="pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between flex-wrap gap-2 text-xs text-[#475569]">
                   <span className="flex items-center gap-1.5 font-medium truncate min-w-0">
                     <UserCheck className="w-4 h-4 text-[#4338CA] shrink-0" />
                     <span className="truncate">{post.author}</span>
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() => onSharePost(post)}
-                    className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#4338CA] hover:bg-[#EEF2FF] flex items-center gap-1.5 cursor-pointer shrink-0 diario-press"
-                    title="Compartir o copiar aviso"
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span>Compartir</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                    {isUnread && (
+                      <MarkAsReadButton
+                        compact
+                        onClick={() => onMarkAsRead?.(itemKey)}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isUnread) onMarkAsRead?.(itemKey);
+                        onSharePost(post);
+                      }}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#4338CA] hover:bg-[#EEF2FF] flex items-center gap-1.5 cursor-pointer shrink-0 diario-press"
+                      title="Compartir o copiar aviso"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Compartir</span>
+                    </button>
+                  </div>
                 </div>
               </article>
             );

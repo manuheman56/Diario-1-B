@@ -1,5 +1,6 @@
 import React from 'react';
 import { AppConfig, MainTabType } from '../types';
+import { UnreadCountsBySection } from '../utils/readStatusService';
 import {
   Smartphone,
   Monitor,
@@ -23,6 +24,7 @@ interface HeaderProps {
   onTabChange?: (tab: MainTabType) => void;
   pendingTasksCount?: number;
   urgentNoticesCount?: number;
+  unreadCounts?: UnreadCountsBySection;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,9 +34,15 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleFrame,
   activeTab = 'inicio',
   onTabChange,
-  pendingTasksCount = 0,
-  urgentNoticesCount = 0,
+  unreadCounts,
 }) => {
+  const diarioUnread = unreadCounts?.diario ?? 0;
+  const calendarioUnread = unreadCounts?.calendario ?? 0;
+  const multimediaUnread = unreadCounts?.multimedia ?? 0;
+  const aprendemosUnread = unreadCounts?.aprendemos ?? 0;
+  const recursosUnread = unreadCounts?.recursos ?? 0;
+  const avisosUnread = unreadCounts?.avisos ?? 0;
+
   const allSections: {
     id: MainTabType;
     label: string;
@@ -47,19 +55,43 @@ export const Header: React.FC<HeaderProps> = ({
       id: 'diario',
       label: 'Día a Día',
       icon: <BookOpen className="w-4 h-4" strokeWidth={1.9} />,
-      badge: pendingTasksCount > 0 ? pendingTasksCount : undefined,
+      badge: diarioUnread > 0 ? diarioUnread : undefined,
+      badgeTone: 'bg-[#EEF2FF] text-[#4338CA] border border-[#C7D2FE]',
+    },
+    {
+      id: 'calendario',
+      label: 'Calendario',
+      icon: <Calendar className="w-4 h-4" strokeWidth={1.9} />,
+      badge: calendarioUnread > 0 ? calendarioUnread : undefined,
       badgeTone: 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]',
     },
-    { id: 'calendario', label: 'Calendario', icon: <Calendar className="w-4 h-4" strokeWidth={1.9} /> },
     { id: 'horario', label: 'Horario', icon: <Clock className="w-4 h-4" strokeWidth={1.9} /> },
-    { id: 'multimedia', label: 'Fotos y Vídeos', icon: <Film className="w-4 h-4" strokeWidth={1.9} /> },
-    { id: 'aprendemos', label: 'Aprendemos', icon: <School className="w-4 h-4" strokeWidth={1.9} /> },
-    { id: 'recursos', label: 'Recursos', icon: <GraduationCap className="w-4 h-4" strokeWidth={1.9} /> },
+    {
+      id: 'multimedia',
+      label: 'Fotos y Vídeos',
+      icon: <Film className="w-4 h-4" strokeWidth={1.9} />,
+      badge: multimediaUnread > 0 ? multimediaUnread : undefined,
+      badgeTone: 'bg-[#EEF2FF] text-[#4338CA] border border-[#C7D2FE]',
+    },
+    {
+      id: 'aprendemos',
+      label: 'Aprendemos',
+      icon: <School className="w-4 h-4" strokeWidth={1.9} />,
+      badge: aprendemosUnread > 0 ? aprendemosUnread : undefined,
+      badgeTone: 'bg-[#F5F3FF] text-[#6D28D9] border border-[#DDD6FE]',
+    },
+    {
+      id: 'recursos',
+      label: 'Recursos',
+      icon: <GraduationCap className="w-4 h-4" strokeWidth={1.9} />,
+      badge: recursosUnread > 0 ? recursosUnread : undefined,
+      badgeTone: 'bg-[#F0FDFA] text-[#0F766E] border border-[#99F6E4]',
+    },
     {
       id: 'avisos',
       label: 'Avisos',
       icon: <Bell className="w-4 h-4" strokeWidth={1.9} />,
-      badge: urgentNoticesCount > 0 ? urgentNoticesCount : undefined,
+      badge: avisosUnread > 0 ? avisosUnread : undefined,
       badgeTone: 'bg-[#FFF1F2] text-[#BE123C] border border-[#FECDD3]',
     },
   ];

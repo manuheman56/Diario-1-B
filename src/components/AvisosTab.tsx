@@ -3,6 +3,9 @@ import { AvisoItem, Notice } from '../types';
 import { matchesNormalizedSearch } from '../utils/searchUtils';
 import { SectionHeader } from './SectionHeader';
 import { EmptyStateCard } from './EmptyStateCard';
+import { FormattedText } from './FormattedText';
+import { NewBadge, MarkAsReadButton } from './NewBadge';
+import { getPublicationKey } from '../utils/readStatusService';
 import {
   Bell,
   Search,
@@ -23,12 +26,16 @@ interface AvisosTabProps {
   onSharePost: (item: { title: string; content: string }) => void;
   isRefreshing?: boolean;
   onRefresh?: () => Promise<void> | void;
+  unreadKeys?: ReadonlySet<string>;
+  onMarkAsRead?: (publicationKey: string) => void;
 }
 
 export const AvisosTab: React.FC<AvisosTabProps> = ({
   avisos,
   posts = [],
   onSharePost,
+  unreadKeys,
+  onMarkAsRead,
 }) => {
   const [filter, setFilter] = useState<'all' | 'urgente' | 'general' | 'actividad'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,6 +46,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
     avisos && avisos.length > 0
       ? avisos.map((a) => ({
           id: a.id,
+          publicationKey: getPublicationKey('avisos', a),
           title: a.titulo,
           content: a.mensaje,
           date: a.fecha_publicacion,
@@ -56,6 +64,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
           })
           .map((p) => ({
             id: p.id,
+            publicationKey: getPublicationKey('diario', p),
             title: p.title,
             content: p.content,
             date: p.date,
@@ -241,6 +250,7 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
         ) : (
           filteredNotices.map((post) => {
             const isUrgent = post.important;
+            const isUnread = Boolean(unreadKeys?.has(post.publicationKey));
 
             return (
               <article
@@ -265,6 +275,9 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
                         <span>{post.tag}</span>
                       </span>
                     )}
+                    {isUnread && (
+                      <NewBadge variant={isUrgent ? 'coral' : 'indigo'} />
+                    )}
                   </div>
 
                   <span className="text-xs text-[#475569] font-medium tabular-nums">
@@ -286,9 +299,10 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
                 )}
 
                 {/* Contenido */}
-                <p className="text-[14px] text-[#334155] leading-relaxed whitespace-pre-line">
-                  {post.content}
-                </p>
+                <FormattedText
+                  text={post.content}
+                  accent={isUrgent ? 'coral' : 'indigo'}
+                />
 
                 {/* Enlace externo opcional */}
                 {post.link && (
@@ -297,6 +311,9 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
                       href={post.link}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => {
+                        if (isUnread) onMarkAsRead?.(post.publicationKey);
+                      }}
                       className="min-h-[44px] inline-flex items-center gap-2 text-xs font-bold text-[#BE123C] bg-white hover:bg-[#FFF1F2] px-4 py-2 rounded-xl border border-[#FECDD3] diario-press"
                     >
                       <span>Abrir enlace o documento</span>
@@ -305,22 +322,33 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
                   </div>
                 )}
 
-                {/* Pie con autor y compartir */}
-                <div className="pt-2.5 border-t border-[#E2E8F0]/70 flex items-center justify-between gap-2 text-xs text-[#475569]">
+                {/* Pie con autor, lectura individual y compartir */}
+                <div className="pt-2.5 border-t border-[#E2E8F0]/70 flex items-center justify-between flex-wrap gap-2 text-xs text-[#475569]">
                   <span className="flex items-center gap-1.5 font-medium truncate min-w-0">
                     <UserCheck className="w-4 h-4 text-[#E11D48] shrink-0" />
                     <span className="truncate">{post.author}</span>
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() => onSharePost({ title: post.title, content: post.content })}
-                    className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#BE123C] hover:bg-white flex items-center gap-1.5 cursor-pointer shrink-0 diario-press"
-                    title="Compartir o copiar comunicado"
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span>Compartir</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                    {isUnread && (
+                      <MarkAsReadButton
+                        compact
+                        onClick={() => onMarkAsRead?.(post.publicationKey)}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isUnread) onMarkAsRead?.(post.publicationKey);
+                        onSharePost({ title: post.title, content: post.content });
+                      }}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#BE123C] hover:bg-white flex items-center gap-1.5 cursor-pointer shrink-0 diario-press"
+                      title="Compartir o copiar comunicado"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Compartir</span>
+                    </button>
+                  </div>
                 </div>
               </article>
             );

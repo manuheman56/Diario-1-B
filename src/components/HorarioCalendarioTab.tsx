@@ -2,6 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { CalendarEvent, DayOfWeek, ScheduleItem } from '../types';
 import { getUpcomingCalendarEvents } from '../utils/eventUtils';
 import { SectionHeader } from './SectionHeader';
+import { FormattedText } from './FormattedText';
+import { NewBadge, MarkAsReadButton } from './NewBadge';
+import { toReadablePreviewText } from '../utils/textFormatUtils';
+import { getPublicationKey } from '../utils/readStatusService';
 import {
   Clock,
   CalendarDays,
@@ -23,6 +27,8 @@ interface HorarioCalendarioTabProps {
   schedule: Record<DayOfWeek, ScheduleItem[]>;
   events: CalendarEvent[];
   initialSubView?: 'horario' | 'calendario';
+  unreadKeys?: ReadonlySet<string>;
+  onMarkAsRead?: (publicationKey: string) => void;
 }
 
 const DAYS: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -244,6 +250,8 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
   schedule,
   events,
   initialSubView = 'horario',
+  unreadKeys,
+  onMarkAsRead,
 }) => {
   const [subView, setSubView] = useState<'horario' | 'calendario'>(initialSubView);
 
@@ -648,6 +656,9 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                   doesEventFallOnDate(ev, day, currentMonthIndex, currentYear)
                 );
                 const dayEvent = dayEvents[0];
+                const hasUnreadOnDay = dayEvents.some((ev) =>
+                  Boolean(unreadKeys?.has(getPublicationKey('calendario', ev)))
+                );
                 const evStyle = dayEvent
                   ? getEventTypePresentation(dayEvent.type)
                   : null;
@@ -680,10 +691,20 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                     key={`day-${currentYear}-${currentMonthIndex}-${day}`}
                     type="button"
                     onClick={() => setSelectedCalendarDay(day)}
-                    aria-label={`${day} de ${MONTH_NAMES[currentMonthIndex]} de ${currentYear}${isToday ? ', hoy' : ''}`}
+                    aria-label={`${day} de ${MONTH_NAMES[currentMonthIndex]} de ${currentYear}${isToday ? ', hoy' : ''}${hasUnreadOnDay ? ', contiene novedades' : ''}`}
                     aria-pressed={isSelected}
                     className={cellClass}
                   >
+                    {hasUnreadOnDay && (
+                      <span
+                        aria-hidden="true"
+                        className={`absolute top-1 right-1 w-2 h-2 rounded-full ring-2 ${
+                          isSelected
+                            ? 'bg-amber-300 ring-[#4338CA]'
+                            : 'bg-[#D97706] ring-white'
+                        }`}
+                      />
+                    )}
                     <span className="leading-none">{day}</span>
                     {dayEvent ? (
                       <span className={`w-1.5 h-1.5 rounded-full mt-1 ${dotColor}`} />
@@ -721,16 +742,21 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                       const evStyle = getEventTypePresentation(ev.type);
                       const isMultiDay =
                         Boolean(ev.fecha_fin) && ev.fecha_fin !== ev.fecha_inicio;
+                      const evKey = getPublicationKey('calendario', ev);
+                      const isUnread = Boolean(unreadKeys?.has(evKey));
 
                       return (
                         <div
                           key={ev.id}
-                          className="p-3.5 bg-white rounded-2xl border border-[#E2E8F0] space-y-1.5 shadow-xs"
+                          className="p-3.5 bg-white rounded-2xl border border-[#E2E8F0] space-y-2 shadow-xs"
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <span className="font-display font-bold text-sm text-[#0F172A] leading-snug">
-                              {ev.title}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                              <span className="font-display font-bold text-sm text-[#0F172A] leading-snug">
+                                {ev.title}
+                              </span>
+                              {isUnread && <NewBadge variant="amber" />}
+                            </div>
                             <span
                               className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border shrink-0 ${evStyle.badge}`}
                             >
@@ -745,9 +771,11 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                           )}
 
                           {ev.description && (
-                            <p className="text-xs text-[#334155] leading-relaxed">
-                              {ev.description}
-                            </p>
+                            <FormattedText
+                              text={ev.description}
+                              size="sm"
+                              accent="amber"
+                            />
                           )}
 
                           {(ev.time || ev.lugar) && (
@@ -759,6 +787,15 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                                   <span>{ev.lugar}</span>
                                 </span>
                               )}
+                            </div>
+                          )}
+
+                          {isUnread && (
+                            <div className="pt-1 flex justify-end">
+                              <MarkAsReadButton
+                                compact
+                                onClick={() => onMarkAsRead?.(evKey)}
+                              />
                             </div>
                           )}
                         </div>
@@ -792,6 +829,8 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                     const evStyle = getEventTypePresentation(ev.type);
                     const isMultiDay =
                       Boolean(ev.fecha_fin) && ev.fecha_fin !== ev.fecha_inicio;
+                    const evKey = getPublicationKey('calendario', ev);
+                    const isUnread = Boolean(unreadKeys?.has(evKey));
 
                     return (
                       <button
@@ -801,6 +840,7 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                           setCurrentYear(ev.year);
                           setCurrentMonthIndex(ev.month);
                           setSelectedCalendarDay(ev.day);
+                          if (isUnread) onMarkAsRead?.(evKey);
                         }}
                         className="w-full text-left diario-card-interactive diario-press p-3.5 rounded-2xl flex items-center gap-3.5 cursor-pointer"
                       >
@@ -817,9 +857,12 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <h5 className="font-display font-bold text-sm text-[#0F172A] truncate">
-                              {ev.title}
-                            </h5>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <h5 className="font-display font-bold text-sm text-[#0F172A] truncate">
+                                {ev.title}
+                              </h5>
+                              {isUnread && <NewBadge variant="amber" />}
+                            </div>
                             <span
                               className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border shrink-0 ${evStyle.badge}`}
                             >
@@ -831,9 +874,11 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                               Del {ev.fecha_inicio} al {ev.fecha_fin}
                             </p>
                           )}
-                          <p className="text-xs text-[#475569] leading-snug line-clamp-2 mt-0.5">
-                            {ev.description}
-                          </p>
+                          {ev.description && (
+                            <p className="text-xs text-[#475569] leading-relaxed line-clamp-2 mt-0.5">
+                              {toReadablePreviewText(ev.description)}
+                            </p>
+                          )}
                         </div>
                       </button>
                     );
