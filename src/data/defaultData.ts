@@ -20,10 +20,10 @@ export const YOUTUBE_AUTHORIZED_VIDEO_OR_PLAYLIST = 'PEGA_AQUÍ_LA_URL_O_ID_AUTO
 
 export const initialConfig: AppConfig = {
   classTitle: '1.º de Primaria B',
-  schoolName: 'C.E.I.P. Dr. Fleming',
+  schoolName: 'El Diario del Aula – 1.º B',
   teacherName: 'Manuel Herrera',
   schoolYear: 'Curso 2026/27',
-  welcomeMessage: '¡Bienvenidos al portal de 1.º B! Aquí encontraréis el día a día del aula, avisos escolares y recursos para aprender juntos en familia.',
+  welcomeMessage: '¡Bienvenidos a El Diario del Aula – 1.º B! Un espacio personal de tutoría para compartir el día a día del aula, avisos y recursos en familia.',
   timezone: 'Europe/Madrid',
   language: 'es',
   driveFolderUrl: GOOGLE_DRIVE_FOLDER_URL,
@@ -168,7 +168,7 @@ export const schoolEvents: CalendarEvent[] = [
     month: 11, // Dic
     year: 2026,
     title: 'Día de la Constitución Española',
-    description: 'Festivo nacional (colegio cerrado).',
+    description: 'Festivo nacional (día no lectivo).',
     type: 'festivo'
   },
   {
@@ -177,7 +177,7 @@ export const schoolEvents: CalendarEvent[] = [
     month: 11,
     year: 2026,
     title: 'Día de la Inmaculada Concepción',
-    description: 'Festivo nacional (colegio cerrado).',
+    description: 'Festivo nacional (día no lectivo).',
     type: 'festivo'
   },
   {

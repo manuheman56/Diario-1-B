@@ -163,8 +163,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     },
     {
       id: 'avisos',
-      label: 'Avisos y circulares',
-      subtitle: 'Comunicaciones oficiales y fechas límite',
+      label: 'Avisos y notas',
+      subtitle: 'Recordatorios, avisos de tutoría y fechas límite',
       icon: <Bell className="w-5 h-5" strokeWidth={1.9} />,
       iconBg: 'bg-[#FFF1F2] text-[#E11D48] border border-rose-200/80',
       badge: avisosUnread > 0 ? avisosUnread : undefined,

@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "El Diario del Aula - 1.º B | C.E.I.P. Dr. Fleming",
+  "name": "El Diario del Aula – 1.º B",
   "short_name": "Diario 1º B",
-  "description": "El Diario del Aula de 1.º de Primaria B del C.E.I.P. Dr. Fleming. Información diaria, avisos, horario, calendario escolar, multimedia y recursos pedagógicos para las familias.",
+  "description": "El Diario del Aula – 1.º B. Diario digital de aula y espacio de tutoría para las familias con novedades, avisos, horario, calendario, multimedia y recursos educativos.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

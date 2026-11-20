@@ -304,7 +304,7 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
         eyebrow="Cuaderno de Aula"
         metaRight={capitalizedDate}
         title="Novedades y Diario de Clase"
-        description="Consulta los avisos del colegio, actividades realizadas y tareas pendientes para hacer en familia."
+        description="Consulta las novedades del aula, actividades realizadas y tareas pendientes para hacer en familia."
         icon={<BookOpen className="w-5 h-5" />}
         accent="indigo"
         actions={
@@ -668,20 +668,20 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
         )}
       </div>
 
-      {/* 6. Pie informativo del centro */}
+      {/* 6. Pie informativo de tutoría */}
       {config && (
         <footer className="mt-4 bg-[#F1F5F9] border border-[#E2E8F0] rounded-3xl p-4 text-xs space-y-1.5 text-[#334155]">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="font-bold text-[#0F172A] flex items-center gap-1.5">
               <School className="w-4 h-4 text-[#4338CA]" />
-              {config.schoolName}
+              El Diario del Aula – 1.º B
             </span>
             <span className="text-xs text-[#475569] font-medium">
               Tutoría: <strong className="text-[#0F172A]">{config.teacherName}</strong>
             </span>
           </div>
           <p className="text-xs text-[#475569] pt-1.5 border-t border-[#E2E8F0]">
-            Comunicaciones del centro, ausencias y gestiones oficiales canalizadas vía Séneca / iPasen.
+            Diario digital de aula y herramienta personal de tutoría para el seguimiento diario del grupo.
           </p>
         </footer>
       )}

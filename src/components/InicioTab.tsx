@@ -392,16 +392,16 @@ export const InicioTab: React.FC<InicioTabProps> = ({
               <span aria-hidden="true" className="text-slate-300">
                 ·
               </span>
-              <span className="truncate">{config.schoolName}</span>
+              <span className="truncate">Espacio personal de tutoría</span>
             </div>
           </div>
 
-          {/* Ilustración oficial de portada del aula 1.º B */}
+          {/* Ilustración de portada del aula 1.º B */}
           <div className="w-full sm:w-64 md:w-72 lg:w-80 shrink-0">
             {!coverImgError ? (
               <img
                 src="/portada-aula-1b.png"
-                alt="El Diario del Aula 1.º B: hormiguita oficial junto a la pizarra del aula"
+                alt="El Diario del Aula 1.º B: hormiguita junto a la pizarra del aula"
                 referrerPolicy="no-referrer"
                 onError={() => setCoverImgError(true)}
                 className="w-full h-auto object-contain rounded-2xl border border-[#E2E8F0] block"
@@ -676,13 +676,13 @@ export const InicioTab: React.FC<InicioTabProps> = ({
         </section>
       </div>
 
-      {/* Pie institucional limpio */}
+      {/* Pie informativo de tutoría */}
       <footer className="pt-4 border-t border-[#E2E8F0] text-center space-y-1">
         <p className="text-xs font-semibold text-[#0F172A]">
-          {config.schoolName} · {config.classTitle}
+          El Diario del Aula – 1.º B · {config.classTitle}
         </p>
         <p className="text-xs text-[#475569]">
-          Comunicaciones y avisos oficiales canalizados mediante Séneca e iPasen.
+          Espacio personal de tutoría para el seguimiento y la comunicación con las familias.
         </p>
       </footer>
     </div>

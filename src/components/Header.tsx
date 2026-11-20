@@ -118,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </h1>
               </div>
               <p className="text-xs text-[#475569] font-medium truncate leading-tight">
-                {config.schoolName}
+                <span>El Diario del Aula</span>
                 <span aria-hidden="true" className="mx-1.5 text-slate-300">·</span>
                 <span>{config.schoolYear || 'Curso 2026/27'}</span>
               </p>

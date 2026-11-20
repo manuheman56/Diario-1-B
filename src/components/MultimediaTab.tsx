@@ -329,7 +329,7 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({
             size="sm"
             accent="indigo"
             text={
-              'Este material audiovisual es de uso privado y exclusivo para el alumnado y familias de 1.º de Primaria B del C.E.I.P. Dr. Fleming.\nQueda prohibida su descarga o difusión en redes sociales personales.'
+              'Este material audiovisual es de uso privado y exclusivo para el alumnado y las familias de 1.º de Primaria B.\nQueda prohibida su descarga o difusión en redes sociales personales.'
             }
           />
         </div>

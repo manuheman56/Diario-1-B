@@ -353,7 +353,7 @@ export default function App() {
   };
 
   const handleSharePost = (item: { title: string; content: string }) => {
-    const textToShare = `${item.title}\n\n${item.content}\n\n— Publicado en ${config.classTitle} (${config.schoolName})`;
+    const textToShare = `${item.title}\n\n${item.content}\n\n— Publicado en El Diario del Aula – 1.º B (${config.classTitle})`;
     if (navigator.share) {
       navigator
         .share({
@@ -460,7 +460,7 @@ export default function App() {
                   Conexión segura pendiente de configuración
                 </h4>
                 <p className="text-[13.5px] text-[#334155] leading-relaxed">
-                  La hoja de cálculo oficial de don Manuel Herrera permanece{' '}
+                  La hoja de cálculo privada de tutoría permanece{' '}
                   <strong>100% privada y protegida</strong>. El canal de lectura para las
                   familias se activará al configurar la variable{' '}
                   <code className="font-mono font-semibold bg-[#FEF3C7] text-[#92400E] px-1.5 py-0.5 rounded text-xs">

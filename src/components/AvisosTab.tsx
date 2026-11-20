@@ -114,8 +114,8 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
             ? `${urgentCount} urgente${urgentCount > 1 ? 's' : ''}`
             : 'Al día'
         }
-        title="Avisos y Circulares del Aula"
-        description="Comunicaciones del colegio, notas informativas, recordatorios y circulares oficiales de 1.º B."
+        title="Avisos y Notas del Aula"
+        description="Notas informativas, recordatorios y comunicaciones de tutoría para las familias de 1.º B."
         icon={<Bell className="w-5 h-5" />}
         accent="coral"
         actions={
