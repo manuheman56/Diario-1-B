@@ -265,30 +265,101 @@ export function normalizeAprendemosCategory(rawCat: unknown): AprendemosCategory
   return 'lectura';
 }
 
+const MADRID_TZ = 'Europe/Madrid';
+
+function formatDateInMadrid(date: Date): string {
+  if (Number.isNaN(date.getTime())) return '';
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: MADRID_TZ,
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).formatToParts(date);
+    const d = parts.find((p) => p.type === 'day')?.value;
+    const m = parts.find((p) => p.type === 'month')?.value;
+    const y = parts.find((p) => p.type === 'year')?.value;
+    if (d && m && y) {
+      return `${d}/${m}/${y}`;
+    }
+  } catch {
+    // Fallback seguro si Intl con timeZone no estuviera disponible
+  }
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = String(date.getFullYear());
+  return `${d}/${m}/${y}`;
+}
+
 /**
- * Formatea fechas a DD/MM/AAAA evitando desfases por huso horario UTC
+ * Formatea fechas a DD/MM/AAAA respetando la zona horaria Europe/Madrid
+ * y evitando desplazamientos por conversiones UTC.
  */
-export function formatSpanishDate(rawDate: string): string {
-  if (!rawDate) return '';
-  const trimmed = rawDate.trim();
+export function formatSpanishDate(rawDate: string | Date | number | null | undefined): string {
+  if (rawDate === null || rawDate === undefined || rawDate === '') return '';
 
-  // Si ya viene como "DD/MM/AAAA"
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed)) {
-    const [d, m, y] = trimmed.split('/');
+  if (rawDate instanceof Date) {
+    return formatDateInMadrid(rawDate);
+  }
+
+  // Número de serie de Google Sheets / Excel (época 30/12/1899)
+  if (typeof rawDate === 'number' && Number.isFinite(rawDate) && rawDate > 20000 && rawDate < 100000) {
+    const wholeDays = Math.floor(rawDate);
+    const utcDate = new Date(Date.UTC(1899, 11, 30 + wholeDays));
+    const d = String(utcDate.getUTCDate()).padStart(2, '0');
+    const m = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+    const y = String(utcDate.getUTCFullYear());
+    return `${d}/${m}/${y}`;
+  }
+
+  const trimmed = String(rawDate)
+    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ')
+    .trim();
+  if (!trimmed) return '';
+
+  // Si ya viene como "DD/MM/AAAA" o "DD/MM/AAAA HH:mm(:ss)?" (ej. Utilities.formatDate de Apps Script)
+  const dmySlash = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/);
+  if (dmySlash) {
+    const [, d, m, y] = dmySlash;
     return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
   }
 
-  // Si viene como formato ISO "AAAA-MM-DD..."
-  if (/^\d{4}-\d{1,2}-\d{1,2}/.test(trimmed)) {
-    const datePart = trimmed.split('T')[0];
-    const [y, m, d] = datePart.split('-');
+  // Si viene como "DD-MM-AAAA" o "DD.MM.AAAA" (con o sin hora)
+  const dmyDashDot = trimmed.match(/^(\d{1,2})[-.](\d{1,2})[-.](\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/);
+  if (dmyDashDot) {
+    const [, d, m, y] = dmyDashDot;
     return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
   }
 
-  // Si viene como "DD-MM-AAAA"
-  if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(trimmed)) {
-    const [d, m, y] = trimmed.split('-');
+  // Si viene como "DD/MM/AA" (año en 2 dígitos)
+  const dmyShort = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+  if (dmyShort) {
+    const [, d, m, yy] = dmyShort;
+    const year = 2000 + parseInt(yy, 10);
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${year}`;
+  }
+
+  // Si viene como ISO con zona horaria explícita (Z o ±HH:MM), convertir al día real en Europe/Madrid
+  if (/^\d{4}-\d{1,2}-\d{1,2}[T\s]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/i.test(trimmed)) {
+    const parsedInstant = new Date(trimmed);
+    if (!Number.isNaN(parsedInstant.getTime())) {
+      return formatDateInMadrid(parsedInstant);
+    }
+  }
+
+  // Si viene como fecha ISO pura "AAAA-MM-DD" o ISO local sin zona horaria "AAAA-MM-DDTHH:mm(:ss)"
+  const isoLocal = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?$/);
+  if (isoLocal) {
+    const [, y, m, d] = isoLocal;
     return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+  }
+
+  // Si viene como cadena Date de JavaScript (ej. "Mon Nov 30 2026 00:00:00 GMT+0100 ...")
+  if (/^[A-Za-z]{3}\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{4}/.test(trimmed)) {
+    const parsedJsDate = new Date(trimmed);
+    if (!Number.isNaN(parsedJsDate.getTime())) {
+      return formatDateInMadrid(parsedJsDate);
+    }
   }
 
   return trimmed;
@@ -571,11 +642,52 @@ export function sortRecursosItems(items: HomeLearningResource[]): HomeLearningRe
   );
 }
 
+export function normalizeCalendarEvents(items: CalendarEvent[]): CalendarEvent[] {
+  return items
+    .map((ev): CalendarEvent | null => {
+      // La fecha del evento en el calendario se determina EXCLUSIVAMENTE desde fecha_inicio
+      const formattedStart = ev.fecha_inicio ? formatSpanishDate(ev.fecha_inicio) : '';
+      const parsedStart = formattedStart ? parseCalendarDateParts(formattedStart) : null;
+
+      if (ev.fecha_inicio && !parsedStart) {
+        return null;
+      }
+
+      const day = parsedStart ? parsedStart.day : ev.day;
+      const month = parsedStart ? parsedStart.month : ev.month;
+      const year = parsedStart ? parsedStart.year : ev.year;
+      const startCode = year * 10000 + (month + 1) * 100 + day;
+
+      const formattedEnd = ev.fecha_fin ? formatSpanishDate(ev.fecha_fin) : '';
+      const parsedEnd = formattedEnd ? parseCalendarDateParts(formattedEnd) : null;
+      const endCode = parsedEnd
+        ? parsedEnd.year * 10000 + (parsedEnd.month + 1) * 100 + parsedEnd.day
+        : null;
+      const validEnd = parsedEnd && endCode !== null && endCode >= startCode ? formattedEnd : undefined;
+
+      const fechaInicioFinal =
+        parsedStart
+          ? formattedStart
+          : `${String(day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}`;
+
+      return {
+        ...ev,
+        fecha_inicio: fechaInicioFinal,
+        fecha_fin: validEnd,
+        day,
+        month,
+        year,
+      };
+    })
+    .filter((ev): ev is CalendarEvent => ev !== null);
+}
+
 function sortSyncResultPublications(result: SyncResult): SyncResult {
   return {
     ...result,
     posts: Array.isArray(result.posts) ? sortDiaADiaItems(result.posts) : [],
     avisos: Array.isArray(result.avisos) ? sortAvisosItems(result.avisos) : [],
+    events: Array.isArray(result.events) ? normalizeCalendarEvents(result.events) : [],
     multimedia: Array.isArray(result.multimedia) ? sortMultimediaItems(result.multimedia) : [],
     aprendemos: Array.isArray(result.aprendemos) ? sortAprendemosItems(result.aprendemos) : [],
     recursos: Array.isArray(result.recursos) ? sortRecursosItems(result.recursos) : [],
@@ -836,8 +948,13 @@ export function parseCalendarioRows(rows: string[][]): CalendarEvent[] {
 
   const headers = rows[0].map(normalizeHeader);
   const colId = headers.findIndex((h) => h === 'id' || h.includes('identifica'));
-  const colFIni = headers.findIndex((h) => h === 'fecha_inicio' || h.includes('inicio') || (h.includes('fecha') && !h.includes('fin')));
-  const colFFin = headers.findIndex((h) => h === 'fecha_fin' || h.includes('fin'));
+  // Utilizar EXCLUSIVAMENTE la columna fecha_inicio (nunca fechas de creación, publicación o actualización)
+  const colFIni = headers.findIndex(
+    (h) => h === 'fecha_inicio' || h === 'fechainicio'
+  );
+  const colFFin = headers.findIndex(
+    (h) => h === 'fecha_fin' || h === 'fechafin'
+  );
   const colHIni = headers.findIndex((h) => h === 'hora_inicio' || (h.includes('hora') && !h.includes('fin')));
   const colHFin = headers.findIndex((h) => h === 'hora_fin' || (h.includes('hora') && h.includes('fin')));
   const colTitulo = headers.findIndex((h) => h === 'titulo' || h.includes('titulo') || h === 'evento' || h === 'title');
@@ -847,6 +964,8 @@ export function parseCalendarioRows(rows: string[][]): CalendarEvent[] {
   const colDestacado = headers.findIndex((h) => h === 'destacado' || h.includes('destacado'));
   const colEstado = headers.findIndex((h) => h === 'estado' || h.includes('estado'));
   const colOrden = headers.findIndex((h) => h === 'orden' || h.includes('orden'));
+
+  if (colFIni === -1) return [];
 
   const events: CalendarEvent[] = [];
 
@@ -860,16 +979,16 @@ export function parseCalendarioRows(rows: string[][]): CalendarEvent[] {
     if (estado !== 'PUBLICAR') continue;
 
     const id = colId !== -1 && row[colId] ? row[colId] : `cal-${i}`;
-    const rawFIni = colFIni !== -1 ? row[colFIni] : '';
+    const rawFIni = row[colFIni] ?? '';
     const rawFFin = colFFin !== -1 ? row[colFFin] : '';
     const fIni = formatSpanishDate(rawFIni);
     const fFinRaw = formatSpanishDate(rawFFin);
     const hIni = colHIni !== -1 ? formatSpanishTime(row[colHIni]) : '';
     const hFin = colHFin !== -1 ? formatSpanishTime(row[colHFin]) : '';
-    const titulo = colTitulo !== -1 ? row[colTitulo] || '' : '';
-    const descripcion = colDesc !== -1 ? row[colDesc] || '' : '';
-    const rawCat = colCat !== -1 ? row[colCat] || 'lectivo' : 'lectivo';
-    const lugar = colLugar !== -1 ? row[colLugar] || undefined : undefined;
+    const titulo = colTitulo !== -1 ? (row[colTitulo] || '').trim() : '';
+    const descripcion = colDesc !== -1 ? (row[colDesc] || '').trim() : '';
+    const rawCat = colCat !== -1 && row[colCat] ? row[colCat].trim() : 'lectivo';
+    const lugar = colLugar !== -1 && row[colLugar] ? row[colLugar].trim() : undefined;
     const destacado = colDestacado !== -1 ? parseDestacado(row[colDestacado]) : false;
     const orden = colOrden !== -1 ? parseFloat(row[colOrden]) || i : i;
 
@@ -878,10 +997,14 @@ export function parseCalendarioRows(rows: string[][]): CalendarEvent[] {
     if (!titulo && !descripcion) continue;
 
     const { day, month, year } = parsedStart;
+    const startCode = year * 10000 + (month + 1) * 100 + day;
     const parsedEnd = fFinRaw ? parseCalendarDateParts(fFinRaw) : null;
-    const fFin = parsedEnd ? fFinRaw : '';
+    const endCode = parsedEnd
+      ? parsedEnd.year * 10000 + (parsedEnd.month + 1) * 100 + parsedEnd.day
+      : null;
+    const fFin = parsedEnd && endCode !== null && endCode >= startCode ? fFinRaw : '';
 
-    const catLower = rawCat.toLowerCase();
+    const catLower = rawCat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     let type: 'lectivo' | 'salida' | 'festivo' | 'evaluacion' = 'lectivo';
     if (catLower.includes('salida') || catLower.includes('excursion') || catLower.includes('visita')) {
       type = 'salida';
@@ -896,11 +1019,13 @@ export function parseCalendarioRows(rows: string[][]): CalendarEvent[] {
       time = `${hIni} - ${hFin}`;
     } else if (hIni) {
       time = `${hIni} h`;
+    } else if (hFin) {
+      time = `Hasta ${hFin} h`;
     }
 
     let descFinal = descripcion;
     if (fFin && fFin !== fIni) {
-      descFinal = `Del ${fIni} al ${fFin}. ${descripcion}`;
+      descFinal = descripcion ? `Del ${fIni} al ${fFin}. ${descripcion}` : `Del ${fIni} al ${fFin}.`;
     }
 
     events.push({
@@ -1393,28 +1518,33 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
       })
   );
 
-  // 4. Calendario
+  // 4. Calendario (posición determinada EXCLUSIVAMENTE por fecha_inicio y rango hasta fecha_fin)
   const rawCal = Array.isArray(rawData.calendario) ? rawData.calendario : [];
   const events: CalendarEvent[] = rawCal
     .filter((item) => isPayloadItemPublished(item.estado))
     .map((item, idx): CalendarEvent | null => {
-      const fIni = formatSpanishDate(item.fecha_inicio || item.fecha || '');
+      const fIni = formatSpanishDate(item.fecha_inicio);
       const fFinRaw = item.fecha_fin ? formatSpanishDate(item.fecha_fin) : '';
-      const hIni = item.hora_inicio ? formatSpanishTime(item.hora_inicio) : '';
-      const hFin = item.hora_fin ? formatSpanishTime(item.hora_fin) : '';
-      const titulo = item.titulo || '';
-      const descripcion = item.descripcion || '';
-      const rawCat = item.categoria || 'lectivo';
+      const hIni = item.hora_inicio ? formatSpanishTime(String(item.hora_inicio)) : '';
+      const hFin = item.hora_fin ? formatSpanishTime(String(item.hora_fin)) : '';
+      const titulo = String(item.titulo || '').trim();
+      const descripcion = String(item.descripcion || '').trim();
+      const rawCat = String(item.categoria || 'lectivo').trim() || 'lectivo';
+      const lugar = item.lugar ? String(item.lugar).trim() || undefined : undefined;
 
       const parsedStart = parseCalendarDateParts(fIni);
       if (!parsedStart) return null;
       if (!titulo && !descripcion) return null;
 
       const { day, month, year } = parsedStart;
+      const startCode = year * 10000 + (month + 1) * 100 + day;
       const parsedEnd = fFinRaw ? parseCalendarDateParts(fFinRaw) : null;
-      const fFin = parsedEnd ? fFinRaw : undefined;
+      const endCode = parsedEnd
+        ? parsedEnd.year * 10000 + (parsedEnd.month + 1) * 100 + parsedEnd.day
+        : null;
+      const fFin = parsedEnd && endCode !== null && endCode >= startCode ? fFinRaw : undefined;
 
-      const catLower = rawCat.toLowerCase();
+      const catLower = rawCat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       let type: 'lectivo' | 'salida' | 'festivo' | 'evaluacion' = 'lectivo';
       if (catLower.includes('salida') || catLower.includes('excursion') || catLower.includes('visita')) {
         type = 'salida';
@@ -1427,10 +1557,11 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
       let time = '';
       if (hIni && hFin) time = `${hIni} - ${hFin}`;
       else if (hIni) time = `${hIni} h`;
+      else if (hFin) time = `Hasta ${hFin} h`;
 
       let descFinal = descripcion;
       if (fFin && fFin !== fIni) {
-        descFinal = `Del ${fIni} al ${fFin}. ${descripcion}`;
+        descFinal = descripcion ? `Del ${fIni} al ${fFin}. ${descripcion}` : `Del ${fIni} al ${fFin}.`;
       }
 
       return {
@@ -1442,7 +1573,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
         titulo,
         descripcion: descFinal,
         categoria: rawCat,
-        lugar: item.lugar || undefined,
+        lugar,
         destacado: parseDestacado(item.destacado),
         estado: 'PUBLICAR' as PublicacionEstado,
         orden: typeof item.orden === 'number' ? item.orden : idx,

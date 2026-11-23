@@ -1,6 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarEvent, DayOfWeek, ScheduleItem } from '../types';
-import { getUpcomingCalendarEvents } from '../utils/eventUtils';
+import {
+  doesEventFallOnDate,
+  formatEventDateLabel,
+  formatEventTimeRange,
+  getCleanEventDescription,
+  getEventCategoryLabel,
+  getEventStartParts,
+  getMadridDateParts,
+  getUpcomingCalendarEvents,
+  sortEventsForDay,
+} from '../utils/eventUtils';
 import { SectionHeader } from './SectionHeader';
 import { FormattedText } from './FormattedText';
 import { NewBadge, MarkAsReadButton } from './NewBadge';
@@ -21,7 +31,11 @@ import {
   Palette,
   Coffee,
   HeartHandshake,
+  Tag,
+  X,
 } from 'lucide-react';
+
+export { doesEventFallOnDate };
 
 interface HorarioCalendarioTabProps {
   schedule: Record<DayOfWeek, ScheduleItem[]>;
@@ -95,35 +109,6 @@ export function stepCalendarMonth(
   return { year, monthIndex: nextMonth };
 }
 
-function toDateCodeFromSpanish(dateStr?: string): number | null {
-  if (!dateStr) return null;
-  const match = dateStr.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!match) return null;
-  const d = parseInt(match[1], 10);
-  const m = parseInt(match[2], 10);
-  const y = parseInt(match[3], 10);
-  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
-  return y * 10000 + m * 100 + d;
-}
-
-export function doesEventFallOnDate(
-  ev: CalendarEvent,
-  day: number,
-  monthIndex: number,
-  year: number
-): boolean {
-  const targetCode = year * 10000 + (monthIndex + 1) * 100 + day;
-  const startCode = toDateCodeFromSpanish(ev.fecha_inicio);
-  const endCode = toDateCodeFromSpanish(ev.fecha_fin);
-
-  if (startCode !== null && endCode !== null && endCode >= startCode) {
-    return targetCode >= startCode && targetCode <= endCode;
-  }
-  if (startCode !== null) {
-    return targetCode === startCode;
-  }
-  return ev.day === day && ev.month === monthIndex && ev.year === year;
-}
 
 function getSubjectVisual(subject: string) {
   const s = subject.toLowerCase();
@@ -263,16 +248,8 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
 
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
 
-  // Fecha real actual del dispositivo (calculada dinámicamente al montar)
-  const today = useMemo(() => {
-    const now = new Date();
-    return {
-      day: now.getDate(),
-      month: now.getMonth(),
-      year: now.getFullYear(),
-      dayOfWeek: now.getDay(),
-    };
-  }, []);
+  // Fecha real actual en la zona horaria oficial Europe/Madrid
+  const today = useMemo(() => getMadridDateParts(new Date()), []);
 
   // Determine current day of week (0=Sun, 1=Mon, ..., 5=Fri)
   const currentDayIndex = today.dayOfWeek;
@@ -283,10 +260,30 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
 
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(defaultDay);
 
-  // Estado dinámico del calendario escolar (inicializado en la fecha real actual)
+  // Estado dinámico del calendario escolar (inicializado en la fecha real actual en Europe/Madrid)
   const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(today.month);
   const [currentYear, setCurrentYear] = useState<number>(today.year);
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<number | null>(today.day);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedEvent(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedEvent]);
+
+  const handleOpenEventDetail = (ev: CalendarEvent) => {
+    const evKey = getPublicationKey('calendario', ev);
+    if (unreadKeys?.has(evKey)) {
+      onMarkAsRead?.(evKey);
+    }
+    setSelectedEvent(ev);
+  };
 
   const isViewingCurrentMonth =
     currentMonthIndex === today.month && currentYear === today.year;
@@ -314,12 +311,14 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
   const leadingEmptyCells = getMonthLeadingEmptyCells(currentYear, currentMonthIndex);
   const daysInMonth = getDaysInMonth(currentYear, currentMonthIndex);
 
-  const selectedDayEvents =
-    selectedCalendarDay !== null
-      ? events.filter((ev) =>
-          doesEventFallOnDate(ev, selectedCalendarDay, currentMonthIndex, currentYear)
-        )
-      : [];
+  const selectedDayEvents = useMemo(() => {
+    if (selectedCalendarDay === null) return [];
+    return sortEventsForDay(
+      events.filter((ev) =>
+        doesEventFallOnDate(ev, selectedCalendarDay, currentMonthIndex, currentYear)
+      )
+    );
+  }, [events, selectedCalendarDay, currentMonthIndex, currentYear]);
 
   const upcomingEvents = useMemo(
     () => getUpcomingCalendarEvents(events),
@@ -652,8 +651,10 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                 const cellIndex = leadingEmptyCells + idx;
                 const isWeekend = cellIndex % 7 === 5 || cellIndex % 7 === 6;
 
-                const dayEvents = events.filter((ev) =>
-                  doesEventFallOnDate(ev, day, currentMonthIndex, currentYear)
+                const dayEvents = sortEventsForDay(
+                  events.filter((ev) =>
+                    doesEventFallOnDate(ev, day, currentMonthIndex, currentYear)
+                  )
                 );
                 const dayEvent = dayEvents[0];
                 const hasUnreadOnDay = dayEvents.some((ev) =>
@@ -680,18 +681,21 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                   cellClass += 'text-[#0F172A] hover:bg-[#F1F5F9]';
                 }
 
-                const dotColor = isSelected
-                  ? 'bg-white'
-                  : evStyle
-                  ? evStyle.dot
-                  : 'bg-[#4338CA]';
+                const visibleDots = dayEvents.slice(0, 3);
+                const extraEventsCount = dayEvents.length - visibleDots.length;
 
                 return (
                   <button
                     key={`day-${currentYear}-${currentMonthIndex}-${day}`}
                     type="button"
                     onClick={() => setSelectedCalendarDay(day)}
-                    aria-label={`${day} de ${MONTH_NAMES[currentMonthIndex]} de ${currentYear}${isToday ? ', hoy' : ''}${hasUnreadOnDay ? ', contiene novedades' : ''}`}
+                    aria-label={`${day} de ${MONTH_NAMES[currentMonthIndex]} de ${currentYear}${isToday ? ', hoy' : ''}${
+                      dayEvents.length === 1
+                        ? ', 1 evento programado'
+                        : dayEvents.length > 1
+                        ? `, ${dayEvents.length} eventos programados`
+                        : ''
+                    }${hasUnreadOnDay ? ', contiene novedades' : ''}`}
                     aria-pressed={isSelected}
                     className={cellClass}
                   >
@@ -706,11 +710,33 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                       />
                     )}
                     <span className="leading-none">{day}</span>
-                    {dayEvent ? (
-                      <span className={`w-1.5 h-1.5 rounded-full mt-1 ${dotColor}`} />
-                    ) : isToday && !isSelected ? (
-                      <span className="w-1.5 h-1.5 rounded-full mt-1 bg-[#4338CA]" />
-                    ) : null}
+                    {dayEvents.length > 0 && (
+                      <span
+                        aria-hidden="true"
+                        className="flex items-center justify-center gap-0.5 mt-1 min-h-[6px]"
+                      >
+                        {visibleDots.map((ev) => {
+                          const dotStyle = getEventTypePresentation(ev.type).dot;
+                          return (
+                            <span
+                              key={ev.id}
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isSelected ? 'bg-white' : dotStyle
+                              }`}
+                            />
+                          );
+                        })}
+                        {extraEventsCount > 0 && (
+                          <span
+                            className={`text-[9px] font-extrabold leading-none ${
+                              isSelected ? 'text-white' : 'text-[#334155]'
+                            }`}
+                          >
+                            +
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -723,23 +749,34 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
             {selectedCalendarDay !== null ? (
               <div className="bg-[#F1F5F9] border border-[#E2E8F0] rounded-3xl p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2 text-xs font-bold text-[#0F172A]">
-                  <span className="flex items-center gap-2 text-[#4338CA]">
+                  <span className="flex items-center gap-2 text-[#4338CA] min-w-0">
                     <CalendarIcon className="w-4 h-4 shrink-0" />
-                    <span>
+                    <span className="truncate">
                       {selectedCalendarDay} de {MONTH_NAMES[currentMonthIndex]} de {currentYear}
                     </span>
                   </span>
-                  {isSelectedToday && (
-                    <span className="text-xs font-bold bg-[#EEF2FF] text-[#4338CA] px-2.5 py-0.5 rounded-full border border-[#C7D2FE] shrink-0">
-                      Hoy
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {selectedDayEvents.length > 0 && (
+                      <span className="text-[11px] font-bold bg-white text-[#334155] px-2 py-0.5 rounded-full border border-[#E2E8F0] tabular-nums">
+                        {selectedDayEvents.length}{' '}
+                        {selectedDayEvents.length === 1 ? 'evento' : 'eventos'}
+                      </span>
+                    )}
+                    {isSelectedToday && (
+                      <span className="text-xs font-bold bg-[#EEF2FF] text-[#4338CA] px-2.5 py-0.5 rounded-full border border-[#C7D2FE]">
+                        Hoy
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {selectedDayEvents.length > 0 ? (
                   <div className="space-y-2.5">
                     {selectedDayEvents.map((ev) => {
                       const evStyle = getEventTypePresentation(ev.type);
+                      const categoryLabel = getEventCategoryLabel(ev);
+                      const timeLabel = formatEventTimeRange(ev);
+                      const cleanDescription = getCleanEventDescription(ev);
                       const isMultiDay =
                         Boolean(ev.fecha_fin) && ev.fecha_fin !== ev.fecha_inicio;
                       const evKey = getPublicationKey('calendario', ev);
@@ -748,7 +785,17 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                       return (
                         <div
                           key={ev.id}
-                          className="p-3.5 bg-white rounded-2xl border border-[#E2E8F0] space-y-2 shadow-xs"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleOpenEventDetail(ev)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleOpenEventDetail(ev);
+                            }
+                          }}
+                          aria-label={`Ver ficha detallada de ${ev.title}`}
+                          className="p-3.5 bg-white rounded-2xl border border-[#E2E8F0] hover:border-[#C7D2FE] hover:shadow-sm transition space-y-2 shadow-xs cursor-pointer diario-press focus:outline-none focus:ring-2 focus:ring-[#4338CA]/40"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-1.5 flex-wrap min-w-0">
@@ -760,7 +807,7 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                             <span
                               className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border shrink-0 ${evStyle.badge}`}
                             >
-                              {evStyle.label}
+                              {categoryLabel}
                             </span>
                           </div>
 
@@ -770,34 +817,45 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                             </p>
                           )}
 
-                          {ev.description && (
+                          {cleanDescription && (
                             <FormattedText
-                              text={ev.description}
+                              text={cleanDescription}
                               size="sm"
                               accent="amber"
                             />
                           )}
 
-                          {(ev.time || ev.lugar) && (
+                          {(timeLabel || ev.lugar) && (
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#475569] font-medium pt-0.5">
-                              {ev.time && <span>Horario: {ev.time}</span>}
+                              {timeLabel && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5 shrink-0 text-[#64748B]" />
+                                  <span>{timeLabel}</span>
+                                </span>
+                              )}
                               {ev.lugar && (
                                 <span className="flex items-center gap-1">
-                                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                                  <MapPin className="w-3.5 h-3.5 shrink-0 text-[#64748B]" />
                                   <span>{ev.lugar}</span>
                                 </span>
                               )}
                             </div>
                           )}
 
-                          {isUnread && (
-                            <div className="pt-1 flex justify-end">
-                              <MarkAsReadButton
-                                compact
-                                onClick={() => onMarkAsRead?.(evKey)}
-                              />
-                            </div>
-                          )}
+                          <div className="pt-1 flex items-center justify-between gap-2 border-t border-[#F1F5F9]">
+                            <span className="text-xs font-bold text-[#4338CA] inline-flex items-center gap-1">
+                              <span>Ver ficha completa</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </span>
+                            {isUnread && (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <MarkAsReadButton
+                                  compact
+                                  onClick={() => onMarkAsRead?.(evKey)}
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -827,6 +885,12 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                 <div className="space-y-2.5">
                   {upcomingEvents.map((ev) => {
                     const evStyle = getEventTypePresentation(ev.type);
+                    const categoryLabel = getEventCategoryLabel(ev);
+                    const startParts = getEventStartParts(ev);
+                    const displayDay = startParts?.day ?? ev.day;
+                    const displayMonth = startParts?.month ?? ev.month;
+                    const displayYear = startParts?.year ?? ev.year;
+                    const cleanDescription = getCleanEventDescription(ev);
                     const isMultiDay =
                       Boolean(ev.fecha_fin) && ev.fecha_fin !== ev.fecha_inicio;
                     const evKey = getPublicationKey('calendario', ev);
@@ -837,10 +901,10 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                         key={ev.id}
                         type="button"
                         onClick={() => {
-                          setCurrentYear(ev.year);
-                          setCurrentMonthIndex(ev.month);
-                          setSelectedCalendarDay(ev.day);
-                          if (isUnread) onMarkAsRead?.(evKey);
+                          setCurrentYear(displayYear);
+                          setCurrentMonthIndex(displayMonth);
+                          setSelectedCalendarDay(displayDay);
+                          handleOpenEventDetail(ev);
                         }}
                         className="w-full text-left diario-card-interactive diario-press p-3.5 rounded-2xl flex items-center gap-3.5 cursor-pointer"
                       >
@@ -848,10 +912,10 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                           className={`w-12 h-12 rounded-xl border flex flex-col items-center justify-center font-bold shrink-0 tabular-nums ${evStyle.dateBox}`}
                         >
                           <span className="text-[10px] uppercase font-bold leading-none">
-                            {SHORT_MONTH_NAMES[ev.month] ?? ''}
+                            {SHORT_MONTH_NAMES[displayMonth] ?? ''}
                           </span>
                           <span className="text-base font-extrabold leading-tight mt-0.5">
-                            {ev.day}
+                            {displayDay}
                           </span>
                         </div>
 
@@ -866,7 +930,7 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                             <span
                               className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border shrink-0 ${evStyle.badge}`}
                             >
-                              {evStyle.label}
+                              {categoryLabel}
                             </span>
                           </div>
                           {isMultiDay && (
@@ -874,9 +938,9 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                               Del {ev.fecha_inicio} al {ev.fecha_fin}
                             </p>
                           )}
-                          {ev.description && (
+                          {cleanDescription && (
                             <p className="text-xs text-[#475569] leading-relaxed line-clamp-2 mt-0.5">
-                              {toReadablePreviewText(ev.description)}
+                              {toReadablePreviewText(cleanDescription)}
                             </p>
                           )}
                         </div>
@@ -893,6 +957,123 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* ================= FICHA DETALLADA DEL EVENTO ================= */}
+      {selectedEvent && (() => {
+        const detailStyle = getEventTypePresentation(selectedEvent.type);
+        const detailCategory = getEventCategoryLabel(selectedEvent);
+        const detailDate = formatEventDateLabel(selectedEvent);
+        const detailTime = formatEventTimeRange(selectedEvent);
+        const detailLocation = selectedEvent.lugar?.trim() || '';
+        const detailDescription = getCleanEventDescription(selectedEvent);
+
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="event-detail-title"
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-xs diario-fade-in"
+            onClick={() => setSelectedEvent(null)}
+          >
+            <div
+              className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl border border-[#E2E8F0] shadow-xl max-h-[85dvh] flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Cabecera de la ficha */}
+              <div className="px-5 pt-5 pb-4 border-b border-[#F1F5F9] flex items-start justify-between gap-3">
+                <div className="space-y-2 min-w-0">
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-xl border ${detailStyle.badge}`}
+                  >
+                    <Tag className="w-3.5 h-3.5 shrink-0" />
+                    <span>{detailCategory}</span>
+                  </span>
+                  <h3
+                    id="event-detail-title"
+                    className="font-display font-bold text-lg sm:text-xl text-[#0F172A] leading-snug"
+                  >
+                    {selectedEvent.title}
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedEvent(null)}
+                  aria-label="Cerrar ficha del evento"
+                  className="w-11 h-11 rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A] flex items-center justify-center shrink-0 cursor-pointer diario-press"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Contenido de la ficha (solo campos con valor real) */}
+              <div className="px-5 py-4 space-y-4 overflow-y-auto">
+                <div className="bg-[#F7F8FA] border border-[#E2E8F0] rounded-2xl p-3.5 space-y-2.5">
+                  {detailDate && (
+                    <div className="flex items-start gap-2.5 text-sm text-[#0F172A]">
+                      <CalendarDays className="w-4 h-4 text-[#4338CA] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
+                          Fecha del evento
+                        </span>
+                        <span className="font-semibold leading-snug">{detailDate}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {detailTime && (
+                    <div className="flex items-start gap-2.5 text-sm text-[#0F172A] pt-2 border-t border-[#E2E8F0]/70">
+                      <Clock className="w-4 h-4 text-[#0D9488] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
+                          Horario
+                        </span>
+                        <span className="font-semibold tabular-nums">{detailTime}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {detailLocation && (
+                    <div className="flex items-start gap-2.5 text-sm text-[#0F172A] pt-2 border-t border-[#E2E8F0]/70">
+                      <MapPin className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
+                          Lugar
+                        </span>
+                        <span className="font-semibold leading-snug">{detailLocation}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {detailDescription && (
+                  <div className="space-y-1.5">
+                    <span className="block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
+                      Descripción
+                    </span>
+                    <FormattedText
+                      text={detailDescription}
+                      size="base"
+                      accent="amber"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Pie de la ficha */}
+              <div className="px-5 py-3.5 border-t border-[#F1F5F9] bg-[#F7F8FA]/60 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSelectedEvent(null)}
+                  className="min-h-[44px] px-5 py-2 rounded-xl bg-[#4338CA] hover:bg-[#3730A3] text-white font-bold text-sm cursor-pointer diario-press"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
