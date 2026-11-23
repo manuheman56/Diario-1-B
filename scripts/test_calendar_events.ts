@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   formatSpanishDate,
+  mergeWithValidCache,
   normalizeCalendarEvents,
   parseAppsScriptPayload,
   parseCalendarioRows,
@@ -10,6 +11,10 @@ import {
   readCachedSyncResult,
   CACHE_STORAGE_KEY,
 } from '../src/services/sheetsService';
+import {
+  getDaysInMonth,
+  getMonthLeadingEmptyCells,
+} from '../src/components/HorarioCalendarioTab';
 import {
   doesEventFallOnDate,
   formatEventDateLabel,
@@ -21,6 +26,12 @@ import {
   getUpcomingCalendarEvents,
   sortEventsForDay,
 } from '../src/utils/eventUtils';
+import {
+  formatNonSchoolDayDateLabel,
+  getNonSchoolDayForDate,
+  MALAGA_NON_SCHOOL_DAYS_2026_2027,
+  NON_SCHOOL_DAY_COLOR,
+} from '../src/data/nonSchoolDays';
 import { CalendarEvent } from '../src/types';
 
 let passed = 0;
@@ -305,6 +316,259 @@ runTest('6. Verificación estática de UI del calendario (indicadores múltiples
   const codeGs = fs.readFileSync(path.join(root, 'Code.gs'), 'utf8');
   const scriptCodeGs = fs.readFileSync(path.join(root, 'google-apps-script/Code.gs'), 'utf8');
   assert.equal(codeGs, scriptCodeGs, 'Code.gs no debe haberse modificado');
+
+  const inicioCode = fs.readFileSync(path.join(root, 'src/components/InicioTab.tsx'), 'utf8');
+  assert.ok(
+    inicioCode.includes('getEventStartParts'),
+    'InicioTab debe derivar el día/mes de Próximos acontecimientos desde fecha_inicio mediante getEventStartParts'
+  );
+});
+
+runTest('7. Formatos adicionales de Google Sheets (serial string, coma+hora, año 2 dígitos, MM/DD/AAAA inequívoco, texto español)', () => {
+  // Número de serie de Google Sheets como cadena ("46356" = 30/11/2026) y con decimales
+  assert.equal(formatSpanishDate('46356'), '30/11/2026');
+  assert.equal(formatSpanishDate('46356.5'), '30/11/2026');
+  assert.equal(formatSpanishDate(46356), '30/11/2026');
+  // Fecha con coma y hora
+  assert.equal(formatSpanishDate('30/11/2026, 09:00'), '30/11/2026');
+  assert.equal(formatSpanishDate('30/11/2026, 09:00:00'), '30/11/2026');
+  // Año en 2 dígitos con /, - o .
+  assert.equal(formatSpanishDate('30/11/26'), '30/11/2026');
+  assert.equal(formatSpanishDate('30-11-26'), '30/11/2026');
+  assert.equal(formatSpanishDate('30.11.26'), '30/11/2026');
+  // Formato US inequívoco (segundo segmento > 12)
+  assert.equal(formatSpanishDate('11/30/2026'), '30/11/2026');
+  // Texto en español
+  assert.equal(formatSpanishDate('30 de noviembre de 2026'), '30/11/2026');
+  assert.equal(formatSpanishDate('lunes, 30 nov 2026'), '30/11/2026');
+});
+
+runTest('8. Claves con variantes de mayúsculas/espacios/BOM en fecha_inicio y rechazo estricto de fecha de publicación', () => {
+  const payload = parseAppsScriptPayload({
+    config: {},
+    dia_a_dia: [],
+    avisos: [],
+    calendario: [
+      {
+        id: 'cal-caps',
+        fecha: '01/10/2026',
+        fecha_publicacion: '01/10/2026',
+        ' \uFEFFFecha Inicio ': '14/12/2026, 10:00',
+        'Fecha Fin': '16/12/2026',
+        titulo: 'Semana de lectura',
+        descripcion: 'Lectura compartida con familias.',
+        categoria: 'evento',
+        estado: 'PUBLICAR',
+        orden: 1,
+      },
+      {
+        id: 'cal-only-pub',
+        fecha: '01/10/2026',
+        fecha_publicacion: '01/10/2026',
+        fecha_creacion: '01/10/2026',
+        timestamp: '01/10/2026',
+        titulo: 'Evento sin fecha_inicio',
+        descripcion: 'Debe descartarse porque carece de fecha_inicio',
+        estado: 'PUBLICAR',
+        orden: 2,
+      },
+    ],
+    horario: [],
+    multimedia: [],
+    aprendemos: [],
+    recursos: [],
+  });
+
+  assert.equal(payload.events.length, 1);
+  const ev = payload.events[0];
+  assert.equal(ev.id, 'cal-caps');
+  assert.equal(ev.fecha_inicio, '14/12/2026');
+  assert.equal(ev.fecha_fin, '16/12/2026');
+  assert.equal(ev.day, 14);
+  assert.equal(ev.month, 11);
+  assert.equal(ev.year, 2026);
+  assert.equal(ev.type, 'salida');
+  assert.equal(getEventCategoryLabel(ev), 'Evento');
+  assert.equal(doesEventFallOnDate(ev, 1, 9, 2026), false);
+  assert.equal(doesEventFallOnDate(ev, 14, 11, 2026), true);
+  assert.equal(doesEventFallOnDate(ev, 15, 11, 2026), true);
+  assert.equal(doesEventFallOnDate(ev, 16, 11, 2026), true);
+});
+
+runTest('9. Cuadrícula mensual UTC-mediodía sin desfases horarios y re-normalización al fusionar caché', () => {
+  // Noviembre 2026: 30 días, 1 de noviembre de 2026 es domingo -> 6 huecos iniciales (L..S)
+  assert.equal(getDaysInMonth(2026, 10), 30);
+  assert.equal(getMonthLeadingEmptyCells(2026, 10), 6);
+  // Febrero 2028 (bisiesto): 29 días
+  assert.equal(getDaysInMonth(2028, 1), 29);
+
+  // mergeWithValidCache debe re-normalizar eventos existentes en caché si tenían day desfasado
+  const staleCached = {
+    isPendingConfig: false,
+    config: {},
+    posts: [],
+    avisos: [],
+    events: [
+      {
+        id: 'cal-old',
+        fecha_inicio: '30/11/2026',
+        titulo: 'Exposición de Sofía',
+        descripcion: 'Evento existente en caché antigua',
+        day: 23,
+        month: 10,
+        year: 2026,
+        title: 'Exposición de Sofía',
+        description: 'Evento existente en caché antigua',
+        type: 'lectivo' as const,
+      },
+    ],
+    schedule: null,
+    multimedia: [],
+    aprendemos: [],
+    recursos: [],
+    source: 'cache' as const,
+    updatedAt: '2026-11-23T10:00:00.000Z',
+  };
+
+  const liveWithoutCal = {
+    ...staleCached,
+    events: [],
+    posts: [
+      {
+        id: 'post-1',
+        fecha: '23/11/2026',
+        titulo: 'Hola',
+        contenido: 'Contenido',
+        categoria: 'General',
+        destacado: false,
+        estado: 'PUBLICAR' as const,
+        orden: 1,
+        title: 'Hola',
+        content: 'Contenido',
+        tag: 'General' as const,
+        date: '23/11/2026',
+        timestamp: 1,
+        completed: false,
+        important: false,
+        author: 'Manuel Herrera',
+      },
+    ],
+    source: 'apps-script' as const,
+  };
+
+  const merged = mergeWithValidCache(liveWithoutCal, { dia_a_dia: [{}] }, staleCached);
+  assert.equal(merged.result.events.length, 1);
+  assert.equal(merged.result.events[0].day, 30);
+  assert.equal(merged.result.events[0].month, 10);
+  assert.equal(merged.result.events[0].year, 2026);
+  assert.equal(merged.result.events[0].fecha_inicio, '30/11/2026');
+});
+
+runTest('10. Días y periodos no lectivos oficiales 2026/2027 de Málaga capital (fechas exactas y rangos completos)', () => {
+  assert.equal(NON_SCHOOL_DAY_COLOR, '#D97757');
+  assert.equal(MALAGA_NON_SCHOOL_DAYS_2026_2027.length, 10);
+
+  // Días individuales exactos
+  const singleDays: Array<[number, number, number, string, string]> = [
+    [12, 9, 2026, 'Fiesta Nacional de España', 'Lunes, 12 de octubre de 2026'],
+    [2, 10, 2026, 'Todos los Santos (traslado)', 'Lunes, 2 de noviembre de 2026'],
+    [7, 11, 2026, 'Día de la Constitución (traslado)', 'Lunes, 7 de diciembre de 2026'],
+    [8, 11, 2026, 'Inmaculada Concepción', 'Martes, 8 de diciembre de 2026'],
+    [1, 2, 2027, 'Día de Andalucía (traslado)', 'Lunes, 1 de marzo de 2027'],
+    [29, 2, 2027, 'Día no lectivo provincial', 'Lunes, 29 de marzo de 2027'],
+    [3, 4, 2027, 'Día no lectivo provincial', 'Lunes, 3 de mayo de 2027'],
+  ];
+
+  for (const [d, m, y, expectedName, expectedLabel] of singleDays) {
+    const found = getNonSchoolDayForDate(d, m, y);
+    assert.ok(found, `Debe marcarse el ${d}/${m + 1}/${y}`);
+    assert.equal(found.name, expectedName);
+    assert.ok(found.reason.trim().length > 10);
+    assert.equal(formatNonSchoolDayDateLabel(found), expectedLabel);
+  }
+
+  // Vacaciones de Navidad: TODOS los días del 23/12/2026 al 06/01/2027 (15 días)
+  assert.equal(getNonSchoolDayForDate(22, 11, 2026), null);
+  for (let d = 23; d <= 31; d++) {
+    const found = getNonSchoolDayForDate(d, 11, 2026);
+    assert.ok(found, `Navidad debe incluir ${d}/12/2026`);
+    assert.equal(found.name, 'Vacaciones de Navidad');
+    assert.equal(
+      formatNonSchoolDayDateLabel(found),
+      'Del 23 de diciembre de 2026 al 6 de enero de 2027'
+    );
+  }
+  for (let d = 1; d <= 6; d++) {
+    const found = getNonSchoolDayForDate(d, 0, 2027);
+    assert.ok(found, `Navidad debe incluir ${d}/01/2027`);
+    assert.equal(found.name, 'Vacaciones de Navidad');
+  }
+  assert.equal(getNonSchoolDayForDate(7, 0, 2027), null);
+
+  // Semana Blanca: TODOS los días del 22/02/2027 al 26/02/2027 (5 días)
+  assert.equal(getNonSchoolDayForDate(21, 1, 2027), null);
+  for (let d = 22; d <= 26; d++) {
+    const found = getNonSchoolDayForDate(d, 1, 2027);
+    assert.ok(found, `Semana Blanca debe incluir ${d}/02/2027`);
+    assert.equal(found.name, 'Semana Blanca');
+    assert.equal(formatNonSchoolDayDateLabel(found), 'Del 22 al 26 de febrero de 2027');
+  }
+  assert.equal(getNonSchoolDayForDate(27, 1, 2027), null);
+
+  // Vacaciones de Semana Santa: TODOS los días del 22/03/2027 al 28/03/2027 (7 días)
+  assert.equal(getNonSchoolDayForDate(21, 2, 2027), null);
+  for (let d = 22; d <= 28; d++) {
+    const found = getNonSchoolDayForDate(d, 2, 2027);
+    assert.ok(found, `Semana Santa debe incluir ${d}/03/2027`);
+    assert.equal(found.name, 'Vacaciones de Semana Santa');
+    assert.equal(formatNonSchoolDayDateLabel(found), 'Del 22 al 28 de marzo de 2027');
+  }
+  // 29/03/2027 es Día no lectivo provincial y 30/03/2027 ya es lectivo
+  assert.equal(getNonSchoolDayForDate(29, 2, 2027)?.name, 'Día no lectivo provincial');
+  assert.equal(getNonSchoolDayForDate(30, 2, 2027), null);
+});
+
+runTest('11. Coexistencia entre días no lectivos y eventos del aula sin alterar fechas ni ocultar indicadores', () => {
+  const payload = parseAppsScriptPayload({
+    config: {},
+    dia_a_dia: [],
+    avisos: [],
+    calendario: [
+      {
+        id: 'ev-coincide',
+        fecha_inicio: '02/11/2026',
+        hora_inicio: '10:00',
+        titulo: 'Actividad familiar especial',
+        descripcion: 'Evento que coincide con Todos los Santos (traslado).',
+        categoria: 'evento',
+        estado: 'PUBLICAR',
+        orden: 1,
+      },
+    ],
+    horario: [],
+    multimedia: [],
+    aprendemos: [],
+    recursos: [],
+  });
+
+  const ev = payload.events[0];
+  const nonSchool = getNonSchoolDayForDate(2, 10, 2026);
+  assert.ok(nonSchool, '02/11/2026 debe detectarse como día no lectivo');
+  assert.equal(nonSchool.name, 'Todos los Santos (traslado)');
+  assert.equal(doesEventFallOnDate(ev, 2, 10, 2026), true);
+  assert.equal(ev.type, 'salida'); // Conserva categoría Evento (indicador amarillo)
+  assert.equal(getEventCategoryLabel(ev), 'Evento');
+
+  // Verificación estática del diseño visual e interacción en HorarioCalendarioTab
+  const root = process.cwd();
+  const calCode = fs.readFileSync(path.join(root, 'src/components/HorarioCalendarioTab.tsx'), 'utf8');
+  assert.ok(calCode.includes('bg-[#D97757]'), 'Debe usar el punto coral #D97757');
+  assert.ok(calCode.includes('getNonSchoolDayForDate'), 'Debe consultar días no lectivos por fecha');
+  assert.ok(calCode.includes('formatNonSchoolDayDateLabel'), 'La ficha debe mostrar la fecha o intervalo');
+  assert.ok(calCode.includes('selectedNonSchoolDay.reason'), 'La ficha debe mostrar el motivo');
+  assert.ok(calCode.includes('selectedNonSchoolDay.name'), 'La ficha debe mostrar el nombre del festivo o periodo');
+  assert.ok(calCode.includes('const maxEventDots = nonSchoolDay ? 2 : 3;'), 'Debe reservar espacio para ambos indicadores sin solaparse ni ocultar eventos');
+  assert.ok(calCode.includes("bg-[#F1F5F9]/90 text-[#475569]"), 'Los sábados y domingos deben mostrar un fondo gris suave y legible');
 });
 
 console.log(`\n🎉 Todas las pruebas de calendario superadas: ${passed}/${passed}`);

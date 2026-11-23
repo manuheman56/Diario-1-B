@@ -175,6 +175,7 @@ export function parseCSV(csvText: string): string[][] {
  */
 function normalizeHeader(h: string): string {
   return (h || '')
+    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -291,6 +292,54 @@ function formatDateInMadrid(date: Date): string {
   return `${d}/${m}/${y}`;
 }
 
+const SPANISH_MONTH_TO_NUMBER: Record<string, string> = {
+  enero: '01',
+  ene: '01',
+  febrero: '02',
+  feb: '02',
+  marzo: '03',
+  mar: '03',
+  abril: '04',
+  abr: '04',
+  mayo: '05',
+  may: '05',
+  junio: '06',
+  jun: '06',
+  julio: '07',
+  jul: '07',
+  agosto: '08',
+  ago: '08',
+  septiembre: '09',
+  setiembre: '09',
+  sep: '09',
+  sept: '09',
+  octubre: '10',
+  oct: '10',
+  noviembre: '11',
+  nov: '11',
+  diciembre: '12',
+  dic: '12',
+};
+
+function formatSerialDateNumber(serial: number): string {
+  const wholeDays = Math.floor(serial);
+  const utcDate = new Date(Date.UTC(1899, 11, 30 + wholeDays, 12, 0, 0));
+  const d = String(utcDate.getUTCDate()).padStart(2, '0');
+  const m = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+  const y = String(utcDate.getUTCFullYear());
+  return `${d}/${m}/${y}`;
+}
+
+function normalizeDayMonthPair(firstRaw: string, secondRaw: string, yearStr: string): string {
+  const first = parseInt(firstRaw, 10);
+  const second = parseInt(secondRaw, 10);
+  // Si el segundo número supera 12 y el primero está entre 1 y 12, es formato MM/DD/AAAA
+  if (second > 12 && first >= 1 && first <= 12) {
+    return `${secondRaw.padStart(2, '0')}/${firstRaw.padStart(2, '0')}/${yearStr}`;
+  }
+  return `${firstRaw.padStart(2, '0')}/${secondRaw.padStart(2, '0')}/${yearStr}`;
+}
+
 /**
  * Formatea fechas a DD/MM/AAAA respetando la zona horaria Europe/Madrid
  * y evitando desplazamientos por conversiones UTC.
@@ -304,12 +353,7 @@ export function formatSpanishDate(rawDate: string | Date | number | null | undef
 
   // Número de serie de Google Sheets / Excel (época 30/12/1899)
   if (typeof rawDate === 'number' && Number.isFinite(rawDate) && rawDate > 20000 && rawDate < 100000) {
-    const wholeDays = Math.floor(rawDate);
-    const utcDate = new Date(Date.UTC(1899, 11, 30 + wholeDays));
-    const d = String(utcDate.getUTCDate()).padStart(2, '0');
-    const m = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
-    const y = String(utcDate.getUTCFullYear());
-    return `${d}/${m}/${y}`;
+    return formatSerialDateNumber(rawDate);
   }
 
   const trimmed = String(rawDate)
@@ -317,26 +361,34 @@ export function formatSpanishDate(rawDate: string | Date | number | null | undef
     .trim();
   if (!trimmed) return '';
 
-  // Si ya viene como "DD/MM/AAAA" o "DD/MM/AAAA HH:mm(:ss)?" (ej. Utilities.formatDate de Apps Script)
-  const dmySlash = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/);
+  // Número de serie de Google Sheets enviado como cadena (ej. "46356" o "46356.0")
+  if (/^\d{5}(?:\.\d+)?$/.test(trimmed)) {
+    const serial = Number(trimmed);
+    if (Number.isFinite(serial) && serial > 20000 && serial < 100000) {
+      return formatSerialDateNumber(serial);
+    }
+  }
+
+  // Si viene como "DD/MM/AAAA", "DD/MM/AAAA HH:mm(:ss)?" o "DD/MM/AAAA, HH:mm(:ss)?"
+  const dmySlash = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[\s,]+\d{1,2}:\d{2}(?::\d{2})?)?$/);
   if (dmySlash) {
-    const [, d, m, y] = dmySlash;
-    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+    const [, first, second, y] = dmySlash;
+    return normalizeDayMonthPair(first, second, y);
   }
 
   // Si viene como "DD-MM-AAAA" o "DD.MM.AAAA" (con o sin hora)
-  const dmyDashDot = trimmed.match(/^(\d{1,2})[-.](\d{1,2})[-.](\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/);
+  const dmyDashDot = trimmed.match(/^(\d{1,2})[-.](\d{1,2})[-.](\d{4})(?:[\s,]+\d{1,2}:\d{2}(?::\d{2})?)?$/);
   if (dmyDashDot) {
-    const [, d, m, y] = dmyDashDot;
-    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+    const [, first, second, y] = dmyDashDot;
+    return normalizeDayMonthPair(first, second, y);
   }
 
-  // Si viene como "DD/MM/AA" (año en 2 dígitos)
-  const dmyShort = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+  // Si viene como "DD/MM/AA", "DD-MM-AA" o "DD.MM.AA" (año en 2 dígitos)
+  const dmyShort = trimmed.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2})(?:[\s,]+\d{1,2}:\d{2}(?::\d{2})?)?$/);
   if (dmyShort) {
-    const [, d, m, yy] = dmyShort;
-    const year = 2000 + parseInt(yy, 10);
-    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${year}`;
+    const [, first, second, yy] = dmyShort;
+    const year = String(2000 + parseInt(yy, 10));
+    return normalizeDayMonthPair(first, second, year);
   }
 
   // Si viene como ISO con zona horaria explícita (Z o ±HH:MM), convertir al día real en Europe/Madrid
@@ -354,6 +406,22 @@ export function formatSpanishDate(rawDate: string | Date | number | null | undef
     return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
   }
 
+  // Si viene en texto en español (ej. "30 de noviembre de 2026", "lunes, 30 nov 2026")
+  const normalizedEs = trimmed
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  const esTextMatch = normalizedEs.match(
+    /(?:^|[,\s])(\d{1,2})\s+(?:de\s+)?([a-z]{3,10})\.?\s+(?:de\s+|del\s+)?(\d{4})$/
+  );
+  if (esTextMatch) {
+    const [, d, monthWord, y] = esTextMatch;
+    const m = SPANISH_MONTH_TO_NUMBER[monthWord];
+    if (m) {
+      return `${d.padStart(2, '0')}/${m}/${y}`;
+    }
+  }
+
   // Si viene como cadena Date de JavaScript (ej. "Mon Nov 30 2026 00:00:00 GMT+0100 ...")
   if (/^[A-Za-z]{3}\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{4}/.test(trimmed)) {
     const parsedJsDate = new Date(trimmed);
@@ -367,6 +435,7 @@ export function formatSpanishDate(rawDate: string | Date | number | null | undef
 
 /**
  * Extrae día, mes (0-indexado) y año de una fecha DD/MM/AAAA validada.
+ * Valida con mediodía UTC para ser 100% inmune a cambios horarios (DST) o zona local.
  * Devuelve null si la fecha está vacía o es inválida/ilegible para evitar fechas ficticias.
  */
 export function parseCalendarDateParts(
@@ -384,12 +453,12 @@ export function parseCalendarDateParts(
     return null;
   }
 
-  // Validación real de calendario (ej. bisiestos, meses de 30/31 días) en hora local sin desfase UTC
-  const checkDate = new Date(year, month, day);
+  // Validación real de calendario (bisiestos, meses de 30/31 días) en mediodía UTC sin riesgo de DST
+  const checkDate = new Date(Date.UTC(year, month, day, 12, 0, 0));
   if (
-    checkDate.getFullYear() !== year ||
-    checkDate.getMonth() !== month ||
-    checkDate.getDate() !== day
+    checkDate.getUTCFullYear() !== year ||
+    checkDate.getUTCMonth() !== month ||
+    checkDate.getUTCDate() !== day
   ) {
     return null;
   }
@@ -1006,7 +1075,7 @@ export function parseCalendarioRows(rows: string[][]): CalendarEvent[] {
 
     const catLower = rawCat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     let type: 'lectivo' | 'salida' | 'festivo' | 'evaluacion' = 'lectivo';
-    if (catLower.includes('salida') || catLower.includes('excursion') || catLower.includes('visita')) {
+    if (catLower.includes('salida') || catLower.includes('evento') || catLower.includes('excursion') || catLower.includes('visita')) {
       type = 'salida';
     } else if (catLower.includes('festivo') || catLower.includes('no lectivo') || catLower.includes('vacacion')) {
       type = 'festivo';
@@ -1519,12 +1588,41 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
   );
 
   // 4. Calendario (posición determinada EXCLUSIVAMENTE por fecha_inicio y rango hasta fecha_fin)
+  const extractStrictCalendarDate = (
+    rawItem: Record<string, unknown>,
+    targetKeys: readonly string[]
+  ): string | Date | number | undefined => {
+    for (const k of targetKeys) {
+      if (k in rawItem && rawItem[k] !== undefined && rawItem[k] !== null && rawItem[k] !== '') {
+        return rawItem[k] as string | Date | number;
+      }
+    }
+    for (const [key, value] of Object.entries(rawItem)) {
+      if (value === undefined || value === null || value === '') continue;
+      const normKey = normalizeHeader(key);
+      if (targetKeys.includes(normKey)) {
+        return value as string | Date | number;
+      }
+    }
+    return undefined;
+  };
+
   const rawCal = Array.isArray(rawData.calendario) ? rawData.calendario : [];
   const events: CalendarEvent[] = rawCal
     .filter((item) => isPayloadItemPublished(item.estado))
     .map((item, idx): CalendarEvent | null => {
-      const fIni = formatSpanishDate(item.fecha_inicio);
-      const fFinRaw = item.fecha_fin ? formatSpanishDate(item.fecha_fin) : '';
+      const rawStart = extractStrictCalendarDate(item as Record<string, unknown>, [
+        'fecha_inicio',
+        'fechainicio',
+        'fecha_de_inicio',
+      ]);
+      const rawEnd = extractStrictCalendarDate(item as Record<string, unknown>, [
+        'fecha_fin',
+        'fechafin',
+        'fecha_de_fin',
+      ]);
+      const fIni = formatSpanishDate(rawStart);
+      const fFinRaw = rawEnd !== undefined ? formatSpanishDate(rawEnd) : '';
       const hIni = item.hora_inicio ? formatSpanishTime(String(item.hora_inicio)) : '';
       const hFin = item.hora_fin ? formatSpanishTime(String(item.hora_fin)) : '';
       const titulo = String(item.titulo || '').trim();
@@ -1546,7 +1644,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
 
       const catLower = rawCat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       let type: 'lectivo' | 'salida' | 'festivo' | 'evaluacion' = 'lectivo';
-      if (catLower.includes('salida') || catLower.includes('excursion') || catLower.includes('visita')) {
+      if (catLower.includes('salida') || catLower.includes('evento') || catLower.includes('excursion') || catLower.includes('visita')) {
         type = 'salida';
       } else if (catLower.includes('festivo') || catLower.includes('no lectivo') || catLower.includes('vacacion')) {
         type = 'festivo';
@@ -1924,7 +2022,7 @@ export function mergeWithValidCache(
     config: hasRawConfig ? { ...cached.config, ...parsed.config } : cached.config,
     posts: hasRawDia ? parsed.posts : cached.posts,
     avisos: hasRawAvisos ? parsed.avisos : cached.avisos,
-    events: hasRawCal ? parsed.events : cached.events,
+    events: normalizeCalendarEvents(hasRawCal ? parsed.events : cached.events),
     schedule: hasRawHorario ? (parsed.schedule ?? cached.schedule) : cached.schedule,
     multimedia: hasRawMedia ? parsed.multimedia : cached.multimedia,
     aprendemos: hasRawAprendemos ? parsed.aprendemos : cached.aprendemos,

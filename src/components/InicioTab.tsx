@@ -27,7 +27,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { initialConfig } from '../data/defaultData';
-import { getUpcomingCalendarEvents } from '../utils/eventUtils';
+import { getEventStartParts, getUpcomingCalendarEvents } from '../utils/eventUtils';
 import { toReadablePreviewText } from '../utils/textFormatUtils';
 import { UnreadCountsBySection } from '../utils/readStatusService';
 
@@ -635,7 +635,11 @@ export const InicioTab: React.FC<InicioTabProps> = ({
 
           {nextEvents.length > 0 ? (
             <div className="space-y-2.5">
-              {nextEvents.map((ev) => (
+              {nextEvents.map((ev) => {
+                const startParts = getEventStartParts(ev);
+                const displayMonth = startParts?.month ?? ev.month;
+                const displayDay = startParts?.day ?? ev.day;
+                return (
                 <button
                   key={ev.id}
                   type="button"
@@ -644,10 +648,10 @@ export const InicioTab: React.FC<InicioTabProps> = ({
                 >
                   <div className="w-12 h-12 rounded-xl bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] flex flex-col items-center justify-center font-bold shrink-0 tabular-nums">
                     <span className="text-[10px] uppercase font-bold leading-none">
-                      {SHORT_MONTH_NAMES[ev.month] ?? ''}
+                      {SHORT_MONTH_NAMES[displayMonth] ?? ''}
                     </span>
                     <span className="text-base font-extrabold leading-tight mt-0.5">
-                      {ev.day}
+                      {displayDay}
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
@@ -661,7 +665,8 @@ export const InicioTab: React.FC<InicioTabProps> = ({
                     )}
                   </div>
                 </button>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs p-5 text-center space-y-1">

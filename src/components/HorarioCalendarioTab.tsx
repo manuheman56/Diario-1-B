@@ -17,6 +17,11 @@ import { NewBadge, MarkAsReadButton } from './NewBadge';
 import { toReadablePreviewText } from '../utils/textFormatUtils';
 import { getPublicationKey } from '../utils/readStatusService';
 import {
+  formatNonSchoolDayDateLabel,
+  getNonSchoolDayForDate,
+  getNonSchoolDayKindLabel,
+} from '../data/nonSchoolDays';
+import {
   Clock,
   CalendarDays,
   MapPin,
@@ -78,12 +83,12 @@ export const SHORT_MONTH_NAMES = [
 ] as const;
 
 export function getDaysInMonth(year: number, monthIndex: number): number {
-  return new Date(year, monthIndex + 1, 0).getDate();
+  return new Date(Date.UTC(year, monthIndex + 1, 0, 12, 0, 0)).getUTCDate();
 }
 
 export function getMonthLeadingEmptyCells(year: number, monthIndex: number): number {
-  // getDay(): 0 = Domingo, 1 = Lunes ... 6 = Sábado -> Convertimos a semana iniciada en Lunes (0 = Lunes ... 6 = Domingo)
-  const firstDayOfWeek = new Date(year, monthIndex, 1).getDay();
+  // getUTCDay(): 0 = Domingo, 1 = Lunes ... 6 = Sábado -> Convertimos a semana iniciada en Lunes (0 = Lunes ... 6 = Domingo)
+  const firstDayOfWeek = new Date(Date.UTC(year, monthIndex, 1, 12, 0, 0)).getUTCDay();
   return (firstDayOfWeek + 6) % 7;
 }
 
@@ -222,7 +227,7 @@ function getEventTypePresentation(type: CalendarEvent['type']) {
     case 'salida':
     default:
       return {
-        label: 'Salida',
+        label: 'Evento',
         badge: 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]',
         dateBox: 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]',
         cell: 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] font-bold',
@@ -319,6 +324,11 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
       )
     );
   }, [events, selectedCalendarDay, currentMonthIndex, currentYear]);
+
+  const selectedNonSchoolDay = useMemo(() => {
+    if (selectedCalendarDay === null) return null;
+    return getNonSchoolDayForDate(selectedCalendarDay, currentMonthIndex, currentYear);
+  }, [selectedCalendarDay, currentMonthIndex, currentYear]);
 
   const upcomingEvents = useMemo(
     () => getUpcomingCalendarEvents(events),
@@ -615,7 +625,11 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#D97706]" />
-                Salida
+                Evento
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#D97757]" />
+                No lectivo
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#E11D48]" />
@@ -634,8 +648,8 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
               <span>X</span>
               <span>J</span>
               <span>V</span>
-              <span className="text-[#BE123C]">S</span>
-              <span className="text-[#BE123C]">D</span>
+              <span className="text-[#64748B]">S</span>
+              <span className="text-[#64748B]">D</span>
             </div>
 
             {/* Rejilla de días (celdas >= 44px táctiles) */}
@@ -651,6 +665,11 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                 const cellIndex = leadingEmptyCells + idx;
                 const isWeekend = cellIndex % 7 === 5 || cellIndex % 7 === 6;
 
+                const nonSchoolDay = getNonSchoolDayForDate(
+                  day,
+                  currentMonthIndex,
+                  currentYear
+                );
                 const dayEvents = sortEventsForDay(
                   events.filter((ev) =>
                     doesEventFallOnDate(ev, day, currentMonthIndex, currentYear)
@@ -673,16 +692,23 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                 } else if (isToday) {
                   cellClass +=
                     'bg-[#EEF2FF] text-[#312E81] border-2 border-[#4F46E5] font-bold';
+                } else if (isWeekend) {
+                  // Sábados y domingos diferenciados con un fondo gris muy suave y números legibles
+                  cellClass +=
+                    'bg-[#F1F5F9]/90 text-[#475569] hover:bg-[#E2E8F0]/80';
+                } else if (nonSchoolDay) {
+                  // Los días no lectivos mantienen el número limpio, sin recuadros ni fondos de color ni texto rojo
+                  cellClass += 'text-[#0F172A] hover:bg-[#F1F5F9]';
                 } else if (evStyle) {
                   cellClass += evStyle.cell;
-                } else if (isWeekend) {
-                  cellClass += 'text-[#64748B] hover:bg-[#F7F8FA]';
                 } else {
                   cellClass += 'text-[#0F172A] hover:bg-[#F1F5F9]';
                 }
 
-                const visibleDots = dayEvents.slice(0, 3);
+                const maxEventDots = nonSchoolDay ? 2 : 3;
+                const visibleDots = dayEvents.slice(0, maxEventDots);
                 const extraEventsCount = dayEvents.length - visibleDots.length;
+                const hasIndicators = Boolean(nonSchoolDay) || dayEvents.length > 0;
 
                 return (
                   <button
@@ -690,6 +716,8 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                     type="button"
                     onClick={() => setSelectedCalendarDay(day)}
                     aria-label={`${day} de ${MONTH_NAMES[currentMonthIndex]} de ${currentYear}${isToday ? ', hoy' : ''}${
+                      nonSchoolDay ? `, día no lectivo: ${nonSchoolDay.name}` : ''
+                    }${
                       dayEvents.length === 1
                         ? ', 1 evento programado'
                         : dayEvents.length > 1
@@ -710,18 +738,29 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                       />
                     )}
                     <span className="leading-none">{day}</span>
-                    {dayEvents.length > 0 && (
+                    {hasIndicators && (
                       <span
                         aria-hidden="true"
-                        className="flex items-center justify-center gap-0.5 mt-1 min-h-[6px]"
+                        className="flex items-center justify-center gap-1 mt-1 min-h-[6px]"
                       >
+                        {nonSchoolDay && (
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 bg-[#D97757] ${
+                              isSelected ? 'ring-1 ring-white/90' : ''
+                            }`}
+                          />
+                        )}
                         {visibleDots.map((ev) => {
                           const dotStyle = getEventTypePresentation(ev.type).dot;
                           return (
                             <span
                               key={ev.id}
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                isSelected ? 'bg-white' : dotStyle
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                isSelected
+                                  ? nonSchoolDay
+                                    ? `${dotStyle} ring-1 ring-white/90`
+                                    : 'bg-white'
+                                  : dotStyle
                               }`}
                             />
                           );
@@ -755,7 +794,13 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                       {selectedCalendarDay} de {MONTH_NAMES[currentMonthIndex]} de {currentYear}
                     </span>
                   </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                    {selectedNonSchoolDay && (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-white text-[#9A4B31] px-2.5 py-0.5 rounded-full border border-[#D97757]/35">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#D97757]" />
+                        No lectivo
+                      </span>
+                    )}
                     {selectedDayEvents.length > 0 && (
                       <span className="text-[11px] font-bold bg-white text-[#334155] px-2 py-0.5 rounded-full border border-[#E2E8F0] tabular-nums">
                         {selectedDayEvents.length}{' '}
@@ -769,6 +814,48 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                     )}
                   </div>
                 </div>
+
+                {selectedNonSchoolDay && (
+                  <div
+                    role="region"
+                    aria-label={`Día no lectivo: ${selectedNonSchoolDay.name}`}
+                    className="p-3.5 bg-white rounded-2xl border border-[#E2E8F0] shadow-xs space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-[#B4593C]">
+                          <span className="w-2 h-2 rounded-full bg-[#D97757] shrink-0" />
+                          <span>{getNonSchoolDayKindLabel(selectedNonSchoolDay.kind)}</span>
+                        </span>
+                        <h4 className="font-display font-bold text-sm sm:text-[15px] text-[#0F172A] leading-snug mt-0.5">
+                          {selectedNonSchoolDay.name}
+                        </h4>
+                      </div>
+                      <span className="text-[11px] font-semibold text-[#64748B] bg-[#F7F8FA] px-2 py-0.5 rounded-lg border border-[#E2E8F0] shrink-0">
+                        2026/2027
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs text-[#334155] pt-1.5 border-t border-[#F1F5F9]">
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase tracking-wide text-[#64748B]">
+                          {selectedNonSchoolDay.endDate ? 'Periodo' : 'Fecha'}
+                        </span>
+                        <p className="font-semibold text-[#0F172A] leading-snug">
+                          {formatNonSchoolDayDateLabel(selectedNonSchoolDay)}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase tracking-wide text-[#64748B]">
+                          Motivo
+                        </span>
+                        <p className="text-[#475569] leading-relaxed">
+                          {selectedNonSchoolDay.reason}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {selectedDayEvents.length > 0 ? (
                   <div className="space-y-2.5">
@@ -860,11 +947,11 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                       );
                     })}
                   </div>
-                ) : (
+                ) : !selectedNonSchoolDay ? (
                   <p className="text-xs text-[#475569]">
                     No hay actividades programadas para esta fecha.
                   </p>
-                )}
+                ) : null}
               </div>
             ) : (
               <div className="bg-[#F1F5F9] border border-[#E2E8F0] rounded-3xl p-4 text-xs text-[#475569] flex items-center gap-2.5">

@@ -316,7 +316,7 @@ export function getEventCategoryLabel(ev: CalendarEvent): string {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
     if (normalized === 'lectivo') return 'Lectivo';
-    if (normalized === 'salida') return 'Salida';
+    if (normalized === 'salida' || normalized === 'evento') return 'Evento';
     if (normalized === 'festivo') return 'Festivo';
     if (normalized === 'evaluacion') return 'Evaluación';
     if (normalized === 'reunion') return 'Reunión';
@@ -329,7 +329,7 @@ export function getEventCategoryLabel(ev: CalendarEvent): string {
     case 'evaluacion':
       return 'Evaluación';
     case 'salida':
-      return 'Salida';
+      return 'Evento';
     case 'lectivo':
     default:
       return 'Lectivo';
