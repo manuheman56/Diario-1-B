@@ -565,12 +565,192 @@ runTest('14. Verificación estática de integración, exclusión de Horario y co
     true
   );
 
-  // Horario no recibe unreadKeys ni contador en App/BottomNav/Header/Inicio
+  // Horario no recibe contador en BottomNav/Header/Inicio, pero sí reenvía props al subcomponente por si se cambia a subvista Calendario
   const appCode = read('src/App.tsx');
   assert.equal(appCode.includes('NovedadesBanner'), true);
   assert.equal(appCode.includes('useUnreadContent'), true);
   assert.equal(read('src/components/BottomNav.tsx').includes('unreadCounts'), true);
   assert.equal(read('src/components/Header.tsx').includes('unreadCounts'), true);
+});
+
+runTest('15. Flujo completo RECURSOS con 4 recomendaciones nuevas (IDs numéricos, texto y sin URL): lectura individual, banner a 0, persistencia, recarga Sheets y 5.ª novedad', () => {
+  const storage = createMemoryStorage();
+  const basePayload = parseAppsScriptPayload({
+    config: {},
+    dia_a_dia: [{ id: 'dia-base-1', fecha: '01/05/2026', titulo: 'Inicio de mes', contenido: 'Hola', categoria: 'General', estado: 'PUBLICAR', orden: 1 }],
+    avisos: [{ id: 'av-base-1', fecha_publicacion: '01/05/2026', titulo: 'Aviso base', mensaje: 'Info', tipo: 'Aviso', prioridad: 'Normal', estado: 'PUBLICAR', orden: 1 }],
+    calendario: [{ id: 'cal-base-1', fecha_inicio: '15/05/2026', titulo: 'Evento base', descripcion: 'Desc', categoria: 'Evento', estado: 'PUBLICAR', orden: 1 }],
+    horario: [],
+    multimedia: [{ id: 'med-base-1', fecha: '02/05/2026', titulo: 'Foto base', descripcion: 'Desc', tipo: 'FOTOGRAFIA', url_media: 'https://example.org/f1', estado: 'PUBLICAR', orden: 1 }],
+    aprendemos: [{ id: 'apr-base-1', categoria: 'lectura', titulo: 'Lectura base', descripcion: 'Desc', estado: 'PUBLICAR', orden: 1 }],
+    recursos: [{ id: 'rec-base-1', categoria: 'lengua_lectura', titulo: 'Recurso previo', descripcion: 'Previo', tipo_recurso: 'Pauta', estado: 'PUBLICAR', orden: 1 }],
+  });
+
+  const toSnapshot = (p: ReturnType<typeof parseAppsScriptPayload>): SectionsContentSnapshot => ({
+    diario: p.posts,
+    avisos: p.avisos,
+    calendario: p.events,
+    multimedia: p.multimedia,
+    aprendemos: p.aprendemos,
+    recursos: p.recursos,
+  });
+
+  // Paso 1: Primera instalación (referencia inicial sin falsas novedades)
+  const snap0 = toSnapshot(basePayload);
+  const initRes = reconcileReadStatus(loadReadStatusState(storage), snap0, {
+    isDataReady: true,
+    hasConfirmedLiveSync: true,
+  });
+  saveReadStatusState(initRes.nextState, storage);
+  assert.equal(computeUnreadSummary(initRes.nextState, snap0).totalUnread, 0);
+
+  // Paso 2: Se añaden 4 recomendaciones nuevas en RECURSOS (IDs numéricos 1 y 2, texto y sin ID; con y sin url_recurso)
+  const fourNewRecursos = [
+    { id: 1, categoria: 'familias', titulo: 'Lectura compartida 10 minutos', descripcion: 'Leer cada tarde en voz alta.', tipo_recurso: 'Orientación', estado: 'PUBLICADO', orden: 5 },
+    { id: 2, categoria: 'matematicas', titulo: 'Juegos de cálculo mental', descripcion: 'Sumar hasta 10 con dados.', tipo_recurso: 'Juego', url_recurso: 'https://example.org/calculo', estado: 'PUBLICAR', orden: 4 },
+    { id: 'rec-casa-3', categoria: 'familias', titulo: 'Rutina de mochila y agenda', descripcion: 'Preparar la mochila la noche anterior.', tipo_recurso: 'Pauta familiar', estado: 'PUBLICADO', orden: 3 },
+    { id: '', categoria: 'lengua_lectura', titulo: 'Cuentos antes de dormir', descripcion: 'Comentar los personajes del cuento.', tipo_recurso: 'Pauta', estado: 'PUBLICAR', orden: 2 },
+  ];
+
+  const payloadWith4 = parseAppsScriptPayload({
+    config: {},
+    dia_a_dia: [{ id: 'dia-base-1', fecha: '01/05/2026', titulo: 'Inicio de mes', contenido: 'Hola', categoria: 'General', estado: 'PUBLICAR', orden: 1 }],
+    avisos: [{ id: 'av-base-1', fecha_publicacion: '01/05/2026', titulo: 'Aviso base', mensaje: 'Info', tipo: 'Aviso', prioridad: 'Normal', estado: 'PUBLICAR', orden: 1 }],
+    calendario: [{ id: 'cal-base-1', fecha_inicio: '15/05/2026', titulo: 'Evento base', descripcion: 'Desc', categoria: 'Evento', estado: 'PUBLICAR', orden: 1 }],
+    horario: [],
+    multimedia: [{ id: 'med-base-1', fecha: '02/05/2026', titulo: 'Foto base', descripcion: 'Desc', tipo: 'FOTOGRAFIA', url_media: 'https://example.org/f1', estado: 'PUBLICAR', orden: 1 }],
+    aprendemos: [{ id: 'apr-base-1', categoria: 'lectura', titulo: 'Lectura base', descripcion: 'Desc', estado: 'PUBLICAR', orden: 1 }],
+    recursos: [
+      ...fourNewRecursos,
+      { id: 'rec-base-1', categoria: 'lengua_lectura', titulo: 'Recurso previo', descripcion: 'Previo', tipo_recurso: 'Pauta', estado: 'PUBLICAR', orden: 1 },
+    ],
+  });
+
+  // Verificar que los IDs numéricos de Sheets se normalizan a clave real :id:1 y :id:2
+  const snap4 = toSnapshot(payloadWith4);
+  assert.equal(getPublicationKey('recursos', snap4.recursos[0]), 'recursos:id:1');
+  assert.equal(getPublicationKey('recursos', snap4.recursos[1]), 'recursos:id:2');
+  assert.equal(getPublicationKey('recursos', snap4.recursos[2]), 'recursos:id:rec-casa-3');
+  assert.equal(getPublicationKey('recursos', snap4.recursos[3]).startsWith('recursos:fp:'), true);
+
+  let state = reconcileReadStatus(loadReadStatusState(storage), snap4, {
+    isDataReady: true,
+    hasConfirmedLiveSync: true,
+  }).nextState;
+  saveReadStatusState(state, storage);
+
+  let summary = computeUnreadSummary(state, snap4);
+  assert.equal(summary.totalUnread, 4);
+  assert.equal(summary.counts.recursos, 4);
+
+  // Paso 3 y 4: Consultar/abrir cada una de las 4 recomendaciones descuenta 4 -> 3 -> 2 -> 1 -> 0
+  const newKeys = snap4.recursos.slice(0, 4).map((r) => getPublicationKey('recursos', r));
+  newKeys.forEach((key, idx) => {
+    state = markPublicationAsRead(state, key).nextState;
+    saveReadStatusState(state, storage);
+    summary = computeUnreadSummary(state, snap4);
+    assert.equal(summary.unreadKeys.has(key), false, `Clave ${key} debe dejar de estar sin leer`);
+    assert.equal(summary.counts.recursos, 3 - idx);
+    assert.equal(summary.totalUnread, 3 - idx);
+  });
+
+  assert.equal(summary.totalUnread, 0);
+  assert.equal(summary.counts.recursos, 0);
+
+  // Paso 5: Cerrar y reabrir la aplicación -> 0 novedades, banner no reaparece
+  const reopenedState = loadReadStatusState(storage);
+  const reopenedSummary = computeUnreadSummary(reopenedState, snap4);
+  assert.equal(reopenedSummary.totalUnread, 0);
+  assert.equal(reopenedSummary.counts.recursos, 0);
+
+  // Paso 8: Recargar datos desde Google Sheets -> sin errores, sin regresiones ni duplicados
+  const reloadedPayload = parseAppsScriptPayload({
+    config: {},
+    dia_a_dia: [{ id: 'dia-base-1', fecha: '01/05/2026', titulo: 'Inicio de mes', contenido: 'Hola', categoria: 'General', estado: 'PUBLICAR', orden: 1 }],
+    avisos: [{ id: 'av-base-1', fecha_publicacion: '01/05/2026', titulo: 'Aviso base', mensaje: 'Info', tipo: 'Aviso', prioridad: 'Normal', estado: 'PUBLICAR', orden: 1 }],
+    calendario: [{ id: 'cal-base-1', fecha_inicio: '15/05/2026', titulo: 'Evento base', descripcion: 'Desc', categoria: 'Evento', estado: 'PUBLICAR', orden: 1 }],
+    horario: [],
+    multimedia: [{ id: 'med-base-1', fecha: '02/05/2026', titulo: 'Foto base', descripcion: 'Desc', tipo: 'FOTOGRAFIA', url_media: 'https://example.org/f1', estado: 'PUBLICAR', orden: 1 }],
+    aprendemos: [{ id: 'apr-base-1', categoria: 'lectura', titulo: 'Lectura base', descripcion: 'Desc', estado: 'PUBLICAR', orden: 1 }],
+    recursos: [
+      ...fourNewRecursos,
+      { id: 'rec-base-1', categoria: 'lengua_lectura', titulo: 'Recurso previo', descripcion: 'Previo', tipo_recurso: 'Pauta', estado: 'PUBLICAR', orden: 1 },
+    ],
+  });
+  const snapReloaded = toSnapshot(reloadedPayload);
+  const afterSheetsReload = reconcileReadStatus(reopenedState, snapReloaded, {
+    isDataReady: true,
+    hasConfirmedLiveSync: true,
+  });
+  assert.equal(afterSheetsReload.changed, false);
+  assert.equal(computeUnreadSummary(afterSheetsReload.nextState, snapReloaded).totalUnread, 0);
+
+  // Paso 6: Añadir una 5.ª recomendación nueva después de leer las 4 -> SOLO la 5.ª es no leída
+  const payloadWith5 = parseAppsScriptPayload({
+    config: {},
+    dia_a_dia: [{ id: 'dia-base-1', fecha: '01/05/2026', titulo: 'Inicio de mes', contenido: 'Hola', categoria: 'General', estado: 'PUBLICAR', orden: 1 }],
+    avisos: [{ id: 'av-base-1', fecha_publicacion: '01/05/2026', titulo: 'Aviso base', mensaje: 'Info', tipo: 'Aviso', prioridad: 'Normal', estado: 'PUBLICAR', orden: 1 }],
+    calendario: [{ id: 'cal-base-1', fecha_inicio: '15/05/2026', titulo: 'Evento base', descripcion: 'Desc', categoria: 'Evento', estado: 'PUBLICAR', orden: 1 }],
+    horario: [],
+    multimedia: [{ id: 'med-base-1', fecha: '02/05/2026', titulo: 'Foto base', descripcion: 'Desc', tipo: 'FOTOGRAFIA', url_media: 'https://example.org/f1', estado: 'PUBLICAR', orden: 1 }],
+    aprendemos: [{ id: 'apr-base-1', categoria: 'lectura', titulo: 'Lectura base', descripcion: 'Desc', estado: 'PUBLICAR', orden: 1 }],
+    recursos: [
+      { id: 5, categoria: 'familias', titulo: 'Nueva 5.ª recomendación', descripcion: 'Hábitos de descanso.', tipo_recurso: 'Orientación', estado: 'PUBLICAR', orden: 6 },
+      ...fourNewRecursos,
+      { id: 'rec-base-1', categoria: 'lengua_lectura', titulo: 'Recurso previo', descripcion: 'Previo', tipo_recurso: 'Pauta', estado: 'PUBLICAR', orden: 1 },
+    ],
+  });
+  const snap5 = toSnapshot(payloadWith5);
+  const stateWith5 = reconcileReadStatus(afterSheetsReload.nextState, snap5, {
+    isDataReady: true,
+    hasConfirmedLiveSync: true,
+  }).nextState;
+  const summary5 = computeUnreadSummary(stateWith5, snap5);
+  assert.equal(summary5.totalUnread, 1);
+  assert.equal(summary5.counts.recursos, 1);
+  assert.equal(summary5.unreadKeys.has('recursos:id:5'), true);
+  for (const prevKey of newKeys) {
+    assert.equal(summary5.unreadKeys.has(prevKey), false);
+  }
+});
+
+runTest('16. IDs numéricos (incluido 0) y caracteres invisibles Unicode producen claves reales estables', () => {
+  assert.equal(getPublicationKey('recursos', { id: 0, titulo: 'Cero' }), 'recursos:id:0');
+  assert.equal(getPublicationKey('recursos', { id: 42, titulo: 'Cuarenta y dos' }), 'recursos:id:42');
+  assert.equal(getPublicationKey('diario', { id: ' \u200Bnoticia99\uFEFF ', titulo: 'Con espacio' }), 'diario:id:noticia99');
+});
+
+runTest('17. Verificación estática de correcciones: guardado síncrono, carga completa, consulta por tarjeta y limpieza de contadores', () => {
+  const root = process.cwd();
+  const read = (rel: string) => fs.readFileSync(path.join(root, rel), 'utf8');
+
+  // Persistencia síncrona en useUnreadContent y espera a isDataReady
+  const hookCode = read('src/hooks/useUnreadContent.ts');
+  assert.equal(hookCode.includes('readStateRef'), true);
+  assert.equal(hookCode.includes('isDataReady &&\n    readState.initialized'), true);
+  assert.equal(hookCode.includes('clearSessionBannerDismissed'), true);
+
+  // App.tsx espera al intento inicial de sincronización antes de marcar isUnreadDataReady
+  const appCode = read('src/App.tsx');
+  assert.equal(appCode.includes('hasCompletedInitialSyncAttempt'), true);
+
+  // InicioTab usa avisosUnread en la campana superior (sin contador rojo permanente tras leer)
+  const inicioCode = read('src/components/InicioTab.tsx');
+  assert.equal(inicioCode.includes('{avisosUnread > 0 && ('), true);
+
+  // Todas las secciones consultables abren ficha detallada y marcan como leído al abrir la tarjeta
+  for (const [rel, modalId] of [
+    ['src/components/RecursosTab.tsx', 'recurso-detail-title'],
+    ['src/components/DiarioTab.tsx', 'diario-detail-title'],
+    ['src/components/AvisosTab.tsx', 'aviso-detail-title'],
+    ['src/components/AprendemosTab.tsx', 'aprendemos-detail-title'],
+    ['src/components/MultimediaTab.tsx', 'multimedia-detail-title'],
+    ['src/components/HorarioCalendarioTab.tsx', 'event-detail-title'],
+  ] as const) {
+    const code = read(rel);
+    assert.equal(code.includes(modalId), true, `${rel} debe abrir ficha detallada (${modalId})`);
+    assert.equal(code.includes('role="dialog"'), true, `${rel} debe exponer diálogo accesible`);
+  }
 });
 
 console.log(`\n🎉 Todas las pruebas de Fase 2 (novedades y lectura) superadas: ${passed}/${passed}`);

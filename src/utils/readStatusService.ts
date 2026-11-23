@@ -136,18 +136,24 @@ function fnv1aHex(input: string): string {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
+function normalizeRawId(rawId?: string | number | null): string {
+  if (rawId === undefined || rawId === null) return '';
+  return String(rawId)
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim();
+}
+
 function isMissingOrSyntheticFallbackId(
   section: UnreadSectionId,
-  rawId?: string | null
+  rawId?: string | number | null
 ): boolean {
-  if (!rawId || typeof rawId !== 'string') return true;
-  const trimmed = rawId.trim();
+  const trimmed = normalizeRawId(rawId);
   if (!trimmed) return true;
   return SYNTHETIC_FALLBACK_PATTERNS[section].test(trimmed);
 }
 
 type TrackableItemLike = {
-  id?: string;
+  id?: string | number | null;
   estado?: string;
   titulo?: string;
   title?: string;
@@ -172,7 +178,7 @@ export function getPublicationKey(
   section: UnreadSectionId,
   item: TrackableItemLike
 ): string {
-  const rawId = typeof item.id === 'string' ? item.id.trim() : '';
+  const rawId = normalizeRawId(item.id);
 
   if (!isMissingOrSyntheticFallbackId(section, rawId)) {
     return `${section}:id:${rawId}`;
@@ -312,12 +318,15 @@ export function reconcileReadStatus(
       return { nextState: currentState, changed: false };
     }
 
+    const mergedKnown = dedupeStrings([...currentState.knownIds, ...allCurrentKeys]);
+    const mergedRead = dedupeStrings([...currentState.readIds, ...allCurrentKeys]);
+
     const nextState: ReadStatusState = {
       version: READ_STATUS_SCHEMA_VERSION,
       initialized: true,
       initializedAt: now,
-      knownIds: allCurrentKeys,
-      readIds: allCurrentKeys,
+      knownIds: mergedKnown,
+      readIds: mergedRead,
       updatedAt: now,
     };
 

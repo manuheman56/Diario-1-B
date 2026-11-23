@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   computeUnreadSummary,
+  createEmptyUnreadCounts,
   loadReadStatusState,
   markPublicationAsRead,
+  READ_STATUS_STORAGE_KEY,
+  ReadStatusState,
   reconcileReadStatus,
   saveReadStatusState,
   SectionsContentSnapshot,
   UnreadCountsBySection,
   UnreadSectionId,
+  UnreadSummary,
   getFirstUnreadSection,
 } from '../utils/readStatusService';
 
@@ -29,6 +33,31 @@ function saveSessionBannerDismissed(): void {
   } catch {
     // Ignorar fallos de almacenamiento de sesión
   }
+}
+
+function clearSessionBannerDismissed(): void {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return;
+    window.sessionStorage.removeItem(BANNER_DISMISSED_SESSION_KEY);
+  } catch {
+    // Ignorar fallos de almacenamiento de sesión
+  }
+}
+
+function createEmptyUnreadSummary(): UnreadSummary {
+  return {
+    counts: createEmptyUnreadCounts(),
+    totalUnread: 0,
+    unreadKeys: new Set<string>(),
+    unreadBySection: {
+      diario: [],
+      avisos: [],
+      calendario: [],
+      multimedia: [],
+      aprendemos: [],
+      recursos: [],
+    },
+  };
 }
 
 interface UseUnreadContentParams {
@@ -55,28 +84,44 @@ export function useUnreadContent({
   isDataReady,
   hasConfirmedLiveSync,
 }: UseUnreadContentParams): UseUnreadContentResult {
-  const [readState, setReadState] = useState(() => loadReadStatusState());
+  const [readState, setReadState] = useState<ReadStatusState>(() =>
+    loadReadStatusState()
+  );
+  const readStateRef = useRef<ReadStatusState>(readState);
+  readStateRef.current = readState;
+
   const [bannerDismissed, setBannerDismissed] = useState(() =>
     loadSessionBannerDismissed()
   );
 
-  // Reconciliar estado cuando haya datos cargados de forma válida
+  // Sincronización entre pestañas si otra ventana del mismo navegador actualiza las lecturas
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== READ_STATUS_STORAGE_KEY) return;
+      const latest = loadReadStatusState();
+      readStateRef.current = latest;
+      setReadState(latest);
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Reconciliar estado cuando las 6 secciones hayan terminado de cargarse de forma válida
   useEffect(() => {
     if (!isDataReady) return;
 
-    setReadState((prev) => {
-      const { nextState, changed } = reconcileReadStatus(prev, snapshot, {
-        isDataReady,
-        hasConfirmedLiveSync,
-      });
-
-      if (changed) {
-        saveReadStatusState(nextState);
-        return nextState;
-      }
-
-      return prev;
+    const current = readStateRef.current;
+    const { nextState, changed } = reconcileReadStatus(current, snapshot, {
+      isDataReady,
+      hasConfirmedLiveSync,
     });
+
+    if (changed) {
+      readStateRef.current = nextState;
+      saveReadStatusState(nextState);
+      setReadState(nextState);
+    }
   }, [
     isDataReady,
     hasConfirmedLiveSync,
@@ -88,34 +133,48 @@ export function useUnreadContent({
     snapshot.recursos,
   ]);
 
-  const summary = useMemo(
-    () => computeUnreadSummary(readState, snapshot),
-    [
-      readState,
-      snapshot.diario,
-      snapshot.avisos,
-      snapshot.calendario,
-      snapshot.multimedia,
-      snapshot.aprendemos,
-      snapshot.recursos,
-    ]
-  );
+  const summary = useMemo(() => {
+    if (!isDataReady) {
+      return createEmptyUnreadSummary();
+    }
+    return computeUnreadSummary(readState, snapshot);
+  }, [
+    isDataReady,
+    readState,
+    snapshot.diario,
+    snapshot.avisos,
+    snapshot.calendario,
+    snapshot.multimedia,
+    snapshot.aprendemos,
+    snapshot.recursos,
+  ]);
+
+  // Cuando se leen todas las novedades pendientes, limpiar el cierre de sesión del aviso
+  // para que solo pueda volver a mostrarse si más adelante llega una publicación nueva real.
+  useEffect(() => {
+    if (isDataReady && readState.initialized && summary.totalUnread === 0 && bannerDismissed) {
+      clearSessionBannerDismissed();
+      setBannerDismissed(false);
+    }
+  }, [isDataReady, readState.initialized, summary.totalUnread, bannerDismissed]);
 
   const firstUnreadSection = useMemo(
     () => getFirstUnreadSection(summary.counts),
     [summary.counts]
   );
 
+  // Guardado síncrono inmediato en localStorage antes de cualquier navegación o enlace externo
   const markAsRead = useCallback((publicationKey: string) => {
     if (!publicationKey) return;
-    setReadState((prev) => {
-      const { nextState, changed } = markPublicationAsRead(prev, publicationKey);
-      if (changed) {
-        saveReadStatusState(nextState);
-        return nextState;
-      }
-      return prev;
-    });
+
+    const current = readStateRef.current;
+    const { nextState, changed } = markPublicationAsRead(current, publicationKey);
+
+    if (changed) {
+      readStateRef.current = nextState;
+      saveReadStatusState(nextState);
+      setReadState(nextState);
+    }
   }, []);
 
   const dismissEntryBanner = useCallback(() => {
@@ -124,7 +183,10 @@ export function useUnreadContent({
   }, []);
 
   const showEntryBanner =
-    readState.initialized && summary.totalUnread > 0 && !bannerDismissed;
+    isDataReady &&
+    readState.initialized &&
+    summary.totalUnread > 0 &&
+    !bannerDismissed;
 
   return {
     unreadCounts: summary.counts,

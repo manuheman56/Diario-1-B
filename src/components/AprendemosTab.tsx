@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AprendemosCategory, EducationalResource } from '../types';
 import {
   normalizeAprendemosTips,
@@ -64,6 +64,24 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({
 }) => {
   const [activeCategory, setActiveCategory] = useState<'all' | AprendemosCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedResource, setSelectedResource] = useState<EducationalResource | null>(null);
+
+  useEffect(() => {
+    if (!selectedResource) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedResource(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedResource]);
+
+  const handleOpenResource = (res: EducationalResource) => {
+    const itemKey = getPublicationKey('aprendemos', res);
+    onMarkAsRead?.(itemKey);
+    setSelectedResource(res);
+  };
 
   const activeList = useMemo(
     () => (resources !== undefined ? resources : []),
@@ -295,7 +313,13 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({
             return (
               <article
                 key={res.id}
-                className="diario-card rounded-3xl p-4 sm:p-5 space-y-3.5"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.getSelection()?.toString().trim()) {
+                    return;
+                  }
+                  handleOpenResource(res);
+                }}
+                className="diario-card rounded-3xl p-4 sm:p-5 space-y-3.5 transition hover:border-[#DDD6FE] hover:shadow-sm cursor-pointer"
               >
                 {/* Metadatos limpios sin píldoras */}
                 <div className="flex items-center justify-between gap-2 text-xs">
@@ -355,8 +379,9 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({
                         href={res.externalUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={() => {
-                          if (isUnread) onMarkAsRead?.(itemKey);
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkAsRead?.(itemKey);
                         }}
                         className={`min-h-[44px] inline-flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl border diario-press ${accent.button}`}
                       >
@@ -370,7 +395,10 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({
                     {isUnread && (
                       <MarkAsReadButton
                         compact
-                        onClick={() => onMarkAsRead?.(itemKey)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkAsRead?.(itemKey);
+                        }}
                       />
                     )}
                   </div>
@@ -395,6 +423,118 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({
           </p>
         </div>
       </div>
+
+      {/* Ficha detallada del contenido de clase */}
+      {selectedResource && (() => {
+        const detailTips = normalizeAprendemosTips(
+          selectedResource.tips,
+          selectedResource.description
+        );
+        const detailCategory = normalizeAprendemosCategory(
+          selectedResource.categoria || selectedResource.category
+        );
+        const detailLabel = APRENDEMOS_CATEGORY_LABELS[detailCategory];
+        const detailAccent = getCategoryAccent(detailCategory);
+        const detailKey = getPublicationKey('aprendemos', selectedResource);
+
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="aprendemos-detail-title"
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-xs diario-fade-in"
+            onClick={() => setSelectedResource(null)}
+          >
+            <div
+              className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl border border-[#E2E8F0] shadow-xl max-h-[85dvh] flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 pt-5 pb-4 border-b border-[#F1F5F9] flex items-start justify-between gap-3">
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                    <span className={`font-bold ${detailAccent.text}`}>{detailLabel}</span>
+                    <span aria-hidden="true" className="text-slate-300">·</span>
+                    <span className="text-[#475569] font-medium">
+                      {selectedResource.badge || 'Contenido de Aula'}
+                    </span>
+                    {selectedResource.level && (
+                      <>
+                        <span aria-hidden="true" className="text-slate-300">·</span>
+                        <span className="text-[#475569] font-medium">{selectedResource.level}</span>
+                      </>
+                    )}
+                  </div>
+                  <h3
+                    id="aprendemos-detail-title"
+                    className="font-display font-bold text-lg sm:text-xl text-[#0F172A] leading-snug"
+                  >
+                    {selectedResource.title}
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedResource(null)}
+                  aria-label="Cerrar contenido de clase"
+                  className="w-11 h-11 rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A] flex items-center justify-center shrink-0 cursor-pointer diario-press"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-4 overflow-y-auto">
+                <p className="text-[14.5px] text-[#334155] leading-relaxed">
+                  {selectedResource.description}
+                </p>
+
+                {detailTips.length > 0 && (
+                  <div className="bg-[#F7F8FA] rounded-2xl p-4 border border-[#E2E8F0] space-y-3">
+                    <h4 className="font-display text-xs font-bold text-[#0F172A] tracking-tight">
+                      Cómo acompañar este aprendizaje
+                    </h4>
+                    <ul className="flex flex-col gap-2.5 list-none p-0 m-0">
+                      {detailTips.map((tip, idx) => (
+                        <li
+                          key={idx}
+                          className="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-[#334155]"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`w-2 h-2 rounded-full shrink-0 mt-[0.48rem] ${detailAccent.bullet}`}
+                          />
+                          <span className="min-w-0 flex-1 break-words">{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-5 py-3.5 border-t border-[#F1F5F9] bg-[#F7F8FA]/60 flex items-center justify-end gap-2.5 flex-wrap">
+                {selectedResource.externalUrl && (
+                  <a
+                    href={selectedResource.externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => onMarkAsRead?.(detailKey)}
+                    className={`min-h-[44px] inline-flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl border diario-press ${detailAccent.button}`}
+                  >
+                    <span>{selectedResource.externalLabel || 'Ver material del proyecto'}</span>
+                    <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedResource(null)}
+                  className="min-h-[44px] px-5 py-2 rounded-xl bg-[#4338CA] hover:bg-[#3730A3] text-white font-bold text-sm cursor-pointer diario-press"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

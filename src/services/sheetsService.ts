@@ -1483,6 +1483,14 @@ export interface SyncResult {
  * Parsea la respuesta integral devuelta por doGet(?action=all) de Google Apps Script
  */
 export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncResult {
+  const normalizeSheetId = (rawId: unknown, fallback: string): string => {
+    if (rawId === undefined || rawId === null) return fallback;
+    const cleaned = String(rawId)
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .trim();
+    return cleaned || fallback;
+  };
+
   // 1. Config
   const rawConfig = (rawData.config || {}) as Record<string, string>;
   const parsedConfig = parseConfigObject(rawConfig);
@@ -1508,7 +1516,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
           orden: parsedOrden,
           dateStr: fecha,
           item: {
-            id: item.id || `dia-${idx}`,
+            id: normalizeSheetId(item.id, `dia-${idx}`),
             fecha,
             titulo,
             contenido,
@@ -1569,7 +1577,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
           orden: parsedOrden,
           dateStr: fechaPub,
           item: {
-            id: item.id || `aviso-${idx}`,
+            id: normalizeSheetId(item.id, `aviso-${idx}`),
             fecha_publicacion: fechaPub || 'Hoy',
             fecha_limite: fechaLim,
             titulo,
@@ -1663,7 +1671,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
       }
 
       return {
-        id: item.id || `cal-${idx}`,
+        id: normalizeSheetId(item.id, `cal-${idx}`),
         fecha_inicio: fIni,
         fecha_fin: fFin,
         hora_inicio: hIni || undefined,
@@ -1749,7 +1757,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
           orden: parsedOrden,
           dateStr: fecha,
           item: {
-            id: item.id || `media-${idx}`,
+            id: normalizeSheetId(item.id, `media-${idx}`),
             fecha,
             titulo: item.titulo || '',
             descripcion: item.descripcion || '',
@@ -1785,7 +1793,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
         return {
           orden: parsedOrden,
           item: {
-            id: item.id || `aprende-${idx}`,
+            id: normalizeSheetId(item.id, `aprende-${idx}`),
             categoria: rawCat,
             titulo,
             descripcion,
@@ -1847,7 +1855,7 @@ export function parseAppsScriptPayload(rawData: Record<string, unknown>): SyncRe
         return {
           orden: parsedOrden,
           item: {
-            id: item.id || `rec-${idx}`,
+            id: normalizeSheetId(item.id, `rec-${idx}`),
             categoria,
             titulo: item.titulo || '',
             descripcion: item.descripcion || '',

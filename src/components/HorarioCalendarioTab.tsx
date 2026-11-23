@@ -333,9 +333,7 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
 
   const handleOpenEventDetail = (ev: CalendarEvent) => {
     const evKey = getPublicationKey('calendario', ev);
-    if (unreadKeys?.has(evKey)) {
-      onMarkAsRead?.(evKey);
-    }
+    onMarkAsRead?.(evKey);
     setSelectedEvent(ev);
   };
 

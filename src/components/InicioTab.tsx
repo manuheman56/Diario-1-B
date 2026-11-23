@@ -331,17 +331,17 @@ export const InicioTab: React.FC<InicioTabProps> = ({
               type="button"
               onClick={() => onNavigate('avisos')}
               aria-label={
-                urgentAvisosCount > 0
-                  ? `Ver notificaciones y avisos (${urgentAvisosCount} urgentes)`
+                avisosUnread > 0
+                  ? `Ver avisos y notificaciones (${avisosUnread} ${avisosUnread === 1 ? 'novedad sin leer' : 'novedades sin leer'})`
                   : 'Ver avisos y notificaciones del aula'
               }
               title="Avisos y notificaciones"
               className="relative min-w-[44px] min-h-[44px] rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] hover:bg-[#FFF1F2] hover:border-[#FECDD3] text-[#334155] hover:text-[#E11D48] flex items-center justify-center diario-press cursor-pointer"
             >
               <Bell className="w-[18px] h-[18px]" strokeWidth={1.9} />
-              {urgentAvisosCount > 0 && (
+              {avisosUnread > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#E11D48] text-white text-[10px] font-bold tabular-nums flex items-center justify-center ring-2 ring-white">
-                  {urgentAvisosCount}
+                  {avisosUnread}
                 </span>
               )}
             </button>

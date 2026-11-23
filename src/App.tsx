@@ -137,6 +137,9 @@ export default function App() {
     () => configured && !hasAnySyncData(initialCache)
   );
   const [hasConfirmedLiveSync, setHasConfirmedLiveSync] = useState(false);
+  const [hasCompletedInitialSyncAttempt, setHasCompletedInitialSyncAttempt] = useState<boolean>(
+    () => !configured
+  );
   const [hasValidCachedSnapshot, setHasValidCachedSnapshot] = useState<boolean>(
     () => configured && hasAnySyncData(initialCache)
   );
@@ -288,6 +291,7 @@ export default function App() {
         if (requestSeq === syncSeqRef.current) {
           setIsSyncing(false);
           setIsInitialLoading(false);
+          setHasCompletedInitialSyncAttempt(true);
         }
       }
     },
@@ -388,7 +392,8 @@ export default function App() {
   const isUnreadDataReady =
     configured &&
     !isPendingConfig &&
-    (hasConfirmedLiveSync || (!isSyncing && hasValidCachedSnapshot));
+    (hasConfirmedLiveSync ||
+      (hasCompletedInitialSyncAttempt && !isSyncing && hasValidCachedSnapshot));
 
   const {
     unreadCounts,
@@ -582,6 +587,8 @@ export default function App() {
               schedule={schedule}
               events={events}
               initialSubView="horario"
+              unreadKeys={unreadKeys}
+              onMarkAsRead={markAsRead}
             />
           )}
 

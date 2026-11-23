@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AvisoItem, Notice } from '../types';
 import { matchesNormalizedSearch } from '../utils/searchUtils';
 import { SectionHeader } from './SectionHeader';
@@ -40,6 +40,18 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
   const [filter, setFilter] = useState<'all' | 'urgente' | 'general' | 'actividad'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [selectedAvisoKey, setSelectedAvisoKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedAvisoKey) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedAvisoKey(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedAvisoKey]);
 
   // Normalizar avisos desde pestaña AVISOS o fallback a posts
   const normalizedAvisos =
@@ -103,6 +115,15 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
   const urgentCount = normalizedAvisos.filter(
     (p) => p.important || p.tag === 'Urgente' || p.prioridad === 'Alta'
   ).length;
+
+  const selectedAviso = selectedAvisoKey
+    ? normalizedAvisos.find((a) => a.publicationKey === selectedAvisoKey) ?? null
+    : null;
+
+  const handleOpenAviso = (publicationKey: string) => {
+    onMarkAsRead?.(publicationKey);
+    setSelectedAvisoKey(publicationKey);
+  };
 
   return (
     <div className="space-y-4 pb-6 diario-fade-in">
@@ -255,7 +276,13 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
             return (
               <article
                 key={post.id}
-                className={`diario-card rounded-3xl p-4 sm:p-5 space-y-3 ${
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.getSelection()?.toString().trim()) {
+                    return;
+                  }
+                  handleOpenAviso(post.publicationKey);
+                }}
+                className={`diario-card rounded-3xl p-4 sm:p-5 space-y-3 transition hover:border-[#C7D2FE] hover:shadow-sm cursor-pointer ${
                   isUrgent
                     ? 'border-[#FECDD3] bg-[#FFF1F2]/55'
                     : ''
@@ -311,8 +338,9 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
                       href={post.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={() => {
-                        if (isUnread) onMarkAsRead?.(post.publicationKey);
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMarkAsRead?.(post.publicationKey);
                       }}
                       className="min-h-[44px] inline-flex items-center gap-2 text-xs font-bold text-[#BE123C] bg-white hover:bg-[#FFF1F2] px-4 py-2 rounded-xl border border-[#FECDD3] diario-press"
                     >
@@ -333,13 +361,17 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
                     {isUnread && (
                       <MarkAsReadButton
                         compact
-                        onClick={() => onMarkAsRead?.(post.publicationKey)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkAsRead?.(post.publicationKey);
+                        }}
                       />
                     )}
                     <button
                       type="button"
-                      onClick={() => {
-                        if (isUnread) onMarkAsRead?.(post.publicationKey);
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMarkAsRead?.(post.publicationKey);
                         onSharePost({ title: post.title, content: post.content });
                       }}
                       className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#BE123C] hover:bg-white flex items-center gap-1.5 cursor-pointer shrink-0 diario-press"
@@ -355,6 +387,109 @@ export const AvisosTab: React.FC<AvisosTabProps> = ({
           })
         )}
       </div>
+
+      {/* Ficha detallada del aviso */}
+      {selectedAviso && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="aviso-detail-title"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-xs diario-fade-in"
+          onClick={() => setSelectedAvisoKey(null)}
+        >
+          <div
+            className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl border border-[#E2E8F0] shadow-xl max-h-[85dvh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-4 border-b border-[#F1F5F9] flex items-start justify-between gap-3">
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  {selectedAviso.important ? (
+                    <span className="inline-flex items-center gap-1.5 font-bold text-[#BE123C]">
+                      <AlertCircle className="w-4 h-4 text-[#E11D48]" />
+                      <span>Urgente · Importante</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 font-bold text-[#4338CA]">
+                      <Pin className="w-3.5 h-3.5 text-[#4338CA]" />
+                      <span>{selectedAviso.tag}</span>
+                    </span>
+                  )}
+                  <span aria-hidden="true" className="text-slate-300">·</span>
+                  <span className="text-[#475569] font-medium tabular-nums">
+                    {selectedAviso.date}
+                  </span>
+                </div>
+                <h3
+                  id="aviso-detail-title"
+                  className="font-display font-bold text-lg sm:text-xl text-[#0F172A] leading-snug"
+                >
+                  {selectedAviso.title}
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedAvisoKey(null)}
+                aria-label="Cerrar aviso"
+                className="w-11 h-11 rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A] flex items-center justify-center shrink-0 cursor-pointer diario-press"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4 overflow-y-auto">
+              {selectedAviso.deadline && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] text-xs font-bold tabular-nums">
+                  <Calendar className="w-3.5 h-3.5 shrink-0" />
+                  <span>Fecha límite: {selectedAviso.deadline}</span>
+                </div>
+              )}
+
+              <FormattedText
+                text={selectedAviso.content}
+                size="base"
+                accent={selectedAviso.important ? 'coral' : 'indigo'}
+              />
+
+              {selectedAviso.link && (
+                <div>
+                  <a
+                    href={selectedAviso.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => onMarkAsRead?.(selectedAviso.publicationKey)}
+                    className="min-h-[44px] inline-flex items-center gap-2 text-xs font-bold text-[#BE123C] bg-[#FFF1F2] hover:bg-[#FFE4E6] px-4 py-2 rounded-xl border border-[#FECDD3] diario-press"
+                  >
+                    <span>Abrir enlace o documento</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3.5 border-t border-[#F1F5F9] bg-[#F7F8FA]/60 flex items-center justify-between gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() =>
+                  onSharePost({ title: selectedAviso.title, content: selectedAviso.content })
+                }
+                className="min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#BE123C] hover:bg-white flex items-center gap-1.5 cursor-pointer diario-press"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Compartir</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedAvisoKey(null)}
+                className="min-h-[44px] px-5 py-2 rounded-xl bg-[#4338CA] hover:bg-[#3730A3] text-white font-bold text-sm cursor-pointer diario-press"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

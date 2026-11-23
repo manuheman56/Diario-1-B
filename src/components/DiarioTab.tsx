@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AppConfig, PostItem } from '../types';
 import { matchesNormalizedSearch } from '../utils/searchUtils';
 import { SectionHeader } from './SectionHeader';
@@ -97,6 +97,28 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+
+  const selectedPost = selectedPostId
+    ? posts.find((p) => p.id === selectedPostId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (!selectedPostId) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedPostId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedPostId]);
+
+  const handleOpenPost = (post: PostItem) => {
+    const itemKey = getPublicationKey('diario', post);
+    onMarkAsRead?.(itemKey);
+    setSelectedPostId(post.id);
+  };
 
   // Pull-to-refresh state (sincronizado con el contenedor scrollable <main>)
   const [pullY, setPullY] = useState(0);
@@ -514,7 +536,13 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
             return (
               <article
                 key={post.id}
-                className={`diario-card rounded-3xl p-4 sm:p-5 space-y-3 transition-colors ${
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.getSelection()?.toString().trim()) {
+                    return;
+                  }
+                  handleOpenPost(post);
+                }}
+                className={`diario-card rounded-3xl p-4 sm:p-5 space-y-3 transition hover:border-[#C7D2FE] hover:shadow-sm cursor-pointer ${
                   isHomework && isCompleted
                     ? 'border-teal-200 bg-[#F0FDFA]/35'
                     : post.destacado
@@ -604,9 +632,10 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                   >
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         handleTaskCheck(post.id, post.completed);
-                        if (isUnread) onMarkAsRead?.(itemKey);
+                        onMarkAsRead?.(itemKey);
                       }}
                       className={`min-h-[40px] flex items-center gap-2 text-xs font-bold cursor-pointer ${
                         isCompleted ? 'text-[#0F766E]' : 'text-[#92400E]'
@@ -645,13 +674,17 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                     {isUnread && (
                       <MarkAsReadButton
                         compact
-                        onClick={() => onMarkAsRead?.(itemKey)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkAsRead?.(itemKey);
+                        }}
                       />
                     )}
                     <button
                       type="button"
-                      onClick={() => {
-                        if (isUnread) onMarkAsRead?.(itemKey);
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMarkAsRead?.(itemKey);
                         onSharePost(post);
                       }}
                       className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#4338CA] hover:bg-[#EEF2FF] flex items-center gap-1.5 cursor-pointer shrink-0 diario-press"
@@ -685,6 +718,129 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
           </p>
         </footer>
       )}
+
+      {/* Ficha detallada de publicación del diario */}
+      {selectedPost && (() => {
+        const detailMeta = getCategoryPresentation(selectedPost.categoria, selectedPost.tag);
+        const detailCat = (selectedPost.categoria || selectedPost.tag || '').toLowerCase();
+        const detailIsHomework = detailCat.includes('tarea') || detailCat.includes('deber');
+        const detailCompleted = selectedPost.completed ?? false;
+        const detailKey = getPublicationKey('diario', selectedPost);
+
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="diario-detail-title"
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-xs diario-fade-in"
+            onClick={() => setSelectedPostId(null)}
+          >
+            <div
+              className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl border border-[#E2E8F0] shadow-xl max-h-[85dvh] flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 pt-5 pb-4 border-b border-[#F1F5F9] flex items-start justify-between gap-3">
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className={`font-bold inline-flex items-center gap-1.5 ${detailMeta.textColor}`}>
+                      {detailMeta.icon}
+                      <span>{detailMeta.label}</span>
+                    </span>
+                    <span aria-hidden="true" className="text-slate-300">·</span>
+                    <span className="text-[#475569] font-medium tabular-nums">
+                      {selectedPost.date}
+                    </span>
+                  </div>
+                  <h3
+                    id="diario-detail-title"
+                    className="font-display font-bold text-lg sm:text-xl text-[#0F172A] leading-snug"
+                  >
+                    {selectedPost.title}
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedPostId(null)}
+                  aria-label="Cerrar publicación"
+                  className="w-11 h-11 rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A] flex items-center justify-center shrink-0 cursor-pointer diario-press"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-4 overflow-y-auto">
+                {selectedPost.imageUrl && (
+                  <div className="rounded-2xl overflow-hidden border border-[#E2E8F0] aspect-video max-h-64 bg-[#F1F5F9]">
+                    <img
+                      src={selectedPost.imageUrl}
+                      alt={selectedPost.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+
+                <FormattedText
+                  text={selectedPost.content}
+                  size="base"
+                  accent={selectedPost.important ? 'coral' : 'indigo'}
+                />
+
+                {detailIsHomework && (
+                  <div
+                    className={`rounded-2xl border px-3.5 py-2 flex items-center justify-between gap-3 ${
+                      detailCompleted
+                        ? 'bg-[#F0FDFA] border-teal-200'
+                        : 'bg-[#FEF3C7]/60 border-[#FDE68A]'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleTaskCheck(selectedPost.id, selectedPost.completed);
+                        onMarkAsRead?.(detailKey);
+                      }}
+                      className={`min-h-[40px] flex items-center gap-2 text-xs font-bold cursor-pointer ${
+                        detailCompleted ? 'text-[#0F766E]' : 'text-[#92400E]'
+                      }`}
+                    >
+                      {detailCompleted ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-[#0D9488] shrink-0" />
+                          <span>Tarea completada en casa</span>
+                        </>
+                      ) : (
+                        <>
+                          <Circle className="w-4 h-4 text-[#D97706] shrink-0" />
+                          <span>Marcar tarea como realizada</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-5 py-3.5 border-t border-[#F1F5F9] bg-[#F7F8FA]/60 flex items-center justify-between gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => onSharePost(selectedPost)}
+                  className="min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#4338CA] hover:bg-[#EEF2FF] flex items-center gap-1.5 cursor-pointer diario-press"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Compartir</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPostId(null)}
+                  className="min-h-[44px] px-5 py-2 rounded-xl bg-[#4338CA] hover:bg-[#3730A3] text-white font-bold text-sm cursor-pointer diario-press"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
