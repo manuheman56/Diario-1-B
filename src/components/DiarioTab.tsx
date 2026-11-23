@@ -26,6 +26,9 @@ import {
   Bell,
   Rocket,
   X,
+  Calendar,
+  ExternalLink,
+  Camera,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -98,6 +101,7 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   const selectedPost = selectedPostId
     ? posts.find((p) => p.id === selectedPostId) ?? null
@@ -321,20 +325,20 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
         </div>
       )}
 
-      {/* 1. Cabecera unificada de sección */}
+      {/* 1. Cabecera de crónica visual del aula */}
       <SectionHeader
-        eyebrow="Cuaderno de Aula"
+        eyebrow="Crónica de Clase"
         metaRight={capitalizedDate}
-        title="Novedades y Diario de Clase"
-        description="Consulta las novedades del aula, actividades realizadas y tareas pendientes para hacer en familia."
-        icon={<BookOpen className="w-5 h-5" />}
+        title="Día a Día en Nuestra Aula"
+        description="Actividades, momentos compartidos, celebraciones y tareas cotidianas de 1.º B en orden cronológico."
+        icon={<Camera className="w-5 h-5" />}
         accent="indigo"
         actions={
           <>
             <button
               type="button"
               onClick={() => setShowSearch(!showSearch)}
-              className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border diario-press cursor-pointer ${
+              className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border diario-press cursor-pointer whitespace-nowrap shrink-0 ${
                 showSearch
                   ? 'bg-[#4338CA] text-white border-[#4338CA]'
                   : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F7F8FA]'
@@ -349,7 +353,7 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
               onClick={handlePrint}
               title="Imprimir diario escolar"
               aria-label="Imprimir diario escolar"
-              className="min-h-[44px] min-w-[44px] px-3 rounded-xl bg-white border border-[#E2E8F0] text-[#334155] hover:bg-[#F7F8FA] flex items-center justify-center gap-1.5 text-xs font-semibold diario-press cursor-pointer"
+              className="min-h-[44px] min-w-[44px] px-3 rounded-xl bg-white border border-[#E2E8F0] text-[#334155] hover:bg-[#F7F8FA] flex items-center justify-center gap-1.5 text-xs font-semibold diario-press cursor-pointer whitespace-nowrap shrink-0"
             >
               <Printer className="w-4 h-4" />
               <span className="hidden sm:inline">Imprimir</span>
@@ -439,11 +443,6 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
               : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
-          <span
-            className={`w-2 h-2 rounded-full ${
-              activeFilter === 'General' ? 'bg-white' : 'bg-[#4338CA]'
-            }`}
-          />
           <span>General</span>
         </button>
 
@@ -456,11 +455,6 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
               : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
-          <span
-            className={`w-2 h-2 rounded-full ${
-              activeFilter === 'Aviso' ? 'bg-white' : 'bg-[#E11D48]'
-            }`}
-          />
           <span>Avisos</span>
         </button>
 
@@ -473,11 +467,6 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
               : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
-          <span
-            className={`w-2 h-2 rounded-full ${
-              activeFilter === 'Tarea' ? 'bg-white' : 'bg-[#D97706]'
-            }`}
-          />
           <span>Tareas</span>
         </button>
 
@@ -490,17 +479,12 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
               : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F1F5F9]'
           }`}
         >
-          <span
-            className={`w-2 h-2 rounded-full ${
-              activeFilter === 'Actividad' ? 'bg-white' : 'bg-[#0D9488]'
-            }`}
-          />
           <span>En Clase</span>
         </button>
       </div>
 
-      {/* 5. Feed de publicaciones */}
-      <div className="space-y-3.5">
+      {/* 5. Feed visual y cronológico de publicaciones */}
+      <div className="space-y-4">
         {filteredPosts.length === 0 ? (
           <EmptyStateCard
             icon={<FileText className="w-6 h-6" />}
@@ -532,6 +516,8 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
             const catMeta = getCategoryPresentation(post.categoria, post.tag);
             const itemKey = getPublicationKey('diario', post);
             const isUnread = Boolean(unreadKeys?.has(itemKey));
+            const mediaUrl = post.imageUrl || post.imagen_url;
+            const hasVisibleImage = Boolean(mediaUrl) && !failedImages[post.id];
 
             return (
               <article
@@ -542,7 +528,7 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                   }
                   handleOpenPost(post);
                 }}
-                className={`diario-card rounded-3xl p-4 sm:p-5 space-y-3 transition hover:border-[#C7D2FE] hover:shadow-sm cursor-pointer ${
+                className={`diario-card rounded-3xl overflow-hidden transition hover:border-[#C7D2FE] hover:shadow-sm cursor-pointer ${
                   isHomework && isCompleted
                     ? 'border-teal-200 bg-[#F0FDFA]/35'
                     : post.destacado
@@ -550,149 +536,175 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                     : ''
                 }`}
               >
-                {/* Metadatos limpios sin píldoras */}
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                    <span className={`font-bold inline-flex items-center gap-1.5 ${catMeta.textColor}`}>
-                      {catMeta.icon}
-                      <span>{catMeta.label}</span>
-                    </span>
-
-                    {isUnread && (
-                      <NewBadge variant={post.important ? 'coral' : 'indigo'} />
-                    )}
-
-                    {post.destacado && (
-                      <>
-                        <span aria-hidden="true" className="text-slate-300">
-                          ·
-                        </span>
-                        <span className="inline-flex items-center gap-1 font-semibold text-[#B45309]">
-                          <Sparkles className="w-3 h-3 text-[#D97706]" />
-                          Destacado
-                        </span>
-                      </>
-                    )}
-
-                    {post.important && (
-                      <>
-                        <span aria-hidden="true" className="text-slate-300">
-                          ·
-                        </span>
-                        <span className="inline-flex items-center gap-1 font-bold text-[#BE123C]">
-                          <AlertCircle className="w-3 h-3 text-[#E11D48]" />
-                          Urgente
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  <span className="text-xs text-[#475569] font-medium tabular-nums shrink-0">
-                    {post.date}
-                  </span>
-                </div>
-
-                {/* Título */}
-                <h3
-                  className={`font-display font-bold text-[16px] leading-snug ${
-                    isHomework && isCompleted
-                      ? 'line-through text-[#64748B]'
-                      : 'text-[#0F172A]'
-                  }`}
-                >
-                  {post.title}
-                </h3>
-
-                {/* Imagen adjunta opcional */}
-                {post.imageUrl && (
-                  <div className="rounded-2xl overflow-hidden border border-[#E2E8F0] aspect-video max-h-64 bg-[#F1F5F9]">
+                {/* Fotografía protagonista en cabecera visual del diario */}
+                {hasVisibleImage && mediaUrl && (
+                  <div className="relative aspect-[16/10] sm:aspect-[16/9] max-h-80 w-full bg-[#F1F5F9] overflow-hidden border-b border-[#E2E8F0]">
                     <img
-                      src={post.imageUrl}
+                      src={mediaUrl}
                       alt={post.title}
+                      referrerPolicy="no-referrer"
+                      onError={() =>
+                        setFailedImages((prev) => ({ ...prev, [post.id]: true }))
+                      }
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
                   </div>
                 )}
 
-                {/* Contenido */}
-                <FormattedText
-                  text={post.content}
-                  accent={post.important ? 'coral' : 'indigo'}
-                />
+                <div className="p-4 sm:p-5 space-y-3">
+                  {/* Metadatos cronológicos limpios */}
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                      <span className={`font-bold inline-flex items-center gap-1.5 ${catMeta.textColor}`}>
+                        {catMeta.icon}
+                        <span>{catMeta.label}</span>
+                      </span>
 
-                {/* Interacción de checklist para tareas */}
-                {isHomework && (
-                  <div
-                    className={`rounded-2xl border px-3.5 py-2 flex items-center justify-between gap-3 ${
-                      isCompleted
-                        ? 'bg-[#F0FDFA] border-teal-200'
-                        : 'bg-[#FEF3C7]/60 border-[#FDE68A]'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTaskCheck(post.id, post.completed);
-                        onMarkAsRead?.(itemKey);
-                      }}
-                      className={`min-h-[40px] flex items-center gap-2 text-xs font-bold cursor-pointer ${
-                        isCompleted ? 'text-[#0F766E]' : 'text-[#92400E]'
-                      }`}
-                    >
-                      {isCompleted ? (
+                      {isUnread && (
+                        <NewBadge variant={post.important ? 'coral' : 'indigo'} />
+                      )}
+
+                      {post.destacado && (
                         <>
-                          <CheckCircle2 className="w-4 h-4 text-[#0D9488] shrink-0" />
-                          <span>Tarea completada en casa</span>
-                        </>
-                      ) : (
-                        <>
-                          <Circle className="w-4 h-4 text-[#D97706] shrink-0" />
-                          <span>Marcar tarea como realizada</span>
+                          <span aria-hidden="true" className="text-slate-300">
+                            ·
+                          </span>
+                          <span className="inline-flex items-center gap-1 font-semibold text-[#B45309]">
+                            <Sparkles className="w-3 h-3 text-[#D97706]" />
+                            Destacado
+                          </span>
                         </>
                       )}
-                    </button>
 
-                    {isCompleted && (
-                      <span className="text-xs font-bold text-[#0F766E] flex items-center gap-1 shrink-0">
-                        <Check className="w-3.5 h-3.5" />
-                        Listo
-                      </span>
-                    )}
+                      {post.important && (
+                        <>
+                          <span aria-hidden="true" className="text-slate-300">
+                            ·
+                          </span>
+                          <span className="inline-flex items-center gap-1 font-bold text-[#BE123C]">
+                            <AlertCircle className="w-3 h-3 text-[#E11D48]" />
+                            Urgente
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    <span className="inline-flex items-center gap-1.5 text-xs text-[#475569] font-semibold tabular-nums shrink-0">
+                      <Calendar className="w-3.5 h-3.5 text-[#64748B]" />
+                      <span>{post.date}</span>
+                    </span>
                   </div>
-                )}
 
-                {/* Pie con autor, lectura individual y compartir */}
-                <div className="pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between flex-wrap gap-2 text-xs text-[#475569]">
-                  <span className="flex items-center gap-1.5 font-medium truncate min-w-0">
-                    <UserCheck className="w-4 h-4 text-[#4338CA] shrink-0" />
-                    <span className="truncate">{post.author}</span>
-                  </span>
+                  {/* Título de la crónica */}
+                  <h3
+                    className={`font-display font-bold text-[17px] sm:text-[18px] leading-snug text-balance ${
+                      isHomework && isCompleted
+                        ? 'line-through text-[#64748B]'
+                        : 'text-[#0F172A]'
+                    }`}
+                  >
+                    {post.title}
+                  </h3>
 
-                  <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-                    {isUnread && (
-                      <MarkAsReadButton
-                        compact
+                  {/* Contenido del diario */}
+                  <FormattedText
+                    text={post.content}
+                    accent={post.important ? 'coral' : 'indigo'}
+                  />
+
+                  {/* Enlace multimedia o álbum externo cuando exista */}
+                  {post.enlace_url && (
+                    <div className="pt-0.5">
+                      <a
+                        href={post.enlace_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         onClick={(e) => {
                           e.stopPropagation();
                           onMarkAsRead?.(itemKey);
                         }}
-                      />
-                    )}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMarkAsRead?.(itemKey);
-                        onSharePost(post);
-                      }}
-                      className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#4338CA] hover:bg-[#EEF2FF] flex items-center gap-1.5 cursor-pointer shrink-0 diario-press"
-                      title="Compartir o copiar aviso"
+                        className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#EEF2FF] hover:bg-[#E0E7FF] text-[#4338CA] border border-[#C7D2FE] diario-press"
+                      >
+                        <span>Ver enlace o contenido adjunto</span>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Interacción de checklist para tareas */}
+                  {isHomework && (
+                    <div
+                      className={`rounded-2xl border px-3.5 py-2 flex items-center justify-between gap-3 ${
+                        isCompleted
+                          ? 'bg-[#F0FDFA] border-teal-200'
+                          : 'bg-[#FEF3C7]/60 border-[#FDE68A]'
+                      }`}
                     >
-                      <Share2 className="w-3.5 h-3.5" />
-                      <span>Compartir</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTaskCheck(post.id, post.completed);
+                          onMarkAsRead?.(itemKey);
+                        }}
+                        className={`min-h-[40px] flex items-center gap-2 text-xs font-bold cursor-pointer ${
+                          isCompleted ? 'text-[#0F766E]' : 'text-[#92400E]'
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-[#0D9488] shrink-0" />
+                            <span>Tarea completada en casa</span>
+                          </>
+                        ) : (
+                          <>
+                            <Circle className="w-4 h-4 text-[#D97706] shrink-0" />
+                            <span>Marcar tarea como realizada</span>
+                          </>
+                        )}
+                      </button>
+
+                      {isCompleted && (
+                        <span className="text-xs font-bold text-[#0F766E] flex items-center gap-1 shrink-0">
+                          <Check className="w-3.5 h-3.5" />
+                          Listo
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Pie con autor, lectura individual y compartir */}
+                  <div className="pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between flex-wrap gap-2 text-xs text-[#475569]">
+                    <span className="flex items-center gap-1.5 font-medium truncate min-w-0">
+                      <UserCheck className="w-4 h-4 text-[#4338CA] shrink-0" />
+                      <span className="truncate">{post.author}</span>
+                    </span>
+
+                    <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                      {isUnread && (
+                        <MarkAsReadButton
+                          compact
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMarkAsRead?.(itemKey);
+                          }}
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkAsRead?.(itemKey);
+                          onSharePost(post);
+                        }}
+                        className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-[#334155] hover:text-[#4338CA] hover:bg-[#EEF2FF] flex items-center gap-1.5 cursor-pointer shrink-0 diario-press"
+                        title="Compartir o copiar aviso"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>Compartir</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </article>
@@ -726,6 +738,8 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
         const detailIsHomework = detailCat.includes('tarea') || detailCat.includes('deber');
         const detailCompleted = selectedPost.completed ?? false;
         const detailKey = getPublicationKey('diario', selectedPost);
+        const detailImage = selectedPost.imageUrl || selectedPost.imagen_url;
+        const detailHasImage = Boolean(detailImage) && !failedImages[selectedPost.id];
 
         return (
           <div
@@ -736,10 +750,11 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
             onClick={() => setSelectedPostId(null)}
           >
             <div
-              className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl border border-[#E2E8F0] shadow-xl max-h-[85dvh] flex flex-col overflow-hidden"
+              className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl border border-[#E2E8F0] shadow-xl max-h-[88dvh] flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-5 pt-5 pb-4 border-b border-[#F1F5F9] flex items-start justify-between gap-3">
+              <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
+              <div className="px-5 pt-4 sm:pt-5 pb-4 border-b border-[#F1F5F9] flex items-start justify-between gap-3">
                 <div className="space-y-1.5 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap text-xs">
                     <span className={`font-bold inline-flex items-center gap-1.5 ${detailMeta.textColor}`}>
@@ -753,7 +768,7 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                   </div>
                   <h3
                     id="diario-detail-title"
-                    className="font-display font-bold text-lg sm:text-xl text-[#0F172A] leading-snug"
+                    className="font-display font-bold text-lg sm:text-xl text-[#0F172A] leading-snug text-balance"
                   >
                     {selectedPost.title}
                   </h3>
@@ -770,11 +785,15 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
               </div>
 
               <div className="px-5 py-4 space-y-4 overflow-y-auto">
-                {selectedPost.imageUrl && (
-                  <div className="rounded-2xl overflow-hidden border border-[#E2E8F0] aspect-video max-h-64 bg-[#F1F5F9]">
+                {detailHasImage && detailImage && (
+                  <div className="rounded-2xl overflow-hidden border border-[#E2E8F0] aspect-[16/10] max-h-72 bg-[#F1F5F9]">
                     <img
-                      src={selectedPost.imageUrl}
+                      src={detailImage}
                       alt={selectedPost.title}
+                      referrerPolicy="no-referrer"
+                      onError={() =>
+                        setFailedImages((prev) => ({ ...prev, [selectedPost.id]: true }))
+                      }
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -785,6 +804,21 @@ export const DiarioTab: React.FC<DiarioTabProps> = ({
                   size="base"
                   accent={selectedPost.important ? 'coral' : 'indigo'}
                 />
+
+                {selectedPost.enlace_url && (
+                  <div>
+                    <a
+                      href={selectedPost.enlace_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => onMarkAsRead?.(detailKey)}
+                      className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#EEF2FF] hover:bg-[#E0E7FF] text-[#4338CA] border border-[#C7D2FE] diario-press"
+                    >
+                      <span>Ver enlace o contenido adjunto</span>
+                      <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                    </a>
+                  </div>
+                )}
 
                 {detailIsHomework && (
                   <div

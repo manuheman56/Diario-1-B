@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { HomeLearningResource, HomeResourceCategory } from '../types';
 import { matchesNormalizedSearch } from '../utils/searchUtils';
+import { toReadablePreviewText } from '../utils/textFormatUtils';
 import { SectionHeader } from './SectionHeader';
 import { EmptyStateCard } from './EmptyStateCard';
 import { FormattedText } from './FormattedText';
@@ -13,15 +14,13 @@ import {
   HeartHandshake,
   Search,
   ExternalLink,
-  Sparkles,
   Download,
   Clock,
   Layers,
   Star,
-  CheckCircle2,
   X,
-  GraduationCap,
   ChevronRight,
+  Home,
 } from 'lucide-react';
 
 interface RecursosTabProps {
@@ -39,6 +38,39 @@ interface CategoryConfig {
   count: number;
 }
 
+/**
+ * Extrae el tiempo recomendado únicamente cuando figura de forma explícita
+ * en la descripción de la propuesta (sin inventar valores por defecto).
+ */
+function extractRecommendedTime(description?: string | null): string | null {
+  if (!description || typeof description !== 'string') return null;
+  const normalized = description.replace(/\s+/g, ' ').trim();
+
+  const rangeMatch = normalized.match(
+    /\b(\d{1,2})\s*(?:-|–|—|a|y)\s*(\d{1,2})\s*(minutos?|min\.?)\b/i
+  );
+  if (rangeMatch) {
+    return `${rangeMatch[1]}-${rangeMatch[2]} min`;
+  }
+
+  const singleMatch = normalized.match(
+    /\b(\d{1,2})\s*(minutos?|min\.?|horas?)\b/i
+  );
+  if (singleMatch) {
+    const unit = singleMatch[2].toLowerCase().startsWith('h')
+      ? singleMatch[1] === '1'
+        ? 'hora'
+        : 'horas'
+      : 'min';
+    return `${singleMatch[1]} ${unit}`;
+  }
+
+  if (/\bmedia hora\b/i.test(normalized)) return '30 min';
+  if (/\bun cuarto de hora\b/i.test(normalized)) return '15 min';
+
+  return null;
+}
+
 export const RecursosTab: React.FC<RecursosTabProps> = ({
   resources,
   unreadKeys,
@@ -48,6 +80,7 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [onlyFeatured, setOnlyFeatured] = useState(false);
   const [selectedResource, setSelectedResource] = useState<HomeLearningResource | null>(null);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!selectedResource) return;
@@ -90,53 +123,78 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
   const categories: CategoryConfig[] = [
     {
       id: 'all',
-      label: 'Todos',
+      label: 'Todas las ideas',
       icon: <Layers className="w-3.5 h-3.5" />,
-      description: 'Biblioteca integral de refuerzo educativo para 1.º B',
+      description: 'Propuestas sencillas para acompañar desde casa a vuestro ritmo',
       count: counts.all,
     },
     {
       id: 'matematicas',
       label: 'Matemáticas',
       icon: <Calculator className="w-3.5 h-3.5" />,
-      description: 'Numeración, amigos del 10, cálculo mental, problemas y razonamiento lógico',
+      description: 'Juegos cotidianos de números, cálculo y razonamiento lógico',
       count: counts.matematicas,
     },
     {
       id: 'lengua_lectura',
       label: 'Lengua y lectura',
       icon: <BookOpen className="w-3.5 h-3.5" />,
-      description: 'Cuentos, comprensión, caligrafía, grafomotricidad y conciencia fonológica',
+      description: 'Lectura compartida, cuentos, vocabulario y gusto por escribir',
       count: counts.lengua_lectura,
     },
     {
       id: 'fichas',
       label: 'Fichas y materiales',
       icon: <FileText className="w-3.5 h-3.5" />,
-      description: 'PDF imprimibles, cuadrículas, dominós y actividades para descargar',
+      description: 'Materiales imprimibles y propuestas listas para descargar',
       count: counts.fichas,
     },
     {
       id: 'familias',
       label: 'Orientaciones familias',
       icon: <HeartHandshake className="w-3.5 h-3.5" />,
-      description: 'Hábitos de estudio en 1.º, lectura compartida y pautas educativas de apoyo',
+      description: 'Hábitos tranquilos, acompañamiento afectivo y rutinas en casa',
       count: counts.familias,
     },
   ];
 
-  const getCategoryBadge = (cat: HomeResourceCategory) => {
+  const getCategoryMeta = (cat: HomeResourceCategory) => {
     switch (cat) {
       case 'matematicas':
-        return { text: 'Matemáticas', color: 'text-[#0F766E]' };
+        return {
+          text: 'Matemáticas',
+          color: 'text-[#0F766E]',
+          iconBox: 'bg-[#F0FDFA] text-[#0D9488] border border-teal-200/80',
+          icon: <Calculator className="w-5 h-5" strokeWidth={1.9} />,
+        };
       case 'lengua_lectura':
-        return { text: 'Lengua y Lectura', color: 'text-[#4338CA]' };
+        return {
+          text: 'Lengua y lectura',
+          color: 'text-[#4338CA]',
+          iconBox: 'bg-[#EEF2FF] text-[#4338CA] border border-[#C7D2FE]/80',
+          icon: <BookOpen className="w-5 h-5" strokeWidth={1.9} />,
+        };
       case 'fichas':
-        return { text: 'Fichas y PDF', color: 'text-[#B45309]' };
+        return {
+          text: 'Fichas y materiales',
+          color: 'text-[#B45309]',
+          iconBox: 'bg-[#FEF3C7]/75 text-[#B45309] border border-[#FDE68A]',
+          icon: <FileText className="w-5 h-5" strokeWidth={1.9} />,
+        };
       case 'familias':
-        return { text: 'Para Familias', color: 'text-[#6D28D9]' };
+        return {
+          text: 'Orientaciones familias',
+          color: 'text-[#6D28D9]',
+          iconBox: 'bg-[#F5F3FF] text-[#7C3AED] border border-violet-200/80',
+          icon: <HeartHandshake className="w-5 h-5" strokeWidth={1.9} />,
+        };
       default:
-        return { text: 'Recurso', color: 'text-[#334155]' };
+        return {
+          text: 'Propuesta familiar',
+          color: 'text-[#0F766E]',
+          iconBox: 'bg-[#F0FDFA] text-[#0D9488] border border-teal-200/80',
+          icon: <Home className="w-5 h-5" strokeWidth={1.9} />,
+        };
     }
   };
 
@@ -145,7 +203,7 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
       const matchesCategory =
         selectedCategory === 'all' || item.categoria === selectedCategory;
       const matchesFeatured = !onlyFeatured || Boolean(item.destacado_casa);
-      const badgeText = getCategoryBadge(item.categoria).text;
+      const badgeText = getCategoryMeta(item.categoria).text;
       const matchesSearch = matchesNormalizedSearch(searchQuery, [
         item.titulo,
         item.descripcion,
@@ -163,26 +221,29 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
 
   return (
     <div className="space-y-4 pb-8 diario-fade-in">
-      {/* 1. Cabecera unificada */}
+      {/* 1. Cabecera acogedora de guía familiar */}
       <SectionHeader
-        eyebrow="Biblioteca Educativa para Casa"
+        eyebrow="Guía de Orientación Familiar"
         metaRight="1.º de Primaria B"
-        title="Aprender y Reforzar en Familia"
-        description="Selección cuidada de materiales descargables, juegos de lógica y pautas de lectura para afianzar en casa las áreas de Lengua Castellana y Matemáticas."
-        icon={<GraduationCap className="w-5 h-5" />}
-        accent="indigo"
+        title="Ideas para acompañarles desde casa"
+        description="Pequeñas propuestas para reforzar lo que aprendemos en clase, compartir momentos y descubrir que aprender también puede ser divertido. No necesitamos materiales especiales ni dedicar mucho tiempo; lo importante es disfrutar juntos."
+        icon={<HeartHandshake className="w-5 h-5" />}
+        accent="teal"
         footerMeta={
           <>
-            <span className="tabular-nums">{activeResources.length} recursos disponibles</span>
+            <span className="tabular-nums text-[#0F766E] font-semibold">
+              {activeResources.length}{' '}
+              {activeResources.length === 1 ? 'propuesta disponible' : 'propuestas disponibles'}
+            </span>
             <span aria-hidden="true" className="text-slate-300">
               ·
             </span>
-            <span>Acceso libre y seguro</span>
+            <span>A vuestro ritmo, sin presión</span>
           </>
         }
       />
 
-      {/* 2. Barra de búsqueda y filtro rápido */}
+      {/* 2. Buscador y filtro rápido */}
       <div className="space-y-2.5">
         <div className="relative flex items-center">
           <Search className="w-4 h-4 text-[#475569] absolute left-3.5 pointer-events-none" />
@@ -190,8 +251,8 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar por tema, ficha, cálculo o lectura..."
-            className="w-full min-h-[44px] pl-10 pr-11 py-2.5 bg-white rounded-2xl border border-[#E2E8F0] text-[14px] text-[#0F172A] placeholder:text-[#64748B] shadow-xs focus:border-[#4F46E5] transition"
+            placeholder="Buscar una idea por tema, lectura, juego o pauta..."
+            className="w-full min-h-[44px] pl-10 pr-11 py-2.5 bg-white rounded-2xl border border-[#E2E8F0] text-[14px] text-[#0F172A] placeholder:text-[#64748B] shadow-xs focus:border-[#0D9488] transition"
           />
           {searchQuery && (
             <button
@@ -214,7 +275,7 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
           <button
             type="button"
             onClick={() => setOnlyFeatured(!onlyFeatured)}
-            className={`min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer diario-press ${
+            className={`min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer diario-press whitespace-nowrap shrink-0 ${
               onlyFeatured
                 ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]'
                 : 'bg-white text-[#334155] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
@@ -241,7 +302,7 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
               onClick={() => setSelectedCategory(cat.id)}
               className={`min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer touch-manipulation shrink-0 diario-press ${
                 isSelected
-                  ? 'bg-[#4338CA] text-white shadow-xs'
+                  ? 'bg-[#0F766E] text-white shadow-xs'
                   : 'bg-white text-[#334155] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
               }`}
             >
@@ -263,11 +324,11 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
         })}
       </div>
 
-      {/* 4. Rejilla de Recursos Didácticos */}
+      {/* 4. Rejilla de tarjetas compactas de guía familiar */}
       {filteredList.length === 0 ? (
         <EmptyStateCard
           icon={<Search className="w-6 h-6" />}
-          title="No se han encontrado recursos con estos criterios"
+          title="No se han encontrado propuestas con estos criterios"
           description="Prueba a cambiar el texto de búsqueda o desactiva el filtro de recomendados."
           actionLabel="Restablecer filtros"
           onAction={() => {
@@ -277,15 +338,15 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
           }}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {filteredList.map((item) => {
-            const meta = getCategoryBadge(item.categoria);
-            const isDownloadable =
-              item.tipo_recurso.toLowerCase().includes('pdf') ||
-              item.tipo_recurso.toLowerCase().includes('imprimible') ||
-              item.tipo_recurso.toLowerCase().includes('ficha');
+            const meta = getCategoryMeta(item.categoria);
             const itemKey = getPublicationKey('recursos', item);
             const isUnread = Boolean(unreadKeys?.has(itemKey));
+            const recommendedTime = extractRecommendedTime(item.descripcion);
+            const previewText = toReadablePreviewText(item.descripcion);
+            const hasThumb = Boolean(item.imagen_url) && !failedImages[item.id];
+            const subjectLabel = item.asignatura || meta.text;
 
             return (
               <article
@@ -296,57 +357,76 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
                   }
                   handleOpenResource(item);
                 }}
-                className="diario-card rounded-3xl p-4 sm:p-5 flex flex-col justify-between gap-3.5 hover:border-[#C7D2FE] hover:shadow-sm transition cursor-pointer"
+                className="diario-card rounded-3xl p-4 flex flex-col justify-between gap-3 hover:border-teal-300/90 hover:shadow-sm transition cursor-pointer"
               >
                 <div className="space-y-2.5">
-                  {/* Metadatos limpios */}
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-1.5 flex-wrap font-medium text-[#475569] min-w-0">
-                      <span className={`font-bold ${meta.color}`}>{meta.text}</span>
-                      <span aria-hidden="true" className="text-slate-300">
-                        ·
-                      </span>
-                      <span className="truncate">{item.tipo_recurso}</span>
-                      {item.nivel && (
-                        <>
-                          <span aria-hidden="true" className="text-slate-300">
-                            ·
-                          </span>
-                          <span className="shrink-0">{item.nivel}</span>
-                        </>
-                      )}
-                      {isUnread && <NewBadge variant="teal" />}
-                    </div>
+                  {/* Cabecera compacta: icono/miniatura discreta + asignatura/categoría + título */}
+                  <div className="flex items-start gap-3">
+                    {hasThumb && item.imagen_url ? (
+                      <div className="w-11 h-11 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#F7F8FA] shrink-0">
+                        <img
+                          src={item.imagen_url}
+                          alt={item.titulo}
+                          referrerPolicy="no-referrer"
+                          onError={() =>
+                            setFailedImages((prev) => ({ ...prev, [item.id]: true }))
+                          }
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${meta.iconBox}`}
+                      >
+                        {meta.icon}
+                      </div>
+                    )}
 
-                    {item.destacado_casa && (
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-[#B45309] shrink-0">
-                        <Star className="w-3.5 h-3.5 fill-[#D97706] text-[#D97706]" />
-                        <span>Recomendado</span>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-1.5 flex-wrap text-xs leading-none">
+                        <span className={`font-bold ${meta.color} truncate`}>
+                          {subjectLabel}
+                        </span>
+                        {item.destacado_casa && (
+                          <Star
+                            aria-label="Recomendado para casa"
+                            className="w-3.5 h-3.5 fill-[#D97706] text-[#D97706] shrink-0"
+                          />
+                        )}
+                        {isUnread && <NewBadge variant="teal" />}
+                      </div>
+
+                      <h3 className="font-display font-bold text-[15.5px] text-[#0F172A] leading-snug line-clamp-2">
+                        {item.titulo}
+                      </h3>
+                    </div>
+                  </div>
+
+                  {/* Breve introducción de un vistazo (sin bloques largos) */}
+                  {previewText && (
+                    <p className="text-[13.5px] text-[#475569] leading-relaxed line-clamp-2">
+                      {previewText}
+                    </p>
+                  )}
+                </div>
+
+                {/* Pie limpio con tiempo recomendado (solo si figura en la descripción) y acceso a la guía */}
+                <div className="pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 text-[#475569] font-medium min-w-0">
+                    {recommendedTime ? (
+                      <span className="inline-flex items-center gap-1 text-[#0F766E] font-semibold tabular-nums whitespace-nowrap">
+                        <Clock className="w-3.5 h-3.5 shrink-0" />
+                        <span>{recommendedTime}</span>
+                      </span>
+                    ) : (
+                      <span className="truncate text-[11.5px] text-[#64748B]">
+                        {item.tipo_recurso}
                       </span>
                     )}
                   </div>
 
-                  {/* Título y descripción */}
-                  <div className="space-y-1.5">
-                    <h3 className="font-display font-bold text-[16px] text-[#0F172A] leading-snug">
-                      {item.titulo}
-                    </h3>
-                    <FormattedText text={item.descripcion} accent="indigo" />
-                  </div>
-                </div>
-
-                {/* Pie alineado con tiempo estimado, lectura individual y acción */}
-                <div className="pt-3 border-t border-[#F1F5F9] flex items-center justify-between flex-wrap gap-2 text-xs text-[#475569]">
-                  {item.tiempo_estimado ? (
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <Clock className="w-3.5 h-3.5 text-[#64748B]" />
-                      <span>{item.tiempo_estimado}</span>
-                    </span>
-                  ) : (
-                    <span />
-                  )}
-
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     {isUnread && (
                       <MarkAsReadButton
                         compact
@@ -356,43 +436,17 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
                         }}
                       />
                     )}
-                    {item.url_recurso ? (
-                      <a
-                        href={item.url_recurso}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMarkAsRead?.(itemKey);
-                        }}
-                        className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-[#EEF2FF] hover:bg-[#E0E7FF] text-[#4338CA] border border-[#C7D2FE] diario-press cursor-pointer"
-                      >
-                        {isDownloadable ? (
-                          <>
-                            <Download className="w-3.5 h-3.5" />
-                            <span>Descargar material</span>
-                          </>
-                        ) : (
-                          <>
-                            <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                            <span>Abrir actividad</span>
-                          </>
-                        )}
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenResource(item);
-                        }}
-                        className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F0FDFA] hover:bg-teal-100/80 text-[#0F766E] border border-teal-200 text-xs font-bold cursor-pointer diario-press"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#0D9488]" />
-                        <span>Consultar pauta</span>
-                        <ChevronRight className="w-3.5 h-3.5 opacity-80" />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenResource(item);
+                      }}
+                      className="min-h-[36px] px-2.5 py-1 rounded-xl text-xs font-bold text-[#0F766E] hover:bg-[#F0FDFA] inline-flex items-center gap-1 cursor-pointer diario-press whitespace-nowrap"
+                    >
+                      <span>Ver idea</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </article>
@@ -401,24 +455,28 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
         </div>
       )}
 
-      {/* 5. Nota pedagógica de cierre */}
-      <footer className="bg-[#EEF2FF]/70 border border-[#C7D2FE] rounded-3xl p-4 sm:p-5 flex items-start gap-3.5">
-        <span className="w-9 h-9 rounded-xl bg-white border border-[#C7D2FE] flex items-center justify-center text-[#4338CA] shrink-0">
-          <Sparkles className="w-4 h-4" />
+      {/* 5. Nota cercana para familias */}
+      <footer className="bg-[#F0FDFA]/80 border border-teal-200/80 rounded-3xl p-4 sm:p-5 flex items-start gap-3.5">
+        <span className="w-9 h-9 rounded-xl bg-white border border-teal-200 flex items-center justify-center text-[#0D9488] shrink-0">
+          <HeartHandshake className="w-4 h-4" />
         </span>
         <p className="text-xs sm:text-[13px] text-[#334155] leading-relaxed">
-          <strong className="text-[#0F172A]">Acompañamiento en el hogar:</strong> En 1.º de Primaria, 10 a 15 minutos de juego educativo o lectura compartida al día tienen un impacto formativo superior a largas sesiones de ejercicios. Prioriza siempre el disfrute y el refuerzo positivo.
+          <strong className="text-[#0F172A]">Acompañar sin prisas:</strong> En 1.º de Primaria unos pocos minutos compartidos desde el juego y la curiosidad valen mucho más que largas sesiones de ejercicios.
         </p>
       </footer>
 
-      {/* Ficha detallada del recurso o recomendación */}
+      {/* Vista de detalle estilo guía práctica familiar */}
       {selectedResource && (() => {
-        const detailMeta = getCategoryBadge(selectedResource.categoria);
+        const detailMeta = getCategoryMeta(selectedResource.categoria);
         const detailDownloadable =
           selectedResource.tipo_recurso.toLowerCase().includes('pdf') ||
           selectedResource.tipo_recurso.toLowerCase().includes('imprimible') ||
           selectedResource.tipo_recurso.toLowerCase().includes('ficha');
         const detailKey = getPublicationKey('recursos', selectedResource);
+        const detailTime = extractRecommendedTime(selectedResource.descripcion);
+        const detailSubject = selectedResource.asignatura || detailMeta.text;
+        const detailHasImage =
+          Boolean(selectedResource.imagen_url) && !failedImages[selectedResource.id];
 
         return (
           <div
@@ -429,28 +487,47 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
             onClick={() => setSelectedResource(null)}
           >
             <div
-              className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl border border-[#E2E8F0] shadow-xl max-h-[85dvh] flex flex-col overflow-hidden"
+              className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl border border-[#E2E8F0] shadow-xl max-h-[88dvh] flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-5 pt-5 pb-4 border-b border-[#F1F5F9] flex items-start justify-between gap-3">
-                <div className="space-y-1.5 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap text-xs font-medium text-[#475569]">
-                    <span className={`font-bold ${detailMeta.color}`}>{detailMeta.text}</span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span>{selectedResource.tipo_recurso}</span>
-                    {selectedResource.nivel && (
-                      <>
-                        <span aria-hidden="true" className="text-slate-300">·</span>
-                        <span>{selectedResource.nivel}</span>
-                      </>
-                    )}
-                  </div>
-                  <h3
-                    id="recurso-detail-title"
-                    className="font-display font-bold text-lg sm:text-xl text-[#0F172A] leading-snug"
+              <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
+
+              {/* Cabecera limpia de la guía práctica */}
+              <div className="px-5 pt-4 sm:pt-5 pb-4 border-b border-[#F1F5F9] flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <span
+                    className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 ${detailMeta.iconBox}`}
                   >
-                    {selectedResource.titulo}
-                  </h3>
+                    {detailMeta.icon}
+                  </span>
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs font-medium text-[#475569]">
+                      <span className={`font-bold ${detailMeta.color}`}>
+                        {detailSubject}
+                      </span>
+                      {detailMeta.text !== detailSubject && (
+                        <>
+                          <span aria-hidden="true" className="text-slate-300">·</span>
+                          <span>{detailMeta.text}</span>
+                        </>
+                      )}
+                      {selectedResource.destacado_casa && (
+                        <>
+                          <span aria-hidden="true" className="text-slate-300">·</span>
+                          <span className="inline-flex items-center gap-1 font-bold text-[#B45309]">
+                            <Star className="w-3 h-3 fill-[#D97706] text-[#D97706]" />
+                            <span>Recomendado</span>
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <h3
+                      id="recurso-detail-title"
+                      className="font-display font-bold text-lg sm:text-xl text-[#0F172A] leading-snug text-balance"
+                    >
+                      {selectedResource.titulo}
+                    </h3>
+                  </div>
                 </div>
 
                 <button
@@ -463,27 +540,68 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
                 </button>
               </div>
 
+              {/* Cuerpo de guía práctica */}
               <div className="px-5 py-4 space-y-4 overflow-y-auto">
-                {(selectedResource.tiempo_estimado || selectedResource.destacado_casa) && (
-                  <div className="flex items-center gap-3 flex-wrap text-xs text-[#475569] bg-[#F7F8FA] border border-[#E2E8F0] rounded-2xl px-3.5 py-2.5">
-                    {selectedResource.tiempo_estimado && (
-                      <span className="inline-flex items-center gap-1.5 font-semibold">
-                        <Clock className="w-3.5 h-3.5 text-[#64748B]" />
-                        <span>{selectedResource.tiempo_estimado}</span>
+                {/* Tiempo recomendado (solo cuando exista en la descripción) y tipo */}
+                {(detailTime || selectedResource.tipo_recurso) && (
+                  <div className="flex items-center gap-3 flex-wrap text-xs text-[#475569]">
+                    {detailTime && (
+                      <span className="inline-flex items-center gap-1.5 font-bold text-[#0F766E] tabular-nums">
+                        <Clock className="w-3.5 h-3.5 shrink-0" />
+                        <span>Tiempo recomendado: {detailTime}</span>
                       </span>
                     )}
-                    {selectedResource.destacado_casa && (
-                      <span className="inline-flex items-center gap-1 font-bold text-[#B45309]">
-                        <Star className="w-3.5 h-3.5 fill-[#D97706] text-[#D97706]" />
-                        <span>Recomendado para casa</span>
+                    {detailTime && selectedResource.tipo_recurso && (
+                      <span aria-hidden="true" className="text-slate-300">·</span>
+                    )}
+                    {selectedResource.tipo_recurso && (
+                      <span className="font-medium text-[#475569]">
+                        {selectedResource.tipo_recurso}
                       </span>
+                    )}
+                    {selectedResource.nivel && (
+                      <>
+                        <span aria-hidden="true" className="text-slate-300">·</span>
+                        <span className="font-medium text-[#475569]">
+                          {selectedResource.nivel}
+                        </span>
+                      </>
                     )}
                   </div>
                 )}
 
-                <FormattedText text={selectedResource.descripcion} size="base" accent="indigo" />
+                {detailHasImage && selectedResource.imagen_url && (
+                  <div className="rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#F7F8FA] aspect-[16/9] max-h-48">
+                    <img
+                      src={selectedResource.imagen_url}
+                      alt={selectedResource.titulo}
+                      referrerPolicy="no-referrer"
+                      onError={() =>
+                        setFailedImages((prev) => ({
+                          ...prev,
+                          [selectedResource.id]: true,
+                        }))
+                      }
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+
+                {/* Bloque principal: ¿Qué podemos hacer en casa? */}
+                <div className="bg-[#F7F8FA] border border-[#E2E8F0] rounded-2xl p-4 space-y-2.5">
+                  <h4 className="font-display text-xs font-bold text-[#0F766E] flex items-center gap-1.5">
+                    <Home className="w-3.5 h-3.5 shrink-0" />
+                    <span>¿Qué podemos hacer en casa?</span>
+                  </h4>
+                  <FormattedText
+                    text={selectedResource.descripcion}
+                    size="base"
+                    accent="teal"
+                  />
+                </div>
               </div>
 
+              {/* Pie con acción externa opcional y cierre */}
               <div className="px-5 py-3.5 border-t border-[#F1F5F9] bg-[#F7F8FA]/60 flex items-center justify-end gap-2.5 flex-wrap">
                 {selectedResource.url_recurso && (
                   <a
@@ -491,7 +609,7 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => onMarkAsRead?.(detailKey)}
-                    className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-[#EEF2FF] hover:bg-[#E0E7FF] text-[#4338CA] border border-[#C7D2FE] diario-press cursor-pointer"
+                    className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-[#F0FDFA] hover:bg-teal-100 text-[#0F766E] border border-teal-200 diario-press cursor-pointer"
                   >
                     {detailDownloadable ? (
                       <>
@@ -501,7 +619,7 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
                     ) : (
                       <>
                         <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Abrir actividad</span>
+                        <span>Abrir recurso</span>
                       </>
                     )}
                   </a>
@@ -509,7 +627,7 @@ export const RecursosTab: React.FC<RecursosTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedResource(null)}
-                  className="min-h-[44px] px-5 py-2 rounded-xl bg-[#4338CA] hover:bg-[#3730A3] text-white font-bold text-sm cursor-pointer diario-press"
+                  className="min-h-[44px] px-5 py-2 rounded-xl bg-[#0F766E] hover:bg-[#115E59] text-white font-bold text-sm cursor-pointer diario-press"
                 >
                   Cerrar
                 </button>
