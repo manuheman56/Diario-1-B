@@ -198,6 +198,63 @@ function getSubjectVisual(subject: string) {
   };
 }
 
+export type CalendarDayVisualKind =
+  | 'selected'
+  | 'non_school'
+  | 'event'
+  | 'today'
+  | 'weekend'
+  | 'normal';
+
+export function getCalendarDayVisualState(params: {
+  isSelected: boolean;
+  isToday: boolean;
+  isWeekend: boolean;
+  isNonSchoolOrHoliday: boolean;
+  hasEvents: boolean;
+}): { kind: CalendarDayVisualKind; className: string } {
+  const { isSelected, isToday, isWeekend, isNonSchoolOrHoliday, hasEvents } = params;
+
+  if (isSelected) {
+    return {
+      kind: 'selected',
+      className: 'bg-[#4338CA] text-white shadow-sm ring-2 ring-[#C7D2FE] font-bold',
+    };
+  }
+  if (isNonSchoolOrHoliday) {
+    return {
+      kind: 'non_school',
+      className: isToday
+        ? 'bg-[#F9EAE5] text-[#1E293B] border border-[#D97757] ring-2 ring-[#4F46E5]/70 font-bold'
+        : 'bg-[#F9EAE5] text-[#1E293B] border border-[#D97757] hover:bg-[#F3DDD5]',
+    };
+  }
+  if (hasEvents) {
+    return {
+      kind: 'event',
+      className: isToday
+        ? 'bg-[#DCEAF5] text-[#1E3A5F] border border-[#A8CBE5] ring-2 ring-[#4F46E5]/70 font-bold'
+        : 'bg-[#DCEAF5] text-[#1E3A5F] border border-[#A8CBE5] hover:bg-[#CEE2F2]',
+    };
+  }
+  if (isToday) {
+    return {
+      kind: 'today',
+      className: 'bg-[#EEF2FF] text-[#312E81] border-2 border-[#4F46E5] font-bold',
+    };
+  }
+  if (isWeekend) {
+    return {
+      kind: 'weekend',
+      className: 'bg-[#F1F5F9]/90 text-[#475569] hover:bg-[#E2E8F0]/80',
+    };
+  }
+  return {
+    kind: 'normal',
+    className: 'text-[#0F172A] hover:bg-[#F1F5F9]',
+  };
+}
+
 function getEventTypePresentation(type: CalendarEvent['type']) {
   switch (type) {
     case 'festivo':
@@ -205,24 +262,18 @@ function getEventTypePresentation(type: CalendarEvent['type']) {
         label: 'Festivo',
         badge: 'bg-[#FFF1F2] text-[#BE123C] border-[#FECDD3]',
         dateBox: 'bg-[#FFF1F2] text-[#BE123C] border-[#FECDD3]',
-        cell: 'bg-[#FFF1F2] text-[#9F1239] border border-[#FECDD3] font-bold',
-        dot: 'bg-[#E11D48]',
       };
     case 'evaluacion':
       return {
         label: 'Evaluación',
         badge: 'bg-[#F5F3FF] text-[#6D28D9] border-violet-200',
         dateBox: 'bg-[#F5F3FF] text-[#6D28D9] border-violet-200',
-        cell: 'bg-[#F5F3FF] text-[#5B21B6] border border-violet-200 font-bold',
-        dot: 'bg-[#7C3AED]',
       };
     case 'lectivo':
       return {
         label: 'Lectivo',
         badge: 'bg-[#F0FDFA] text-[#0F766E] border-teal-200',
         dateBox: 'bg-[#F0FDFA] text-[#0F766E] border-teal-200',
-        cell: 'bg-[#F0FDFA] text-[#115E59] border border-teal-200 font-bold',
-        dot: 'bg-[#0D9488]',
       };
     case 'salida':
     default:
@@ -230,8 +281,6 @@ function getEventTypePresentation(type: CalendarEvent['type']) {
         label: 'Evento',
         badge: 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]',
         dateBox: 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]',
-        cell: 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] font-bold',
-        dot: 'bg-[#D97706]',
       };
   }
 }
@@ -613,31 +662,23 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
               </div>
             </div>
 
-            {/* Leyenda coherente con el grid y los eventos */}
+            {/* Leyenda coherente mediante recuadros suaves (sin puntos indicadores) */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-medium text-[#475569] pt-3 border-t border-[#F1F5F9]">
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#4338CA]" />
+                <span className="w-3 h-3 rounded-[4px] bg-[#EEF2FF] border-2 border-[#4F46E5]" />
                 Hoy
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#0D9488]" />
-                Lectivo
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#D97706]" />
+                <span className="w-3 h-3 rounded-[4px] bg-[#DCEAF5] border border-[#A8CBE5]" />
                 Evento
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#D97757]" />
-                No lectivo
+                <span className="w-3 h-3 rounded-[4px] bg-[#F9EAE5] border border-[#D97757]" />
+                No lectivo / Festivo
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#E11D48]" />
-                Festivo
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#7C3AED]" />
-                Evaluación
+                <span className="w-3 h-3 rounded-[4px] bg-[#F1F5F9] border border-[#E2E8F0]" />
+                Fin de semana
               </span>
             </div>
 
@@ -652,7 +693,7 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
               <span className="text-[#64748B]">D</span>
             </div>
 
-            {/* Rejilla de días (celdas >= 44px táctiles) */}
+            {/* Rejilla de días (celdas >= 44px táctiles, sin puntos indicadores) */}
             <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-xs sm:text-[13px] tabular-nums">
               {Array.from({ length: leadingEmptyCells }).map((_, i) => (
                 <div key={`blank-${i}`} className="min-h-[44px]" aria-hidden="true" />
@@ -675,40 +716,22 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                     doesEventFallOnDate(ev, day, currentMonthIndex, currentYear)
                   )
                 );
-                const dayEvent = dayEvents[0];
                 const hasUnreadOnDay = dayEvents.some((ev) =>
                   Boolean(unreadKeys?.has(getPublicationKey('calendario', ev)))
                 );
-                const evStyle = dayEvent
-                  ? getEventTypePresentation(dayEvent.type)
-                  : null;
+                const isNonSchoolOrHoliday =
+                  Boolean(nonSchoolDay) || dayEvents.some((ev) => ev.type === 'festivo');
+                const hasEvents = dayEvents.length > 0;
 
-                let cellClass =
-                  'relative min-h-[44px] py-1.5 rounded-xl font-semibold transition flex flex-col items-center justify-center cursor-pointer select-none touch-manipulation diario-press ';
+                const visualState = getCalendarDayVisualState({
+                  isSelected,
+                  isToday,
+                  isWeekend,
+                  isNonSchoolOrHoliday,
+                  hasEvents,
+                });
 
-                if (isSelected) {
-                  cellClass +=
-                    'bg-[#4338CA] text-white shadow-sm ring-2 ring-[#C7D2FE] font-bold';
-                } else if (isToday) {
-                  cellClass +=
-                    'bg-[#EEF2FF] text-[#312E81] border-2 border-[#4F46E5] font-bold';
-                } else if (isWeekend) {
-                  // Sábados y domingos diferenciados con un fondo gris muy suave y números legibles
-                  cellClass +=
-                    'bg-[#F1F5F9]/90 text-[#475569] hover:bg-[#E2E8F0]/80';
-                } else if (nonSchoolDay) {
-                  // Los días no lectivos mantienen el número limpio, sin recuadros ni fondos de color ni texto rojo
-                  cellClass += 'text-[#0F172A] hover:bg-[#F1F5F9]';
-                } else if (evStyle) {
-                  cellClass += evStyle.cell;
-                } else {
-                  cellClass += 'text-[#0F172A] hover:bg-[#F1F5F9]';
-                }
-
-                const maxEventDots = nonSchoolDay ? 2 : 3;
-                const visibleDots = dayEvents.slice(0, maxEventDots);
-                const extraEventsCount = dayEvents.length - visibleDots.length;
-                const hasIndicators = Boolean(nonSchoolDay) || dayEvents.length > 0;
+                const cellClass = `relative min-h-[44px] py-1.5 rounded-lg font-semibold transition flex items-center justify-center cursor-pointer select-none touch-manipulation diario-press ${visualState.className}`;
 
                 return (
                   <button
@@ -727,55 +750,7 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                     aria-pressed={isSelected}
                     className={cellClass}
                   >
-                    {hasUnreadOnDay && (
-                      <span
-                        aria-hidden="true"
-                        className={`absolute top-1 right-1 w-2 h-2 rounded-full ring-2 ${
-                          isSelected
-                            ? 'bg-amber-300 ring-[#4338CA]'
-                            : 'bg-[#D97706] ring-white'
-                        }`}
-                      />
-                    )}
                     <span className="leading-none">{day}</span>
-                    {hasIndicators && (
-                      <span
-                        aria-hidden="true"
-                        className="flex items-center justify-center gap-1 mt-1 min-h-[6px]"
-                      >
-                        {nonSchoolDay && (
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full shrink-0 bg-[#D97757] ${
-                              isSelected ? 'ring-1 ring-white/90' : ''
-                            }`}
-                          />
-                        )}
-                        {visibleDots.map((ev) => {
-                          const dotStyle = getEventTypePresentation(ev.type).dot;
-                          return (
-                            <span
-                              key={ev.id}
-                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                isSelected
-                                  ? nonSchoolDay
-                                    ? `${dotStyle} ring-1 ring-white/90`
-                                    : 'bg-white'
-                                  : dotStyle
-                              }`}
-                            />
-                          );
-                        })}
-                        {extraEventsCount > 0 && (
-                          <span
-                            className={`text-[9px] font-extrabold leading-none ${
-                              isSelected ? 'text-white' : 'text-[#334155]'
-                            }`}
-                          >
-                            +
-                          </span>
-                        )}
-                      </span>
-                    )}
                   </button>
                 );
               })}
@@ -796,19 +771,18 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                   </span>
                   <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                     {selectedNonSchoolDay && (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-white text-[#9A4B31] px-2.5 py-0.5 rounded-full border border-[#D97757]/35">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#D97757]" />
+                      <span className="inline-flex items-center text-[11px] font-bold bg-[#F9EAE5] text-[#9A4B31] px-2.5 py-0.5 rounded-lg border border-[#D97757]/60">
                         No lectivo
                       </span>
                     )}
                     {selectedDayEvents.length > 0 && (
-                      <span className="text-[11px] font-bold bg-white text-[#334155] px-2 py-0.5 rounded-full border border-[#E2E8F0] tabular-nums">
+                      <span className="text-[11px] font-bold bg-[#DCEAF5] text-[#1E3A5F] px-2.5 py-0.5 rounded-lg border border-[#A8CBE5] tabular-nums">
                         {selectedDayEvents.length}{' '}
                         {selectedDayEvents.length === 1 ? 'evento' : 'eventos'}
                       </span>
                     )}
                     {isSelectedToday && (
-                      <span className="text-xs font-bold bg-[#EEF2FF] text-[#4338CA] px-2.5 py-0.5 rounded-full border border-[#C7D2FE]">
+                      <span className="text-xs font-bold bg-[#EEF2FF] text-[#4338CA] px-2.5 py-0.5 rounded-lg border border-[#C7D2FE]">
                         Hoy
                       </span>
                     )}
@@ -819,15 +793,14 @@ export const HorarioCalendarioTab: React.FC<HorarioCalendarioTabProps> = ({
                   <div
                     role="region"
                     aria-label={`Día no lectivo: ${selectedNonSchoolDay.name}`}
-                    className="p-3.5 bg-white rounded-2xl border border-[#E2E8F0] shadow-xs space-y-2.5"
+                    className="p-3.5 bg-white rounded-2xl border border-[#D97757]/40 shadow-xs space-y-2.5"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-[#B4593C]">
-                          <span className="w-2 h-2 rounded-full bg-[#D97757] shrink-0" />
-                          <span>{getNonSchoolDayKindLabel(selectedNonSchoolDay.kind)}</span>
+                        <span className="inline-block text-[11px] font-bold uppercase tracking-wide text-[#9A4B31] bg-[#F9EAE5] border border-[#D97757]/50 px-2 py-0.5 rounded-md">
+                          {getNonSchoolDayKindLabel(selectedNonSchoolDay.kind)}
                         </span>
-                        <h4 className="font-display font-bold text-sm sm:text-[15px] text-[#0F172A] leading-snug mt-0.5">
+                        <h4 className="font-display font-bold text-sm sm:text-[15px] text-[#0F172A] leading-snug mt-1">
                           {selectedNonSchoolDay.name}
                         </h4>
                       </div>

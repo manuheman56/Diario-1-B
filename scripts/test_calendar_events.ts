@@ -12,6 +12,7 @@ import {
   CACHE_STORAGE_KEY,
 } from '../src/services/sheetsService';
 import {
+  getCalendarDayVisualState,
   getDaysInMonth,
   getMonthLeadingEmptyCells,
 } from '../src/components/HorarioCalendarioTab';
@@ -309,9 +310,10 @@ runTest('6. Verificación estática de UI del calendario (indicadores múltiples
   assert.ok(calCode.includes('formatEventDateLabel'), 'La ficha debe mostrar la fecha real del evento');
   assert.ok(calCode.includes('formatEventTimeRange'), 'La ficha debe mostrar hora solo si existe');
   assert.ok(calCode.includes('sortEventsForDay'), 'Los eventos del día deben ordenarse');
-  assert.ok(calCode.includes('visibleDots'), 'Los días con múltiples eventos deben mostrar indicadores múltiples');
+  assert.ok(calCode.includes('getCalendarDayVisualState'), 'El calendario debe aplicar recuadros suaves sin puntos');
   assert.ok(calCode.includes('getMadridDateParts'), 'El calendario debe usar Europe/Madrid para hoy');
   assert.ok(!calCode.includes('isToday && !isSelected ?'), 'Hoy sin eventos no debe mostrar punto de evento');
+  assert.ok(!calCode.includes('rounded-full'), 'No deben quedar puntos indicadores circulares en el calendario');
 
   const codeGs = fs.readFileSync(path.join(root, 'Code.gs'), 'utf8');
   const scriptCodeGs = fs.readFileSync(path.join(root, 'google-apps-script/Code.gs'), 'utf8');
@@ -559,16 +561,87 @@ runTest('11. Coexistencia entre días no lectivos y eventos del aula sin alterar
   assert.equal(ev.type, 'salida'); // Conserva categoría Evento (indicador amarillo)
   assert.equal(getEventCategoryLabel(ev), 'Evento');
 
+  // Verificación de los 6 estados visuales definitivos (recuadros suaves, cero puntos)
+  const normalDay = getCalendarDayVisualState({
+    isSelected: false,
+    isToday: false,
+    isWeekend: false,
+    isNonSchoolOrHoliday: false,
+    hasEvents: false,
+  });
+  assert.equal(normalDay.kind, 'normal');
+  assert.ok(!normalDay.className.includes('bg-[#DCEAF5]') && !normalDay.className.includes('bg-[#F9EAE5]'));
+
+  const eventDay = getCalendarDayVisualState({
+    isSelected: false,
+    isToday: false,
+    isWeekend: false,
+    isNonSchoolOrHoliday: false,
+    hasEvents: true,
+  });
+  assert.equal(eventDay.kind, 'event');
+  assert.ok(eventDay.className.includes('bg-[#DCEAF5]'));
+  assert.ok(eventDay.className.includes('border '));
+
+  const holidayDay = getCalendarDayVisualState({
+    isSelected: false,
+    isToday: false,
+    isWeekend: false,
+    isNonSchoolOrHoliday: true,
+    hasEvents: false,
+  });
+  assert.equal(holidayDay.kind, 'non_school');
+  assert.ok(holidayDay.className.includes('bg-[#F9EAE5]'));
+  assert.ok(holidayDay.className.includes('border-[#D97757]'));
+
+  const weekendDay = getCalendarDayVisualState({
+    isSelected: false,
+    isToday: false,
+    isWeekend: true,
+    isNonSchoolOrHoliday: false,
+    hasEvents: false,
+  });
+  assert.equal(weekendDay.kind, 'weekend');
+  assert.ok(weekendDay.className.includes('bg-[#F1F5F9]/90'));
+  assert.ok(!weekendDay.className.includes('border '));
+
+  // Evento + día no lectivo simultáneamente: prevalece el recuadro coral
+  const combinedDay = getCalendarDayVisualState({
+    isSelected: false,
+    isToday: false,
+    isWeekend: false,
+    isNonSchoolOrHoliday: true,
+    hasEvents: true,
+  });
+  assert.equal(combinedDay.kind, 'non_school');
+  assert.ok(combinedDay.className.includes('bg-[#F9EAE5]'));
+  assert.ok(combinedDay.className.includes('border-[#D97757]'));
+
+  // Día seleccionado: resaltado propio sin solaparse con recuadros de evento ni coral
+  const selectedCombined = getCalendarDayVisualState({
+    isSelected: true,
+    isToday: false,
+    isWeekend: false,
+    isNonSchoolOrHoliday: true,
+    hasEvents: true,
+  });
+  assert.equal(selectedCombined.kind, 'selected');
+  assert.ok(selectedCombined.className.includes('bg-[#4338CA]'));
+  assert.ok(!selectedCombined.className.includes('bg-[#F9EAE5]'));
+  assert.ok(!selectedCombined.className.includes('bg-[#DCEAF5]'));
+
   // Verificación estática del diseño visual e interacción en HorarioCalendarioTab
   const root = process.cwd();
   const calCode = fs.readFileSync(path.join(root, 'src/components/HorarioCalendarioTab.tsx'), 'utf8');
-  assert.ok(calCode.includes('bg-[#D97757]'), 'Debe usar el punto coral #D97757');
+  assert.ok(calCode.includes('bg-[#DCEAF5]'), 'Los días con evento deben usar el recuadro azul suave #DCEAF5');
+  assert.ok(calCode.includes('bg-[#F9EAE5]'), 'Los días no lectivos deben usar el recuadro coral suave #F9EAE5');
+  assert.ok(calCode.includes('border-[#D97757]'), 'Los días no lectivos deben usar borde fino coral #D97757');
   assert.ok(calCode.includes('getNonSchoolDayForDate'), 'Debe consultar días no lectivos por fecha');
   assert.ok(calCode.includes('formatNonSchoolDayDateLabel'), 'La ficha debe mostrar la fecha o intervalo');
   assert.ok(calCode.includes('selectedNonSchoolDay.reason'), 'La ficha debe mostrar el motivo');
   assert.ok(calCode.includes('selectedNonSchoolDay.name'), 'La ficha debe mostrar el nombre del festivo o periodo');
-  assert.ok(calCode.includes('const maxEventDots = nonSchoolDay ? 2 : 3;'), 'Debe reservar espacio para ambos indicadores sin solaparse ni ocultar eventos');
   assert.ok(calCode.includes("bg-[#F1F5F9]/90 text-[#475569]"), 'Los sábados y domingos deben mostrar un fondo gris suave y legible');
+  assert.ok(!calCode.includes('visibleDots') && !calCode.includes('dotStyle'), 'No deben existir puntos indicadores en la cuadrícula');
 });
 
 console.log(`\n🎉 Todas las pruebas de calendario superadas: ${passed}/${passed}`);
