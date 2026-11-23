@@ -113,13 +113,7 @@ export const AprendemosTab: React.FC<AprendemosTabProps> = ({
         icon={<School className="w-5 h-5" />}
         accent="violet"
         footerMeta={
-          <>
-            <span>Sincronizado desde la pestaña APRENDEMOS</span>
-            <span aria-hidden="true" className="text-slate-300">
-              ·
-            </span>
-            <span className="font-semibold text-[#7C3AED]">Curso escolar 2026/27</span>
-          </>
+          <span className="font-semibold text-[#7C3AED]">Curso escolar 2026/27</span>
         }
       />
 

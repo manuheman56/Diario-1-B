@@ -4,7 +4,6 @@ import { UnreadCountsBySection } from '../utils/readStatusService';
 import {
   Smartphone,
   Monitor,
-  Download,
   Home,
   BookOpen,
   Calendar,
@@ -29,7 +28,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   config,
-  onOpenInstall,
   isMobileFrame,
   onToggleFrame,
   activeTab = 'inicio',
@@ -102,7 +100,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-30 shrink-0 bg-white/95 backdrop-blur-md border-b border-[#E2E8F0] safe-top">
       <div className={`${containerWidthClass} mx-auto px-4 sm:px-6 transition-all duration-200`}>
         {/* 1. Fila principal de marca (ligera y compacta en móvil) */}
-        <div className="h-14 sm:h-16 flex items-center justify-between gap-3">
+        <div className="py-1.5 sm:py-2 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-[#E2E8F0] bg-[#EEF2FF] flex items-center justify-center shadow-xs">
               <img
@@ -112,11 +110,6 @@ export const Header: React.FC<HeaderProps> = ({
               />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <h1 className="font-display font-bold text-[#0F172A] text-base sm:text-lg leading-tight truncate">
-                  {config.classTitle}
-                </h1>
-              </div>
               <p className="text-xs text-[#475569] font-medium truncate leading-tight">
                 <span>El Diario del Aula</span>
                 <span aria-hidden="true" className="mx-1.5 text-slate-300">·</span>
@@ -125,27 +118,14 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Acciones de cabecera */}
-          <div className="flex items-center gap-2 shrink-0">
-            {onOpenInstall && (
-              <button
-                type="button"
-                onClick={onOpenInstall}
-                title="Instalar en la pantalla de inicio"
-                aria-label="Instalar aplicación en la pantalla de inicio"
-                className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3.5 rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] text-[#334155] flex items-center justify-center gap-1.5 hover:bg-[#EEF2FF] hover:text-[#4338CA] hover:border-[#C7D2FE] diario-press cursor-pointer text-xs font-semibold"
-              >
-                <Download className="w-4 h-4 shrink-0" strokeWidth={2} />
-                <span className="hidden sm:inline whitespace-nowrap">Instalar app</span>
-              </button>
-            )}
-
+          {/* Acciones de cabecera (solo escritorio/tablet) */}
+          <div className="hidden md:flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={onToggleFrame}
               title={isMobileFrame ? 'Ampliar ancho de lectura' : 'Vista de lectura compacta'}
               aria-label={isMobileFrame ? 'Ampliar ancho de lectura' : 'Vista de lectura compacta'}
-              className="hidden md:flex min-h-[44px] min-w-[44px] rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] text-[#334155] items-center justify-center hover:bg-[#EEF2FF] hover:text-[#4338CA] hover:border-[#C7D2FE] diario-press cursor-pointer"
+              className="flex min-h-[44px] min-w-[44px] rounded-xl bg-[#F7F8FA] border border-[#E2E8F0] text-[#334155] items-center justify-center hover:bg-[#EEF2FF] hover:text-[#4338CA] hover:border-[#C7D2FE] diario-press cursor-pointer"
             >
               {isMobileFrame ? (
                 <Monitor className="w-4 h-4" strokeWidth={2} />
