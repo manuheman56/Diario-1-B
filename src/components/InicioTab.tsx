@@ -684,7 +684,7 @@ export const InicioTab: React.FC<InicioTabProps> = ({
       {/* Pie informativo de tutoría */}
       <footer className="pt-4 border-t border-[#E2E8F0] text-center space-y-1">
         <p className="text-xs font-semibold text-[#0F172A]">
-          El Diario del Aula – 1.º B · {config.classTitle}
+          El Diario del Aula – 1.º B
         </p>
         <p className="text-xs text-[#475569]">
           Espacio personal de tutoría para el seguimiento y la comunicación con las familias.
