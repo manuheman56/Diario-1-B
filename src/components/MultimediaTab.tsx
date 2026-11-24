@@ -12,10 +12,13 @@ import {
   Palette,
   FolderOpen,
   Youtube,
+  Tv,
   Film,
   Image as ImageIcon,
   X,
 } from 'lucide-react';
+
+const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/@Hormiguitasde1oB';
 
 interface MultimediaTabProps {
   config?: AppConfig;
@@ -94,10 +97,6 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({
 
   const handleOpenDriveFolder = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleOpenYoutubeChannel = () => {
-    window.open('https://www.youtube.com/@Hormiguitasde1oB', '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -314,36 +313,56 @@ export const MultimediaTab: React.FC<MultimediaTabProps> = ({
               Vídeos del aula en YouTube
             </h3>
             <p className="text-[14px] text-[#334155] leading-relaxed mt-1">
-              Accede directamente al canal de clase para disfrutar en familia de los vídeos y actividades de nuestra aula.
+              Accede directamente al canal de clase para disfrutar en familia de los vídeos, actividades y experiencias de nuestra aula.
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleOpenYoutubeChannel}
-          aria-label="Nuestro canal de YouTube: abrir canal en una nueva pestaña"
-          className="group w-full text-left rounded-2xl p-4 sm:p-5 diario-card-interactive diario-press cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-br from-[#FFF1F2]/60 via-white to-white"
+        {/* Tarjeta única del canal de YouTube integrada con suscripción y Smart TV */}
+        <div
+          aria-labelledby="youtube-channel-card-heading"
+          className="rounded-2xl border border-[#FECDD3] bg-gradient-to-br from-[#FFF1F2]/65 via-white to-white p-4 sm:p-5 space-y-3.5"
         >
-          <div className="flex items-start gap-3.5 min-w-0">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-[#E11D48] text-white shadow-xs">
-              <Youtube className="w-5 h-5" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5 min-w-0">
+              <div
+                aria-hidden="true"
+                className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-[#E11D48] text-white shadow-xs"
+              >
+                <Tv className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <p className="text-xs font-bold text-[#BE123C]">
+                  Canal «Hormiguitas de 1.º B»
+                </p>
+                <h4
+                  id="youtube-channel-card-heading"
+                  className="font-display font-bold text-[15.5px] sm:text-base text-[#0F172A] leading-snug text-balance"
+                >
+                  ¡Nuestra clase también se ve en la televisión!
+                </h4>
+                <p className="text-[13.5px] text-[#334155] leading-relaxed">
+                  Suscríbete a nuestro canal y disfruta en familia de los vídeos, actividades y proyectos de las Hormiguitas de 1.º B. Así podrás encontrarlos fácilmente también desde tu Smart TV.
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h4 className="font-display font-bold text-[15px] text-[#0F172A] leading-snug">
-                Canal «Las Hormiguitas de 1.º B»
-              </h4>
-              <p className="text-[13.5px] text-[#334155] leading-relaxed mt-1.5">
-                Visita nuestro canal para ver vídeos de actividades, canciones y proyectos del aula.
-              </p>
-            </div>
+
+            <a
+              href={YOUTUBE_CHANNEL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Suscribirse al canal de YouTube Hormiguitas de 1.º B en una nueva pestaña"
+              className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#E11D48] hover:bg-[#BE123C] text-white text-xs font-bold tracking-wide inline-flex items-center justify-center gap-2 shrink-0 shadow-xs transition-colors diario-press whitespace-nowrap w-full sm:w-auto"
+            >
+              <span>SUSCRIBIRSE AL CANAL</span>
+              <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            </a>
           </div>
 
-          <span className="min-h-[44px] px-4 py-2 rounded-xl bg-white border border-[#FECDD3] text-[#BE123C] text-xs font-bold inline-flex items-center justify-center gap-2 shrink-0">
-            <span>Abrir canal en YouTube</span>
-            <ExternalLink className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-          </span>
-        </button>
+          <p className="pt-3 border-t border-[#FECDD3]/60 text-[12.5px] text-[#475569] leading-relaxed">
+            <strong className="font-semibold text-[#334155]">Consejo:</strong> inicia sesión en YouTube desde tu televisión con la misma cuenta con la que te has suscrito y encontrarás nuestro canal en tus suscripciones.
+          </p>
+        </div>
       </section>
 
       {/* 4. Aviso de Privacidad y Protección de Datos */}
